@@ -28,10 +28,11 @@ import { logFunctionCall } from './logger.ts';
 
 export type { NewsSearchParams, NewsSearchResponse };
 
-export type EntityLookupType = 'name' | 'ticker' | 'domain' | 'isin';
+export type ResolvedEntityLookupType = 'name' | 'ticker' | 'domain' | 'isin';
+export type EntityLookupType = 'auto' | ResolvedEntityLookupType;
 
 export interface CompanyNewsQueryInput {
-  /** Whether to identify the company by name, ticker, domain, or isin */
+  /** Whether to auto-detect or explicitly identify by name, ticker, domain, or isin */
   entityType: EntityLookupType;
   /** The company name, stock ticker, domain, or ISIN string */
   entityValue: string;
@@ -132,6 +133,32 @@ export function createContextDevClient(options?: {
  * @param input - Structured company news search input from the application
  * @returns Validated `NewsSearchParams` ready for `client.news.search(params)`
  */
+/**
+ * Infers the preferred Context.dev entity lookup order (`ticker` vs `name`) when
+ * the user searches directly without manually choosing an entity type.
+ *
+ * - Multi-word, non-ASCII, or >5-char queries (e.g. "Stripe", "OpenAI", "NVIDIA Corp") -> ['name']
+ * - Title-case 4+ char words (e.g. "Apple", "Tesla", "Nike") -> ['name', 'ticker']
+ * - Uppercase / short / share-class symbols (e.g. "NVDA", "nvda", "JPM", "BRK.B") -> ['ticker', 'name']
+ */
+export function inferEntitySearchOrder(
+  entityValue: string
+): Array<'ticker' | 'name'> {
+  const trimmed = entityValue.trim();
+  const looksLikeTicker = /^[A-Za-z]{1,5}(\.[A-Za-z]{1,2})?$/.test(trimmed);
+
+  if (!looksLikeTicker) {
+    return ['name'];
+  }
+
+  const isTitleCaseWord = /^[A-Z][a-z]{3,}$/.test(trimmed);
+  if (isTitleCaseWord) {
+    return ['name', 'ticker'];
+  }
+
+  return ['ticker', 'name'];
+}
+
 export function buildCompanyNewsSearchParams(
   input: CompanyNewsQueryInput
 ): NewsSearchParams {
@@ -142,8 +169,13 @@ export function buildCompanyNewsSearchParams(
     throw new Error('Company entity value (name or ticker) must not be empty.');
   }
 
+  const effectiveType: ResolvedEntityLookupType =
+    input.entityType === 'auto'
+      ? inferEntitySearchOrder(trimmedValue)[0]
+      : input.entityType;
+
   let entity: NewsSearchParams.NewsSearchByEntity['entity'];
-  switch (input.entityType) {
+  switch (effectiveType) {
     case 'ticker':
       entity = {
         type: 'ticker',
@@ -246,6 +278,130 @@ export function buildCompanyNewsSearchParams(
  * @param clientOverrides - Optional SDK client overrides for unit testing without live network calls
  * @returns Promise resolving to the official `NewsSearchResponse`
  */
+async function executeSingleEntityTypeSearch(
+  client: ContextDev,
+  input: Omit<CompanyNewsQueryInput, 'entityType'> & {
+    entityType: ResolvedEntityLookupType;
+  }
+): Promise<{
+  response: NewsSearchResponse;
+  requestPayload: NewsSearchParams;
+  resolvedEntityType: ResolvedEntityLookupType;
+  resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
+}> {
+  const requestPayload = buildCompanyNewsSearchParams(input);
+
+  const shouldTryUsExchangeResolution =
+    input.entityType === 'ticker' && !input.exchange && !input.cursor;
+
+  let primaryResponse: NewsSearchResponse | null = null;
+  let primaryError: unknown = null;
+
+  try {
+    primaryResponse = await client.news.search(requestPayload);
+  } catch (err) {
+    primaryError = err;
+  }
+
+  if (
+    primaryResponse &&
+    (!shouldTryUsExchangeResolution ||
+      (primaryResponse.data && primaryResponse.data.length > 0))
+  ) {
+    return {
+      response: primaryResponse,
+      requestPayload,
+      resolvedEntityType: input.entityType,
+    };
+  }
+
+  const errMessage =
+    primaryError instanceof Error
+      ? primaryError.message
+      : primaryError
+        ? String(primaryError)
+        : '';
+
+  const canResolveAcrossUsExchanges =
+    shouldTryUsExchangeResolution &&
+    ((primaryResponse !== null &&
+      (!primaryResponse.data || primaryResponse.data.length === 0) &&
+      (!input.filterCategory || input.filterCategory === 'none')) ||
+      (primaryError !== null &&
+        /exchange|ambiguous|multiple|disambiguat|not found|unknown|404|400|422/i.test(
+          errMessage
+        )));
+
+  if (canResolveAcrossUsExchanges) {
+    let firstSuccessfulEmpty: {
+      response: NewsSearchResponse;
+      requestPayload: NewsSearchParams;
+      resolvedEntityType: ResolvedEntityLookupType;
+      resolvedExchange: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
+    } | null = null;
+
+    for (const usExchange of APP_CONFIG.contextDev.usExchanges) {
+      const candidatePayload = buildCompanyNewsSearchParams({
+        ...input,
+        exchange: usExchange,
+      });
+
+      try {
+        const candidateResponse = await client.news.search(candidatePayload);
+        if (candidateResponse.data && candidateResponse.data.length > 0) {
+          logFunctionCall('searchCompanyNews:resolved_us_exchange', {
+            ticker: input.entityValue,
+            resolvedExchange: usExchange,
+            articleCount: candidateResponse.data.length,
+          });
+          return {
+            response: candidateResponse,
+            requestPayload: candidatePayload,
+            resolvedEntityType: 'ticker',
+            resolvedExchange: usExchange,
+          };
+        }
+
+        if (!firstSuccessfulEmpty) {
+          firstSuccessfulEmpty = {
+            response: candidateResponse,
+            requestPayload: candidatePayload,
+            resolvedEntityType: 'ticker',
+            resolvedExchange: usExchange,
+          };
+        }
+      } catch {
+        // Continue checking remaining US exchanges
+      }
+    }
+
+    if (firstSuccessfulEmpty) {
+      return firstSuccessfulEmpty;
+    }
+  }
+
+  if (primaryResponse) {
+    return {
+      response: primaryResponse,
+      requestPayload,
+      resolvedEntityType: input.entityType,
+    };
+  }
+
+  throw primaryError;
+}
+
+/**
+ * Executes a company news search using the official Context.dev SDK (`client.news.search`)
+ * which calls `POST https://api.context.dev/v1/news/search`.
+ *
+ * When `entityType === 'auto'`, automatically resolves whether the query is a US stock ticker
+ * or a company name without requiring manual mode selection.
+ *
+ * @param input - CompanyNewsQueryInput parameters
+ * @param clientOverrides - Optional SDK client overrides for unit testing without live network calls
+ * @returns Promise resolving to the official `NewsSearchResponse`
+ */
 export async function searchCompanyNews(
   input: CompanyNewsQueryInput,
   clientOverrides?: {
@@ -256,24 +412,96 @@ export async function searchCompanyNews(
 ): Promise<{
   response: NewsSearchResponse;
   requestPayload: NewsSearchParams;
+  resolvedEntityType: ResolvedEntityLookupType;
+  resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
 }> {
   logFunctionCall('searchCompanyNews', { ...input });
 
   const client = createContextDevClient(clientOverrides);
-  const requestPayload = buildCompanyNewsSearchParams(input);
 
-  const response = await client.news.search(requestPayload);
+  if (input.entityType !== 'auto') {
+    const result = await executeSingleEntityTypeSearch(client, {
+      ...input,
+      entityType: input.entityType,
+    });
+    logFunctionCall('searchCompanyNews:completed', {
+      requestId: result.response.request_id,
+      articleCount: result.response.data?.length ?? 0,
+      hasMore: result.response.has_more,
+      nextCursor: result.response.next_cursor,
+      creditsConsumed: result.response.key_metadata?.credits_consumed,
+      resolvedEntityType: result.resolvedEntityType,
+      resolvedExchange: result.resolvedExchange,
+    });
+    return result;
+  }
 
-  logFunctionCall('searchCompanyNews:completed', {
-    requestId: response.request_id,
-    articleCount: response.data?.length ?? 0,
-    hasMore: response.has_more,
-    nextCursor: response.next_cursor,
-    creditsConsumed: response.key_metadata?.credits_consumed,
-  });
+  const candidateOrder = inferEntitySearchOrder(input.entityValue);
+  let primaryResult: {
+    response: NewsSearchResponse;
+    requestPayload: NewsSearchParams;
+    resolvedEntityType: ResolvedEntityLookupType;
+    resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
+  } | null = null;
+  let primaryError: unknown = null;
 
-  return {
-    response,
-    requestPayload,
-  };
+  try {
+    primaryResult = await executeSingleEntityTypeSearch(client, {
+      ...input,
+      entityType: candidateOrder[0],
+      exchange: candidateOrder[0] === 'ticker' ? input.exchange : undefined,
+    });
+  } catch (err) {
+    primaryError = err;
+  }
+
+  if (
+    primaryResult &&
+    ((primaryResult.response.data && primaryResult.response.data.length > 0) ||
+      candidateOrder.length === 1 ||
+      Boolean(input.cursor))
+  ) {
+    logFunctionCall('searchCompanyNews:completed', {
+      requestId: primaryResult.response.request_id,
+      articleCount: primaryResult.response.data?.length ?? 0,
+      resolvedEntityType: primaryResult.resolvedEntityType,
+      resolvedExchange: primaryResult.resolvedExchange,
+    });
+    return primaryResult;
+  }
+
+  // Fallback to secondary candidate type (e.g., ticker -> name or name -> ticker)
+  if (candidateOrder.length > 1) {
+    try {
+      const secondaryResult = await executeSingleEntityTypeSearch(client, {
+        ...input,
+        entityType: candidateOrder[1],
+        exchange: undefined,
+      });
+
+      if (
+        secondaryResult.response.data &&
+        secondaryResult.response.data.length > 0
+      ) {
+        logFunctionCall('searchCompanyNews:auto_fallback_completed', {
+          query: input.entityValue,
+          resolvedEntityType: secondaryResult.resolvedEntityType,
+          articleCount: secondaryResult.response.data.length,
+        });
+        return secondaryResult;
+      }
+
+      if (!primaryResult) {
+        return secondaryResult;
+      }
+    } catch {
+      // Ignore secondary error if primary had a valid empty response
+    }
+  }
+
+  if (primaryResult) {
+    return primaryResult;
+  }
+
+  throw primaryError;
 }

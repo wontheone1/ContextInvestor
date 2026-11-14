@@ -94,14 +94,14 @@ export async function generateCompanyMarketBrief(
     )
     .join('\n\n');
 
-  const prompt = `Analyze the following recent news coverage for "${companyQuery}" retrieved via Context.dev and produce a rigorous institutional investor intelligence brief.\n\nNews Articles:\n${formattedDigest}`;
+  const prompt = `Analyze the following recent news coverage for "${companyQuery}" and produce an institutional investor briefing with balanced positive catalysts (bullish drivers), negative risks/headwinds (bearish factors), and an overall assessment.\n\nNews Articles:\n${formattedDigest}`;
 
   const config = {
     thinkingConfig: {
       thinkingLevel: ThinkingLevel.LOW,
     },
     systemInstruction:
-      'You are a senior quantitative equity analyst at an institutional investment desk. Synthesize news flow into concise, factual, high-signal briefings without hype. Keep executiveSummary under 80 words, provide 3 concrete keyCatalysts, and 2 concrete riskFactors.',
+      'You are a senior quantitative equity analyst at an institutional investment desk. Synthesize news flow into concise, factual, high-signal briefings without hype. Provide 3 concrete keyCatalysts (positive drivers/tailwinds), 3 concrete riskFactors (negative risks/headwinds), and an executiveSummary (2-3 sentence overall assessment weighing catalysts against risks).',
     responseMimeType: 'application/json',
     responseSchema: {
       type: Type.OBJECT,
@@ -116,17 +116,17 @@ export async function generateCompanyMarketBrief(
         },
         executiveSummary: {
           type: Type.STRING,
-          description: 'Concise 2-3 sentence synthesis of the current news cycle for this company',
+          description: 'Concise 2-3 sentence overall assessment weighing positive catalysts against downside risks',
         },
         keyCatalysts: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: 'Up to 3 positive or material operational catalysts identified in the articles',
+          description: 'Up to 3 positive catalysts or bullish operational drivers identified in the coverage',
         },
         riskFactors: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: 'Up to 2 regulatory, competitive, or execution risks highlighted in the coverage',
+          description: 'Up to 3 negative headwinds, regulatory, competitive, or execution risks highlighted in the coverage',
         },
         sectorImpact: {
           type: Type.STRING,
@@ -180,7 +180,7 @@ export async function generateCompanyMarketBrief(
         ? parsed.keyCatalysts.slice(0, 3)
         : [],
       riskFactors: Array.isArray(parsed.riskFactors)
-        ? parsed.riskFactors.slice(0, 2)
+        ? parsed.riskFactors.slice(0, 3)
         : [],
       sectorImpact:
         parsed.sectorImpact ||

@@ -22,18 +22,28 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
+import type { EnrichedNewsArticle } from '@/lib/translation-service';
 import { TopNavbar } from '@/components/TopNavbar';
 import { WatchlistCarousel } from '@/components/WatchlistCarousel';
 import {
   NewsSearchControlBar,
   type NewsSearchControlState,
 } from '@/components/NewsSearchControlBar';
-import { NewsFeedTable } from '@/components/NewsFeedTable';
+import {
+  NewsFeedTable,
+  type SentimentFilterOption,
+} from '@/components/NewsFeedTable';
 import { AIMarketBriefPanel } from '@/components/AIMarketBriefPanel';
 import { SdkCacheInspector } from '@/components/SdkCacheInspector';
+import { CompanyMarketOverview } from '@/components/CompanyMarketOverview';
+import type {
+  ChartRange,
+  CompanyMarketOverviewData,
+  PriceChartPoint,
+} from '@/lib/market-data-service';
 import {
   auth,
   testFirestoreConnection,
@@ -94,14 +104,13 @@ function resolveDateBounds(state: NewsSearchControlState): {
  */
 export default function InvestorDashboardPage() {
   const [activeSection, setActiveSection] = useState<
-    'terminal' | 'watchlist' | 'briefing' | 'cache'
+    'market' | 'terminal' | 'watchlist' | 'briefing'
   >('terminal');
 
   // Search Control State
   const [searchState, setSearchState] = useState<NewsSearchControlState>({
     entityType: 'ticker',
     entityValue: 'NVDA',
-    exchange: 'NASDAQ',
     sortBy: 'newest',
     limit: 4,
     datePreset: 'all',
@@ -114,29 +123,41 @@ export default function InvestorDashboardPage() {
     sourceDomainInput: 'reuters.com',
   });
 
+  // Internal resolved entity & exchange locks used to keep cursor pagination consistent
+  const [resolvedEntityType, setResolvedEntityType] = useState<
+    'name' | 'ticker'
+  >('ticker');
+  const [resolvedExchange, setResolvedExchange] = useState<string | null>(null);
+
   // Cursor Pagination Stack: index 0 is always `null` (first page)
   const [cursorStack, setCursorStack] = useState<Array<string | null>>([null]);
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
 
-  // News Results & Diagnostics State
-  const [articles, setArticles] = useState<NewsSearchResponse.Data[]>([]);
+  // News Results State
+  const [articles, setArticles] = useState<EnrichedNewsArticle[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState<boolean>(false);
-  const [requestId, setRequestId] = useState<string | null>(null);
   const [isLoadingNews, setIsLoadingNews] = useState<boolean>(true);
-  const [lastRequestPayload, setLastRequestPayload] = useState<unknown>(null);
-  const [lastCacheKey, setLastCacheKey] = useState<string>('');
-  const [cacheStatus, setCacheStatus] = useState<
-    'hit' | 'miss' | 'live' | 'idle'
-  >('idle');
-  const [keyConfigured, setKeyConfigured] = useState<boolean>(false);
-  const [apiMode, setApiMode] = useState<string>('initializing');
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
 
-  // AI Market Brief State
+  // Market Price Chart & Key Investment Metrics State
+  const [marketData, setMarketData] =
+    useState<CompanyMarketOverviewData | null>(null);
+  const [chartRange, setChartRange] = useState<ChartRange>('1M');
+  const [isLoadingMarket, setIsLoadingMarket] = useState<boolean>(true);
+  const [isLoadingChart, setIsLoadingChart] = useState<boolean>(false);
+  const [marketError, setMarketError] = useState<string | null>(null);
+
+  // AI Market Brief & Headline Sentiment State
   const [aiBrief, setAiBrief] = useState<AIMarketBriefResponse | null>(null);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState<boolean>(false);
   const [briefError, setBriefError] = useState<string | null>(null);
+  const [sentimentFilter, setSentimentFilter] =
+    useState<SentimentFilterOption>('all');
+  const [isAnalyzingSentiment, setIsAnalyzingSentiment] =
+    useState<boolean>(false);
+  const [sentimentError, setSentimentError] = useState<string | null>(null);
+  const briefCacheRef = useRef<Map<string, AIMarketBriefResponse>>(new Map());
+  const briefReqSeqRef = useRef<number>(0);
 
   // Firebase Auth & Saved Watchlist State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -164,6 +185,217 @@ export default function InvestorDashboardPage() {
   }, []);
 
   /**
+   * Hydrates missing headline sentiments and reasons on cached articles via POST /api/ai/sentiment.
+   */
+  const enrichMissingSentiments = useCallback(
+    async (loadedArticles: EnrichedNewsArticle[]) => {
+      const missing = loadedArticles.filter(
+        (a) => !a.sentiment || !a.sentimentReason
+      );
+      if (missing.length === 0) {
+        setSentimentError(null);
+        return;
+      }
+
+      setIsAnalyzingSentiment(true);
+      setSentimentError(null);
+      try {
+        const res = await fetch('/api/ai/sentiment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            articles: missing.map((a) => ({
+              id: a.id,
+              title: a.title,
+              description: a.description,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Headline sentiment analysis failed.');
+        }
+
+        const sentimentsMap = (data.sentiments || {}) as Record<
+          string,
+          'Bullish' | 'Bearish' | 'Neutral'
+        >;
+        const reasonsMap = (data.reasons || {}) as Record<string, string>;
+        setArticles((prev) =>
+          prev.map((a) => ({
+            ...a,
+            sentiment: a.sentiment || sentimentsMap[a.id] || 'Neutral',
+            sentimentReason: a.sentimentReason || reasonsMap[a.id] || null,
+          }))
+        );
+      } catch (err) {
+        setSentimentError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to analyze headline sentiment.'
+        );
+      } finally {
+        setIsAnalyzingSentiment(false);
+      }
+    },
+    []
+  );
+
+  /**
+   * Synthesizes side-by-side Positive Catalysts, Risks & Headwinds, and Overall Assessment
+   * for the currently searched company from loaded articles.
+   */
+  const generateBriefForArticles = useCallback(
+    async (
+      companyQuery: string,
+      targetArticles: EnrichedNewsArticle[],
+      forceRegenerate = false
+    ) => {
+      if (targetArticles.length === 0) {
+        setAiBrief(null);
+        return;
+      }
+
+      const cacheKey = `${companyQuery.trim().toLowerCase()}::${targetArticles
+        .slice(0, 4)
+        .map((a) => a.id)
+        .join(',')}`;
+
+      if (!forceRegenerate) {
+        const cached = briefCacheRef.current.get(cacheKey);
+        if (cached) {
+          setBriefError(null);
+          setAiBrief(cached);
+          return;
+        }
+      }
+
+      const seq = ++briefReqSeqRef.current;
+      setIsGeneratingBrief(true);
+      setBriefError(null);
+
+      try {
+        const res = await fetch('/api/ai/brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companyQuery,
+            articles: targetArticles.map((a) => ({
+              title: a.title,
+              description: a.description,
+              sourceName: a.source?.name || a.source?.domain || 'Publisher',
+              publishedAt: a.published_at,
+              type: a.type,
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (seq !== briefReqSeqRef.current) return;
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Failed to synthesize AI brief.');
+        }
+        const brief = data.brief as AIMarketBriefResponse;
+        briefCacheRef.current.set(cacheKey, brief);
+        setAiBrief(brief);
+      } catch (err) {
+        if (seq !== briefReqSeqRef.current) return;
+        setBriefError(
+          err instanceof Error ? err.message : 'Error generating AI brief.'
+        );
+      } finally {
+        if (seq === briefReqSeqRef.current) {
+          setIsGeneratingBrief(false);
+        }
+      }
+    },
+    []
+  );
+
+  /**
+   * Loads price chart history and key investment metrics for the searched company.
+   */
+  const fetchMarketOverview = useCallback(
+    async (
+      query: string,
+      entityType: 'auto' | 'name' | 'ticker',
+      range: ChartRange
+    ) => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      setIsLoadingMarket(true);
+      setMarketError(null);
+      try {
+        const params = new URLSearchParams({
+          query: trimmed,
+          entityType,
+          range,
+        });
+        const res = await fetch(`/api/market/overview?${params.toString()}`);
+        const data = await res.json();
+        if (!res.ok || !data.ok || !data.overview) {
+          throw new Error(data.error || 'Failed to load company market metrics.');
+        }
+        setMarketData(data.overview as CompanyMarketOverviewData);
+      } catch (err) {
+        setMarketError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to retrieve market data.'
+        );
+      } finally {
+        setIsLoadingMarket(false);
+      }
+    },
+    []
+  );
+
+  /**
+   * Fast chart-only refresh when switching timeframe tabs (1D, 5D, 1M, 6M, YTD, 1Y, 5Y).
+   */
+  const handleChartRangeChange = async (nextRange: ChartRange) => {
+    setChartRange(nextRange);
+    if (!marketData || marketData.kind !== 'public') {
+      return;
+    }
+
+    setIsLoadingChart(true);
+    try {
+      const params = new URLSearchParams({
+        symbol: marketData.symbol,
+        range: nextRange,
+        chartOnly: '1',
+      });
+      const res = await fetch(`/api/market/overview?${params.toString()}`);
+      const data = await res.json();
+      if (res.ok && data.ok && Array.isArray(data.points)) {
+        setMarketData((prev) => {
+          if (!prev || prev.kind !== 'public') return prev;
+          return {
+            ...prev,
+            range: nextRange,
+            price: typeof data.price === 'number' ? data.price : prev.price,
+            previousClose:
+              typeof data.previousClose === 'number'
+                ? data.previousClose
+                : prev.previousClose,
+            change: typeof data.change === 'number' ? data.change : prev.change,
+            changePercent:
+              typeof data.changePercent === 'number'
+                ? data.changePercent
+                : prev.changePercent,
+            points: data.points as PriceChartPoint[],
+          };
+        });
+      }
+    } catch (err) {
+      console.warn('Chart range refresh error:', err);
+    } finally {
+      setIsLoadingChart(false);
+    }
+  };
+
+  /**
    * Executes a company news search for a specific page cursor, checking the
    * Firestore `cached_searches` collection first (unless `forceRefresh` is true),
    * and persisting fresh responses back to Firestore.
@@ -173,7 +405,9 @@ export default function InvestorDashboardPage() {
       stateSnapshot: NewsSearchControlState,
       targetCursor: string | null,
       pageIdx: number,
-      forceRefresh = false
+      forceRefresh = false,
+      activeExchange: string | null = null,
+      lockedEntityType: 'name' | 'ticker' | null = null
     ) => {
       logFunctionCall('InvestorDashboardPage.executeSearchForCursor', {
         entityType: stateSnapshot.entityType,
@@ -198,13 +432,20 @@ export default function InvestorDashboardPage() {
                 ? stateSnapshot.sourceDomainInput
                 : 'all';
 
+      const requestEntityType =
+        targetCursor && lockedEntityType
+          ? lockedEntityType
+          : stateSnapshot.entityType;
+
       const cacheId = buildSearchCacheId({
-        entityType: stateSnapshot.entityType,
+        entityType: requestEntityType,
         entityValue: stateSnapshot.entityValue,
         exchange:
-          stateSnapshot.entityType === 'ticker'
-            ? stateSnapshot.exchange
-            : undefined,
+          requestEntityType === 'ticker'
+            ? activeExchange || 'us_all'
+            : requestEntityType === 'auto'
+              ? activeExchange || 'auto'
+              : undefined,
         sortBy: stateSnapshot.sortBy,
         dateFrom: stateSnapshot.datePreset === 'custom' ? dateFrom : undefined,
         dateTo: stateSnapshot.datePreset === 'custom' ? dateTo : undefined,
@@ -214,8 +455,6 @@ export default function InvestorDashboardPage() {
         cursor: targetCursor,
       });
 
-      setLastCacheKey(cacheId);
-
       // 1. Check Firestore cache first unless bypassed
       if (!forceRefresh) {
         try {
@@ -223,14 +462,22 @@ export default function InvestorDashboardPage() {
           if (cached && cached.articlesJson) {
             const parsedArticles = JSON.parse(
               cached.articlesJson
-            ) as NewsSearchResponse.Data[];
+            ) as EnrichedNewsArticle[];
             setArticles(parsedArticles);
             setNextCursor(cached.nextCursor || null);
             setHasMore(Boolean(cached.hasMore));
-            setRequestId(`${cached.requestId} (Firestore Cache)`);
-            setCacheStatus('hit');
-            setApiMode('firestore_cache_hit');
+            if (cached.entityType === 'name' || cached.entityType === 'ticker') {
+              setResolvedEntityType(cached.entityType);
+            }
             setIsLoadingNews(false);
+            void enrichMissingSentiments(parsedArticles);
+            if (pageIdx === 0) {
+              void generateBriefForArticles(
+                stateSnapshot.entityValue,
+                parsedArticles,
+                forceRefresh
+              );
+            }
             return;
           }
         } catch (cacheReadErr) {
@@ -243,15 +490,16 @@ export default function InvestorDashboardPage() {
 
       // 2. Fetch from Server API Route (/api/news/search -> Context.dev SDK)
       try {
+        setSentimentError(null);
         const res = await fetch('/api/news/search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            entityType: stateSnapshot.entityType,
+            entityType: requestEntityType,
             entityValue: stateSnapshot.entityValue,
             exchange:
-              stateSnapshot.entityType === 'ticker' && stateSnapshot.exchange
-                ? stateSnapshot.exchange
+              requestEntityType !== 'name' && activeExchange
+                ? activeExchange
                 : undefined,
             dateFrom,
             dateTo,
@@ -284,21 +532,34 @@ export default function InvestorDashboardPage() {
           throw new Error(data.error || 'Failed to search company news.');
         }
 
+        const effectiveResolvedType: 'name' | 'ticker' =
+          data.resolvedEntityType === 'ticker' ? 'ticker' : 'name';
+
+        if (!targetCursor) {
+          setResolvedEntityType(effectiveResolvedType);
+          setResolvedExchange(data.resolvedExchange || null);
+        }
+
         const sdkResponse = data.response as NewsSearchResponse;
-        setArticles(sdkResponse.data || []);
+        const enrichedArticles = (sdkResponse.data || []) as EnrichedNewsArticle[];
+        setArticles(enrichedArticles);
         setNextCursor(sdkResponse.next_cursor ?? null);
         setHasMore(Boolean(sdkResponse.has_more));
-        setRequestId(sdkResponse.request_id || null);
-        setLastRequestPayload(data.requestPayload);
-        setKeyConfigured(Boolean(data.keyConfigured));
-        setApiMode(data.mode || 'live_sdk');
-        setWarningMessage(data.warning || null);
+        setSentimentError(data.sentimentError || null);
+
+        if (pageIdx === 0) {
+          void generateBriefForArticles(
+            stateSnapshot.entityValue,
+            enrichedArticles,
+            forceRefresh
+          );
+        }
 
         // 3. Cache the page in Firestore (/cached_searches/{cacheId})
         try {
           await saveCachedNewsSearch({
             cacheKey: cacheId,
-            entityType: stateSnapshot.entityType,
+            entityType: effectiveResolvedType,
             entityValue: stateSnapshot.entityValue,
             sortBy: stateSnapshot.sortBy,
             cursorKey: targetCursor || 'page1',
@@ -309,10 +570,8 @@ export default function InvestorDashboardPage() {
             requestId: sdkResponse.request_id || 'ctx_req',
             cachedAtMs: Date.now(),
           });
-          setCacheStatus('live');
         } catch (cacheWriteErr) {
           console.warn('Firestore cache write warning:', cacheWriteErr);
-          setCacheStatus('miss');
         }
       } catch (err) {
         console.error('Error searching company news:', err);
@@ -320,13 +579,18 @@ export default function InvestorDashboardPage() {
         setIsLoadingNews(false);
       }
     },
-    []
+    [enrichMissingSentiments, generateBriefForArticles]
   );
 
-  // Trigger initial search on mount
+  // Trigger initial search and market overview on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       void executeSearchForCursor(searchState, null, 0, false);
+      void fetchMarketOverview(
+        searchState.entityValue,
+        searchState.entityType,
+        chartRange
+      );
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -343,7 +607,6 @@ export default function InvestorDashboardPage() {
     setSearchState(nextState);
 
     const immediateTriggerKeys: Array<keyof NewsSearchControlState> = [
-      'entityType',
       'sortBy',
       'datePreset',
       'limit',
@@ -360,8 +623,9 @@ export default function InvestorDashboardPage() {
     if (shouldAutoSearch) {
       setCursorStack([null]);
       setCurrentPageIndex(0);
+      setResolvedExchange(null);
       setAiBrief(null);
-      executeSearchForCursor(nextState, null, 0, false);
+      executeSearchForCursor(nextState, null, 0, false, null, null);
     }
   };
 
@@ -371,25 +635,34 @@ export default function InvestorDashboardPage() {
   const handleRunSearch = (forceRefresh = false) => {
     setCursorStack([null]);
     setCurrentPageIndex(0);
+    setResolvedExchange(null);
     setAiBrief(null);
-    executeSearchForCursor(searchState, null, 0, forceRefresh);
+    executeSearchForCursor(searchState, null, 0, forceRefresh, null, null);
+    void fetchMarketOverview(
+      searchState.entityValue,
+      searchState.entityType,
+      chartRange
+    );
   };
 
   /**
    * Handles selecting a preset equity or entity from the top watchlist carousel.
    */
   const handleSelectPreset = (preset: CompanyPreset) => {
+    const presetType = preset.entityType === 'ticker' ? 'ticker' : 'name';
     const nextState: NewsSearchControlState = {
       ...searchState,
-      entityType: preset.entityType === 'ticker' ? 'ticker' : 'name',
+      entityType: presetType,
       entityValue: preset.value,
-      exchange: preset.exchange || '',
     };
     setSearchState(nextState);
     setCursorStack([null]);
     setCurrentPageIndex(0);
+    setResolvedEntityType(presetType);
+    setResolvedExchange(null);
     setAiBrief(null);
-    executeSearchForCursor(nextState, null, 0, false);
+    executeSearchForCursor(nextState, null, 0, false, null, null);
+    void fetchMarketOverview(preset.value, presetType, chartRange);
   };
 
   /**
@@ -402,7 +675,14 @@ export default function InvestorDashboardPage() {
     const updatedStack = [...cursorStack.slice(0, nextIndex), nextCursor];
     setCursorStack(updatedStack);
     setCurrentPageIndex(nextIndex);
-    executeSearchForCursor(searchState, nextCursor, nextIndex, false);
+    executeSearchForCursor(
+      searchState,
+      nextCursor,
+      nextIndex,
+      false,
+      resolvedExchange,
+      resolvedEntityType
+    );
   };
 
   /**
@@ -413,45 +693,21 @@ export default function InvestorDashboardPage() {
     const prevIndex = currentPageIndex - 1;
     const prevCursor = cursorStack[prevIndex] ?? null;
     setCurrentPageIndex(prevIndex);
-    executeSearchForCursor(searchState, prevCursor, prevIndex, false);
+    executeSearchForCursor(
+      searchState,
+      prevCursor,
+      prevIndex,
+      false,
+      resolvedExchange,
+      resolvedEntityType
+    );
   };
 
   /**
-   * Calls the server-side Gemini AI route (`/api/ai/brief`) to synthesize the
-   * currently displayed Context.dev news articles.
+   * Manually refreshes the AI Investment Assessment (Catalysts, Risks & Overall Verdict).
    */
   const handleGenerateAIBrief = async () => {
-    if (articles.length === 0) return;
-    setIsGeneratingBrief(true);
-    setBriefError(null);
-
-    try {
-      const res = await fetch('/api/ai/brief', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          companyQuery: `${searchState.entityValue} (${searchState.entityType.toUpperCase()})`,
-          articles: articles.map((a) => ({
-            title: a.title,
-            description: a.description,
-            sourceName: a.source?.name || a.source?.domain || 'Publisher',
-            publishedAt: a.published_at,
-            type: a.type,
-          })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || 'Failed to synthesize AI brief.');
-      }
-      setAiBrief(data.brief as AIMarketBriefResponse);
-    } catch (err) {
-      setBriefError(
-        err instanceof Error ? err.message : 'Error generating AI brief.'
-      );
-    } finally {
-      setIsGeneratingBrief(false);
-    }
+    await generateBriefForArticles(searchState.entityValue, articles, true);
   };
 
   /**
@@ -488,7 +744,7 @@ export default function InvestorDashboardPage() {
         title: article.title,
         url: article.url,
         sourceName: article.source?.name || 'News Source',
-        sourceDomain: article.source?.domain || 'context.dev',
+        sourceDomain: article.source?.domain || 'News Wire',
         publishedAt: article.published_at || new Date().toISOString(),
         articleType: article.type,
         companyTag: searchState.entityValue.toUpperCase(),
@@ -533,8 +789,8 @@ export default function InvestorDashboardPage() {
         {/* Hero Header Banner */}
         <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-6 border-b border-[#212c42]">
           <div>
-            <p className="text-xs font-medium text-[#49afe9] mb-1 font-mono-tabular">
-              Context.dev Official SDK · Firestore Cache · Gemini Quantitative Desk
+            <p className="text-xs font-medium text-[#49afe9] mb-1">
+              US Exchanges Supported · Multi-Language Translation · AI Research Desk
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white text-balance">
               Institutional Company News &amp; AI Market Intelligence
@@ -542,13 +798,11 @@ export default function InvestorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 font-mono-tabular">
-            <span>Endpoint: POST /v1/news/search</span>
+            <span>Coverage: {searchState.entityValue}</span>
             <span aria-hidden="true">·</span>
             <span>
-              Entity: {searchState.entityType.toUpperCase()} ({searchState.entityValue})
+              Sort: {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
             </span>
-            <span aria-hidden="true">·</span>
-            <span>Sort: {searchState.sortBy.toUpperCase()}</span>
           </div>
         </div>
 
@@ -559,56 +813,65 @@ export default function InvestorDashboardPage() {
           onSelectPreset={handleSelectPreset}
         />
 
-        {/* Context.dev Search & Filter Control Bar */}
+        {/* Search & Filter Control Bar */}
         <NewsSearchControlBar
           state={searchState}
           onChange={handleUpdateSearchControls}
           onSubmitSearch={handleRunSearch}
           isLoading={isLoadingNews}
-          cacheStatus={cacheStatus}
         />
 
-        {/* Primary 12-Column Quantitative Terminal Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left 8 Columns: Paginated News Feed Table */}
-          <div className="lg:col-span-8">
-            <NewsFeedTable
-              articles={articles}
-              isLoading={isLoadingNews}
-              currentPageIndex={currentPageIndex}
-              hasPreviousPage={currentPageIndex > 0}
-              hasNextPage={hasMore && Boolean(nextCursor)}
-              onPreviousPage={handlePreviousPage}
-              onNextPage={handleNextPage}
-              onBookmarkArticle={handleBookmarkArticle}
-              savedArticleIds={savedArticleIds}
-              onGenerateAIBrief={handleGenerateAIBrief}
-              isGeneratingBrief={isGeneratingBrief}
-              companyLabel={`${searchState.entityValue} (${searchState.entityType.toUpperCase()})`}
-              requestId={requestId}
-            />
-          </div>
+        {/* Searched Company Price Chart & Key Investment Metrics */}
+        <CompanyMarketOverview
+          data={marketData}
+          isLoading={isLoadingMarket}
+          isLoadingChart={isLoadingChart}
+          error={marketError}
+          activeRange={chartRange}
+          onRangeChange={handleChartRangeChange}
+          onRetry={() =>
+            void fetchMarketOverview(
+              searchState.entityValue,
+              searchState.entityType,
+              chartRange
+            )
+          }
+          searchedQuery={searchState.entityValue}
+        />
 
-          {/* Right 4 Columns: Gemini AI Quantitative Analyst Panel */}
-          <div className="lg:col-span-4">
-            <AIMarketBriefPanel
-              companyLabel={searchState.entityValue}
-              brief={aiBrief}
-              isLoading={isGeneratingBrief}
-              error={briefError}
-              onGenerate={handleGenerateAIBrief}
-            />
-          </div>
+        {/* Side-by-Side Catalysts vs. Risks & Overall AI Assessment */}
+        <AIMarketBriefPanel
+          companyLabel={searchState.entityValue}
+          brief={aiBrief}
+          isLoading={isGeneratingBrief}
+          error={briefError}
+          onGenerate={handleGenerateAIBrief}
+        />
+
+        {/* Full-Width Paginated News Feed Table */}
+        <div id="terminal">
+          <NewsFeedTable
+            articles={articles}
+            isLoading={isLoadingNews}
+            currentPageIndex={currentPageIndex}
+            hasPreviousPage={currentPageIndex > 0}
+            hasNextPage={hasMore && Boolean(nextCursor)}
+            onPreviousPage={handlePreviousPage}
+            onNextPage={handleNextPage}
+            onBookmarkArticle={handleBookmarkArticle}
+            savedArticleIds={savedArticleIds}
+            onGenerateAIBrief={handleGenerateAIBrief}
+            isGeneratingBrief={isGeneratingBrief}
+            companyLabel={searchState.entityValue}
+            sentimentFilter={sentimentFilter}
+            onSentimentFilterChange={setSentimentFilter}
+            isAnalyzingSentiment={isAnalyzingSentiment}
+            sentimentError={sentimentError}
+          />
         </div>
 
-        {/* Bottom Section: Context.dev SDK Payload Inspector & Saved Firestore Watchlist */}
+        {/* Bottom Section: Saved Articles Watchlist */}
         <SdkCacheInspector
-          lastRequestPayload={lastRequestPayload}
-          lastCacheKey={lastCacheKey}
-          cacheStatus={cacheStatus}
-          keyConfigured={keyConfigured}
-          apiMode={apiMode}
-          warningMessage={warningMessage}
           savedArticles={savedArticles}
           onRemoveSavedArticle={handleRemoveSavedArticle}
           userEmail={currentUser?.email ?? null}
@@ -619,28 +882,8 @@ export default function InvestorDashboardPage() {
       {/* Quiet Institutional Footer */}
       <footer className="border-t border-[#212c42] py-6 px-6 mt-12">
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-          <span>
-            OpticAlpha Investor Intelligence · Powered by Context.dev Official TypeScript SDK
-          </span>
-          <div className="flex items-center gap-4">
-            <a
-              href="https://docs.context.dev/api-reference/news/search"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              Context.dev News Search Docs
-            </a>
-            <span aria-hidden="true">·</span>
-            <a
-              href="https://www.context.dev/dashboard/api-keys"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-white transition-colors"
-            >
-              Manage Context.dev API Keys
-            </a>
-          </div>
+          <span>OpticAlpha Investor Intelligence</span>
+          <span>US Equities &amp; Private Company News Terminal</span>
         </div>
       </footer>
     </div>

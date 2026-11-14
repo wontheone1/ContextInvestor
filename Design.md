@@ -32,7 +32,12 @@
 ### 2.3 Gemini AI Quantitative Market Briefings (`lib/gemini-service.ts` & `app/api/ai/brief/route.ts`)
 - Synthesizes the active Context.dev company news feed on the server using `gemini-4-hydrogen` with structured JSON schema output (`sentiment`, `confidenceScore`, `executiveSummary`, `keyCatalysts`, `riskFactors`, and `sectorImpact`).
 
-### 2.4 Structured Telemetry Logging (`lib/logger.ts`)
+### 2.4 Automatic Multi-Language News Translation (`lib/translation-service.ts`)
+- **Detection**: Automatically detects any non-English news article returned by Context.dev (`article.language !== 'en'` or non-ASCII script detection for Korean, Japanese, Chinese, Cyrillic, Arabic, and European languages).
+- **Server-Side Batch Translation**: Translates non-English headlines (`title`) and summaries (`description`) into institutional English using `gemini-4-hydrogen` inside `POST /api/news/search` before caching and rendering.
+- **Source Language Attribution & Original Viewer**: Displays `Auto-translated from <Language Name> (<code >) → English` in the article metadata line and provides a `View Original (<Language>)` toggle so investors can inspect the untranslated headline and excerpt alongside the English translation.
+
+### 2.5 Structured Telemetry Logging (`lib/logger.ts`)
 - Logs all function calls at `INFO` level with sanitized parameters (`logFunctionCall`) and logs all `@google/genai` invocations with model, prompt, config, and output while stripping `inlineData` (`logGenAICall`).
 
 ---

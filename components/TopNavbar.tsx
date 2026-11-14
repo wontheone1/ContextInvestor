@@ -21,9 +21,9 @@ import React from 'react';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface TopNavbarProps {
-  activeSection: 'terminal' | 'watchlist' | 'briefing' | 'cache';
+  activeSection: 'market' | 'terminal' | 'watchlist' | 'briefing';
   onSelectSection: (
-    section: 'terminal' | 'watchlist' | 'briefing' | 'cache'
+    section: 'market' | 'terminal' | 'watchlist' | 'briefing'
   ) => void;
   userEmail: string | null;
   onAuthAction: () => void;
@@ -40,13 +40,18 @@ export function TopNavbar({
   onAuthAction,
 }: TopNavbarProps) {
   /**
-   * Handles navigation section selection and logs the user interaction.
+   * Handles navigation section selection, scrolls smoothly to the section, and logs the interaction.
    */
   const handleNavClick = (
-    section: 'terminal' | 'watchlist' | 'briefing' | 'cache'
+    section: 'market' | 'terminal' | 'watchlist' | 'briefing'
   ) => {
     logFunctionCall('TopNavbar.handleNavClick', { section });
     onSelectSection(section);
+    const targetId = section === 'market' ? 'market-overview' : section;
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   return (
@@ -63,8 +68,19 @@ export function TopNavbar({
         OpticAlpha
       </a>
 
-      {/* Zone 2: 4 clean single-line text navigation links */}
+      {/* Zone 2: Clean single-line text navigation links */}
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <button
+          type="button"
+          onClick={() => handleNavClick('market')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeSection === 'market'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          Price &amp; Metrics
+        </button>
         <button
           type="button"
           onClick={() => handleNavClick('terminal')}
@@ -75,17 +91,6 @@ export function TopNavbar({
           }`}
         >
           News Terminal
-        </button>
-        <button
-          type="button"
-          onClick={() => handleNavClick('watchlist')}
-          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'watchlist'
-              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
-              : 'hover:text-white'
-          }`}
-        >
-          Saved Watchlist
         </button>
         <button
           type="button"
@@ -100,14 +105,14 @@ export function TopNavbar({
         </button>
         <button
           type="button"
-          onClick={() => handleNavClick('cache')}
+          onClick={() => handleNavClick('watchlist')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'cache'
+            activeSection === 'watchlist'
               ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
               : 'hover:text-white'
           }`}
         >
-          SDK & Cache Inspector
+          Saved Watchlist
         </button>
       </nav>
 

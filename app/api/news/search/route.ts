@@ -20,15 +20,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   buildCompanyNewsSearchParams,
+  inferEntitySearchOrder,
   searchCompanyNews,
   validateContextDevApiKey,
   type CompanyNewsQueryInput,
 } from '@/lib/context-dev';
 import { buildFallbackNewsResponse } from '@/lib/fallback-news-data';
+import { translateNonEnglishArticlesToEnglish } from '@/lib/translation-service';
+import { analyzeHeadlineSentiments } from '@/lib/sentiment-service';
 import { logFunctionCall } from '@/lib/logger';
 
 /**
  * Handles POST /api/news/search requests from the Investor Dashboard.
+ * Automatically translates any non-English articles into English and tags
+ * the original source language (`translatedFromLanguage`).
  *
  * @param req - Incoming NextRequest containing CompanyNewsQueryInput JSON body
  * @returns NextResponse with Context.dev NewsSearchResponse and diagnostic metadata
@@ -41,10 +46,11 @@ export async function POST(req: NextRequest) {
     const queryInput: CompanyNewsQueryInput = {
       entityType:
         body.entityType === 'ticker' ||
+        body.entityType === 'name' ||
         body.entityType === 'domain' ||
         body.entityType === 'isin'
           ? body.entityType
-          : 'name',
+          : 'auto',
       entityValue: (body.entityValue ?? 'NVDA').trim(),
       exchange: body.exchange,
       dateFrom:
@@ -69,6 +75,10 @@ export async function POST(req: NextRequest) {
     };
 
     const requestPayload = buildCompanyNewsSearchParams(queryInput);
+    const inferredFallbackType =
+      queryInput.entityType === 'auto'
+        ? inferEntitySearchOrder(queryInput.entityValue)[0]
+        : queryInput.entityType;
 
     // Check if CONTEXT_DEV_API_KEY is configured in .env.local / server env
     let hasValidKey = false;
@@ -85,13 +95,29 @@ export async function POST(req: NextRequest) {
 
     if (hasValidKey) {
       try {
-        const { response } = await searchCompanyNews(queryInput);
+        const {
+          response,
+          requestPayload: resolvedRequestPayload,
+          resolvedEntityType,
+          resolvedExchange,
+        } = await searchCompanyNews(queryInput);
+        const translatedData = await translateNonEnglishArticlesToEnglish(
+          response.data || []
+        );
+        const { articles: sentimentData, sentimentError } =
+          await analyzeHeadlineSentiments(translatedData);
         return NextResponse.json({
           ok: true,
           mode: 'live_sdk',
           endpoint: 'POST https://api.context.dev/v1/news/search',
-          requestPayload,
-          response,
+          requestPayload: resolvedRequestPayload,
+          resolvedEntityType,
+          resolvedExchange: resolvedExchange ?? null,
+          sentimentError,
+          response: {
+            ...response,
+            data: sentimentData,
+          },
           keyConfigured: true,
           warning: null,
         });
@@ -100,13 +126,27 @@ export async function POST(req: NextRequest) {
           sdkError instanceof Error ? sdkError.message : String(sdkError);
         logFunctionCall('POST /api/news/search:sdk_error', { error: errMsg });
 
-        const fallbackResponse = buildFallbackNewsResponse(queryInput);
+        const fallbackResponse = buildFallbackNewsResponse({
+          ...queryInput,
+          entityType: inferredFallbackType,
+        });
+        const translatedFallback = await translateNonEnglishArticlesToEnglish(
+          fallbackResponse.data || []
+        );
+        const { articles: sentimentFallback, sentimentError } =
+          await analyzeHeadlineSentiments(translatedFallback);
         return NextResponse.json({
           ok: true,
           mode: 'fallback_after_api_error',
           endpoint: 'POST https://api.context.dev/v1/news/search',
           requestPayload,
-          response: fallbackResponse,
+          resolvedEntityType: inferredFallbackType,
+          resolvedExchange: null,
+          sentimentError,
+          response: {
+            ...fallbackResponse,
+            data: sentimentFallback,
+          },
           keyConfigured: true,
           warning: `Context.dev API returned an error (${errMsg}). Showing fallback dataset so you can continue testing pagination and Firestore caching.`,
         });
@@ -114,14 +154,28 @@ export async function POST(req: NextRequest) {
     }
 
     // When CONTEXT_DEV_API_KEY is not yet added to .env.local, provide structured
-    // fallback response with clear notice so UI & Firestore caching remain testable.
-    const fallbackResponse = buildFallbackNewsResponse(queryInput);
+    // fallback response with automatic English translation applied to non-English items.
+    const fallbackResponse = buildFallbackNewsResponse({
+      ...queryInput,
+      entityType: inferredFallbackType,
+    });
+    const translatedFallback = await translateNonEnglishArticlesToEnglish(
+      fallbackResponse.data || []
+    );
+    const { articles: sentimentFallback, sentimentError } =
+      await analyzeHeadlineSentiments(translatedFallback);
     return NextResponse.json({
       ok: true,
       mode: 'demo_awaiting_key',
       endpoint: 'POST https://api.context.dev/v1/news/search',
       requestPayload,
-      response: fallbackResponse,
+      resolvedEntityType: inferredFallbackType,
+      resolvedExchange: null,
+      sentimentError,
+      response: {
+        ...fallbackResponse,
+        data: sentimentFallback,
+      },
       keyConfigured: false,
       warning: keyWarning,
     });

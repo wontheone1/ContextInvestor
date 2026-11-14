@@ -40,6 +40,8 @@ export const APP_CONFIG = {
   gemini: {
     /** Default model for fast, structured financial news synthesis */
     defaultModel: 'gemini-4-hydrogen',
+    /** Lightweight model for low-latency headline sentiment classification */
+    sentimentModel: 'gemini-3.1-flash-lite',
     /** User-Agent required by AI Studio build telemetry */
     userAgent: 'aistudio-build',
   },
@@ -55,6 +57,7 @@ export const APP_CONFIG = {
     defaultSort: 'newest' as 'newest' | 'relevance',
     envKeyName: 'CONTEXT_DEV_API_KEY',
     dashboardKeysUrl: 'https://www.context.dev/dashboard/api-keys',
+    usExchanges: ['NASDAQ', 'NYSE', 'AMEX', 'CBOE', 'OTC'] as const,
   },
 
   /**
@@ -83,14 +86,16 @@ export const APP_CONFIG = {
     ] as const,
     languages: [
       { value: 'en', label: 'English (en)' },
+      { value: 'ko', label: 'Korean (ko)' },
+      { value: 'ja', label: 'Japanese (ja)' },
       { value: 'de', label: 'German (de)' },
       { value: 'fr', label: 'French (fr)' },
       { value: 'es', label: 'Spanish (es)' },
-      { value: 'ja', label: 'Japanese (ja)' },
       { value: 'zh', label: 'Chinese (zh)' },
     ] as const,
     countries: [
       { value: 'us', label: 'United States (US)' },
+      { value: 'kr', label: 'South Korea (KR)' },
       { value: 'gb', label: 'United Kingdom (GB)' },
       { value: 'de', label: 'Germany (DE)' },
       { value: 'jp', label: 'Japan (JP)' },
@@ -119,7 +124,6 @@ export const APP_CONFIG = {
       label: 'NVIDIA Corp',
       entityType: 'ticker',
       value: 'NVDA',
-      exchange: 'NASDAQ',
       sector: 'Semiconductors & AI',
       price: '$138.60',
       changePct: '+3.42%',
@@ -140,7 +144,6 @@ export const APP_CONFIG = {
       label: 'Apple Inc',
       entityType: 'ticker',
       value: 'AAPL',
-      exchange: 'NASDAQ',
       sector: 'Consumer Hardware',
       price: '$229.40',
       changePct: '+1.18%',
@@ -151,7 +154,6 @@ export const APP_CONFIG = {
       label: 'Microsoft',
       entityType: 'ticker',
       value: 'MSFT',
-      exchange: 'NASDAQ',
       sector: 'Cloud & Enterprise AI',
       price: '$446.85',
       changePct: '+0.94%',
@@ -162,7 +164,6 @@ export const APP_CONFIG = {
       label: 'Palantir',
       entityType: 'ticker',
       value: 'PLTR',
-      exchange: 'NYSE',
       sector: 'Defense & Data OS',
       price: '$61.20',
       changePct: '-0.85%',

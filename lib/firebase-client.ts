@@ -166,6 +166,7 @@ export function buildSearchCacheId(params: {
   logFunctionCall('buildSearchCacheId', { ...params });
 
   const raw = [
+    'v5sentr',
     params.entityType,
     params.entityValue.trim().toLowerCase(),
     params.exchange || 'any',

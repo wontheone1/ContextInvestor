@@ -22,7 +22,7 @@ import { logFunctionCall } from '@/lib/logger';
 
 export interface WatchlistCarouselProps {
   activeValue: string;
-  activeEntityType: 'name' | 'ticker';
+  activeEntityType: 'auto' | 'name' | 'ticker';
   onSelectPreset: (preset: CompanyPreset) => void;
 }
 
@@ -76,10 +76,10 @@ export function WatchlistCarousel({
     <section aria-label="Featured Companies Watchlist" className="mb-8">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-slate-300 tracking-tight">
-          Featured Institutional Coverage (Click to Query Context.dev)
+          Featured Companies &amp; Equities
         </h2>
-        <span className="text-xs text-slate-400 font-mono-tabular">
-          Entity Resolution: Name · Ticker
+        <span className="text-xs text-slate-400">
+          US Listed Equities &amp; Private Leaders
         </span>
       </div>
 
@@ -87,7 +87,8 @@ export function WatchlistCarousel({
         {APP_CONFIG.featuredCompanies.map((item) => {
           const isSelected =
             activeValue.toLowerCase() === item.value.toLowerCase() &&
-            activeEntityType === item.entityType;
+            (activeEntityType === 'auto' ||
+              activeEntityType === item.entityType);
 
           return (
             <button
@@ -110,9 +111,11 @@ export function WatchlistCarousel({
                 <span className="text-sm font-bold text-white truncate">
                   {item.label}
                 </span>
-                <span className="text-xs text-[#49afe9] font-mono-tabular shrink-0">
-                  {item.entityType === 'ticker' ? item.value : 'NAME'}
-                </span>
+                {item.entityType === 'ticker' && (
+                  <span className="text-xs text-[#49afe9] font-mono-tabular shrink-0">
+                    {item.value}
+                  </span>
+                )}
               </div>
 
               <div className="text-xs text-slate-400 truncate mb-3">

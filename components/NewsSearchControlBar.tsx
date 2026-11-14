@@ -6,8 +6,8 @@
  * Structured Context.dev `POST /v1/news/search` Filter, Entity & Sort Control Bar.
  *
  * USE CASES:
- * 1. Switching company identification between Company Name (`entity.type = 'name'`)
- *    and Stock Ticker (`entity.type = 'ticker'` with optional stock exchange).
+ * 1. Unified company news search supporting direct entry of either Company Name
+ *    (`entity.type = 'name'`) or US Stock Ticker (`entity.type = 'ticker'`).
  * 2. Selecting publication date ranges (`filterBy.date.from` and `filterBy.date.to`)
  *    via quick time-window presets (`All Dates`, `24h`, `7d`, `30d`, `90d`) or
  *    explicit custom start/end date inputs.
@@ -19,16 +19,15 @@
 'use client';
 
 import React from 'react';
-import { Search, RotateCcw, Database } from 'lucide-react';
+import { Search, RotateCcw } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
 import { logFunctionCall } from '@/lib/logger';
 
 export type DatePreset = 'all' | '24h' | '7d' | '30d' | '90d' | 'custom';
 
 export interface NewsSearchControlState {
-  entityType: 'name' | 'ticker';
+  entityType: 'auto' | 'name' | 'ticker';
   entityValue: string;
-  exchange: string;
   sortBy: 'newest' | 'relevance';
   limit: number;
   datePreset: DatePreset;
@@ -55,18 +54,16 @@ export interface NewsSearchControlBarProps {
   onChange: (updated: Partial<NewsSearchControlState>) => void;
   onSubmitSearch: (forceRefreshCache?: boolean) => void;
   isLoading: boolean;
-  cacheStatus: 'hit' | 'miss' | 'live' | 'idle';
 }
 
 /**
- * Renders the interactive Context.dev company news search control bar.
+ * Renders the interactive company news search control bar.
  */
 export function NewsSearchControlBar({
   state,
   onChange,
   onSubmitSearch,
   isLoading,
-  cacheStatus,
 }: NewsSearchControlBarProps) {
   /**
    * Handles form submission to execute a fresh page-1 Context.dev search.
@@ -87,109 +84,35 @@ export function NewsSearchControlBar({
       onSubmit={handleFormSubmit}
       className="p-6 rounded-xl bg-[#0d1b33] border border-[#212c42] mb-6"
     >
-      {/* Top Row: Entity Type Selector, Input Query, Sort Standard, Page Size, Submit */}
+      {/* Top Row: Unified Ticker/Company Name Input, Sort Standard, Page Size, Submit */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-        {/* 1. Identify Company By: Name or Ticker */}
-        <div className="lg:col-span-3">
-          <label className="block text-xs font-medium text-slate-300 mb-2">
-            Identify Company By (searchBy.entity)
+        {/* 1. Unified Company Name or US Stock Ticker Input */}
+        <div className="lg:col-span-7">
+          <label
+            htmlFor="company-entity-input"
+            className="block text-xs font-medium text-slate-300 mb-2"
+          >
+            Company Name or Stock Ticker (US Exchanges Supported)
           </label>
-          <div className="grid grid-cols-2 gap-1 p-1 bg-[#091326] rounded-lg border border-[#212c42]">
-            <button
-              type="button"
-              onClick={() =>
-                onChange({
-                  entityType: 'ticker',
-                  entityValue:
-                    state.entityValue === 'Stripe'
-                      ? 'NVDA'
-                      : state.entityValue,
-                })
-              }
-              className={`py-2 px-3 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                state.entityType === 'ticker'
-                  ? 'bg-[#09a4ff] text-white'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Stock Ticker
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onChange({
-                  entityType: 'name',
-                  entityValue:
-                    state.entityValue === 'NVDA'
-                      ? 'NVIDIA'
-                      : state.entityValue,
-                })
-              }
-              className={`py-2 px-3 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                state.entityType === 'name'
-                  ? 'bg-[#09a4ff] text-white'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Company Name
-            </button>
-          </div>
-        </div>
-
-        {/* 2. Company Name or Ticker Value (+ Optional Exchange when Ticker) */}
-        <div className="lg:col-span-4 flex gap-2">
-          <div className="flex-1">
-            <label
-              htmlFor="company-entity-input"
-              className="block text-xs font-medium text-slate-300 mb-2"
-            >
-              {state.entityType === 'ticker'
-                ? 'Ticker Symbol (e.g. NVDA, AAPL, MSFT)'
-                : 'Company Name (e.g. Stripe, OpenAI, SpaceX)'}
-            </label>
-            <input
-              id="company-entity-input"
-              type="text"
-              value={state.entityValue}
-              onChange={(e) => onChange({ entityValue: e.target.value })}
-              placeholder={
-                state.entityType === 'ticker'
-                  ? 'Enter ticker (NVDA)...'
-                  : 'Enter company name (Stripe)...'
-              }
-              className="w-full px-3.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
-            />
-          </div>
-
-          {state.entityType === 'ticker' && (
-            <div className="w-32 shrink-0">
-              <label
-                htmlFor="ticker-exchange-select"
-                className="block text-xs font-medium text-slate-300 mb-2"
-              >
-                Exchange
-              </label>
-              <select
-                id="ticker-exchange-select"
-                value={state.exchange}
-                onChange={(e) => onChange({ exchange: e.target.value })}
-                className="w-full px-2.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
-              >
-                <option value="">Any</option>
-                {APP_CONFIG.filters.exchanges.map((ex) => (
-                  <option key={ex} value={ex}>
-                    {ex}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <input
+            id="company-entity-input"
+            type="text"
+            value={state.entityValue}
+            onChange={(e) =>
+              onChange({
+                entityValue: e.target.value,
+                entityType: 'auto',
+              })
+            }
+            placeholder="Enter ticker or company name (e.g. NVDA, Stripe, JPM, OpenAI, PLTR)..."
+            className="w-full px-3.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
+          />
         </div>
 
         {/* 3. Sorting Standard (newest vs relevance) */}
         <div className="lg:col-span-2">
           <label className="block text-xs font-medium text-slate-300 mb-2">
-            Sort Standard (sortBy)
+            Sort Order
           </label>
           <div className="grid grid-cols-2 gap-1 p-1 bg-[#091326] rounded-lg border border-[#212c42]">
             <button
@@ -252,7 +175,7 @@ export function NewsSearchControlBar({
 
           <button
             type="button"
-            title="Bypass Firestore Cache and Refresh Live from Context.dev"
+            title="Refresh latest news"
             onClick={() => onSubmitSearch(true)}
             disabled={isLoading}
             className="p-2.5 text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors shrink-0 cursor-pointer"
@@ -270,7 +193,7 @@ export function NewsSearchControlBar({
         {/* Selectable Date Range */}
         <div className="lg:col-span-6">
           <label className="block text-xs font-medium text-slate-300 mb-2">
-            Publication Date Range (filterBy.date)
+            Publication Date Range
           </label>
           <div className="flex flex-wrap items-center gap-1.5">
             {(
@@ -335,13 +258,13 @@ export function NewsSearchControlBar({
         </div>
 
         {/* Category Filter Selector (All Included by default) */}
-        <div className="lg:col-span-4 flex gap-2">
+        <div className="lg:col-span-6 flex gap-2">
           <div className="flex-1">
             <label
               htmlFor="filter-category-select"
               className="block text-xs font-medium text-slate-300 mb-2"
             >
-              Additional Filter Facet
+              Additional Filters
             </label>
             <select
               id="filter-category-select"
@@ -460,21 +383,6 @@ export function NewsSearchControlBar({
               />
             </div>
           )}
-        </div>
-
-        {/* Firestore Cache Read Status Indicator */}
-        <div className="lg:col-span-2 flex items-center justify-end">
-          <div className="flex items-center gap-2 text-xs text-slate-300 font-mono-tabular">
-            <Database className="w-3.5 h-3.5 text-[#49afe9]" />
-            <span>
-              Cache:{' '}
-              {cacheStatus === 'hit'
-                ? 'FIRESTORE HIT'
-                : cacheStatus === 'live'
-                  ? 'CACHED TO DB'
-                  : 'READY'}
-            </span>
-          </div>
         </div>
       </div>
     </form>

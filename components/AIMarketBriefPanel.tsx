@@ -17,7 +17,14 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, TrendingUp, AlertTriangle, RefreshCw } from 'lucide-react';
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  AlertTriangle,
+  RefreshCw,
+} from 'lucide-react';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
 import { logFunctionCall } from '@/lib/logger';
 
@@ -30,7 +37,8 @@ export interface AIMarketBriefPanelProps {
 }
 
 /**
- * Renders the AI Analyst Quantitative Market Briefing panel.
+ * Renders the full-width AI Analyst Assessment with Overall Evaluation
+ * and side-by-side Positive Catalysts (Bullish) vs. Risks & Headwinds (Bearish).
  */
 export function AIMarketBriefPanel({
   companyLabel,
@@ -40,14 +48,18 @@ export function AIMarketBriefPanel({
   onGenerate,
 }: AIMarketBriefPanelProps) {
   return (
-    <aside className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6">
-      <div className="flex items-center justify-between gap-2 mb-4">
+    <section
+      id="briefing"
+      aria-label="AI Catalysts, Risks and Overall Assessment"
+      className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-[#212c42]">
         <div>
           <h2 className="text-base font-bold text-white">
-            AI Quantitative Analyst
+            AI Investment Assessment: {companyLabel}
           </h2>
           <p className="text-xs text-slate-400">
-            Synthesis of {companyLabel} News Flow
+            Positive catalysts, downside risks, and overall synthesis from recent coverage
           </p>
         </div>
 
@@ -58,10 +70,12 @@ export function AIMarketBriefPanel({
             onGenerate();
           }}
           disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>{isLoading ? 'Analyzing...' : 'Run Analysis'}</span>
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
+          />
+          <span>{isLoading ? 'Analyzing...' : 'Refresh Analysis'}</span>
         </button>
       </div>
 
@@ -72,112 +86,152 @@ export function AIMarketBriefPanel({
       )}
 
       {isLoading ? (
-        <div className="space-y-4 animate-pulse">
-          <div className="h-4 w-1/2 bg-[#162747] rounded" />
-          <div className="h-20 w-full bg-[#162747] rounded" />
-          <div className="h-16 w-full bg-[#162747] rounded" />
+        <div className="space-y-5 animate-pulse">
+          <div className="h-16 w-full bg-[#162747] rounded-lg" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2.5">
+              <div className="h-4 w-40 bg-[#162747] rounded" />
+              <div className="h-10 w-full bg-[#162747] rounded" />
+              <div className="h-10 w-full bg-[#162747] rounded" />
+            </div>
+            <div className="space-y-2.5">
+              <div className="h-4 w-40 bg-[#162747] rounded" />
+              <div className="h-10 w-full bg-[#162747] rounded" />
+              <div className="h-10 w-full bg-[#162747] rounded" />
+            </div>
+          </div>
         </div>
       ) : !brief ? (
         <div className="py-8 text-center border border-dashed border-[#212c42] rounded-lg px-4">
           <Sparkles className="w-6 h-6 text-[#49afe9] mx-auto mb-2" />
           <p className="text-sm font-medium text-white mb-1">
-            Generate Institutional News Brief
+            Generate Catalysts, Headwinds &amp; Overall Assessment
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            Synthesize the loaded Context.dev articles for {companyLabel} into
-            catalysts, risk vectors, and sentiment conviction.
+            Synthesize the loaded news articles for {companyLabel} into
+            side-by-side bullish drivers, risk vectors, and an overall verdict.
           </p>
           <button
             type="button"
             onClick={onGenerate}
             className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors cursor-pointer"
           >
-            Synthesize {companyLabel} Coverage
+            Analyze {companyLabel} Coverage
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
-          {/* Sentiment & Conviction Strip (Unboxed clean typography) */}
-          <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-[#091326] border border-[#212c42] font-mono-tabular">
-            <div>
-              <div className="text-xs text-slate-400">Signal Sentiment</div>
-              <div
-                className={`text-sm font-bold ${
-                  brief.sentiment === 'Bullish'
-                    ? 'text-emerald-400'
-                    : brief.sentiment === 'Bearish'
-                      ? 'text-rose-400'
-                      : 'text-[#49afe9]'
-                }`}
-              >
-                {brief.sentiment}
+        <div className="space-y-6">
+          {/* Overall Assessment Strip */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="lg:col-span-3 flex items-center justify-between lg:flex-col lg:items-start gap-2 py-3 px-4 rounded-lg bg-[#091326] border border-[#212c42] font-mono-tabular">
+              <div>
+                <div className="text-xs text-slate-400 mb-0.5">
+                  Overall Verdict
+                </div>
+                <div
+                  className={`inline-flex items-center gap-1.5 text-base font-bold ${
+                    brief.sentiment === 'Bullish'
+                      ? 'text-emerald-400'
+                      : brief.sentiment === 'Bearish'
+                        ? 'text-rose-400'
+                        : 'text-[#49afe9]'
+                  }`}
+                >
+                  {brief.sentiment === 'Bullish' ? (
+                    <TrendingUp className="w-4 h-4" aria-hidden="true" />
+                  ) : brief.sentiment === 'Bearish' ? (
+                    <TrendingDown className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <Minus className="w-4 h-4" aria-hidden="true" />
+                  )}
+                  <span>{brief.sentiment}</span>
+                </div>
+              </div>
+
+              <div className="text-right lg:text-left">
+                <div className="text-xs text-slate-400">Signal Conviction</div>
+                <div className="text-sm font-bold text-white">
+                  {brief.confidenceScore}%
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs text-slate-400">Conviction</div>
-              <div className="text-sm font-bold text-white">
-                {brief.confidenceScore}%
-              </div>
+
+            <div className="lg:col-span-9 space-y-2">
+              <h3 className="text-xs font-semibold text-[#49afe9]">
+                Overall Assessment
+              </h3>
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {brief.executiveSummary}
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                <span className="text-slate-300 font-medium">
+                  Sector Read-Through:{' '}
+                </span>
+                {brief.sectorImpact}
+              </p>
             </div>
           </div>
 
-          {/* Executive Summary */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-300 mb-1.5">
-              Executive Thesis
-            </h3>
-            <p className="text-sm text-slate-200 leading-relaxed">
-              {brief.executiveSummary}
-            </p>
-          </div>
-
-          {/* Key Catalysts */}
-          {brief.keyCatalysts.length > 0 && (
+          {/* Side-by-Side Positive Catalysts vs. Risks & Headwinds */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-5 border-t border-[#212c42]">
+            {/* Left Column: Positive Catalysts (Bullish Drivers) */}
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-2">
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>Primary Catalysts</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-3">
+                <TrendingUp className="w-4 h-4" aria-hidden="true" />
+                <span>Positive Catalysts (Tailwinds)</span>
               </div>
-              <ul className="space-y-2 text-xs text-slate-300">
-                {brief.keyCatalysts.map((cat, idx) => (
-                  <li
-                    key={idx}
-                    className="p-2.5 rounded-lg bg-[#091326] border border-[#212c42] leading-relaxed"
-                  >
-                    {cat}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
-          {/* Risk Factors */}
-          {brief.riskFactors.length > 0 && (
+              {brief.keyCatalysts.length > 0 ? (
+                <ul className="divide-y divide-[#212c42]">
+                  {brief.keyCatalysts.map((cat, idx) => (
+                    <li
+                      key={idx}
+                      className="py-2.5 first:pt-0 last:pb-0 flex items-start gap-3 text-xs text-slate-200 leading-relaxed"
+                    >
+                      <span className="text-emerald-400 font-mono-tabular font-semibold shrink-0">
+                        0{idx + 1}.
+                      </span>
+                      <span>{cat}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  No major upside catalysts highlighted in the current article batch.
+                </p>
+              )}
+            </div>
+
+            {/* Right Column: Risks & Headwinds (Bearish Factors) */}
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 mb-2">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Risk Vectors</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 mb-3">
+                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+                <span>Risks &amp; Headwinds (Bearish Factors)</span>
               </div>
-              <ul className="space-y-2 text-xs text-slate-300">
-                {brief.riskFactors.map((risk, idx) => (
-                  <li
-                    key={idx}
-                    className="p-2.5 rounded-lg bg-[#091326] border border-[#212c42] leading-relaxed"
-                  >
-                    {risk}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
-          {/* Sector Read-Through */}
-          <div className="pt-3 border-t border-[#212c42] text-xs text-slate-400">
-            <span className="text-slate-300 font-medium">Sector Impact: </span>
-            {brief.sectorImpact}
+              {brief.riskFactors.length > 0 ? (
+                <ul className="divide-y divide-[#212c42]">
+                  {brief.riskFactors.map((risk, idx) => (
+                    <li
+                      key={idx}
+                      className="py-2.5 first:pt-0 last:pb-0 flex items-start gap-3 text-xs text-slate-200 leading-relaxed"
+                    >
+                      <span className="text-rose-400 font-mono-tabular font-semibold shrink-0">
+                        0{idx + 1}.
+                      </span>
+                      <span>{risk}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  No material downside risks highlighted in the current article batch.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
-    </aside>
+    </section>
   );
 }

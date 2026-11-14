@@ -221,6 +221,148 @@ async function runVerificationSuite(): Promise<void> {
   console.info(
     '✓ Test 4 Passed: Official Context.dev SDK sent POST https://api.context.dev/v1/news/search with Bearer token and parsed NewsSearchResponse.'
   );
+
+  // 5. Test exchange-free US ticker search + automatic US exchange resolution fallback
+  console.info(
+    '\n[Test 5] Verifying exchange-free US ticker search & automatic US exchange fallback...'
+  );
+  const attemptedEntities: Array<Record<string, unknown>> = [];
+  const multiExchangeMockFetch: typeof globalThis.fetch = async (_input, init) => {
+    const parsedBody = init?.body ? JSON.parse(String(init.body)) : {};
+    const entity = parsedBody?.searchBy?.entity ?? {};
+    attemptedEntities.push(entity);
+
+    // Simulate exchange-omitted or NASDAQ returning empty, while NYSE returns JPM news
+    if (entity.exchange === 'NYSE') {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'art_jpm_nyse_01',
+              authors: ['Market Wire'],
+              description: 'JPMorgan Chase expands institutional treasury platform.',
+              image_url: null,
+              language: 'en',
+              match: { confidence: 0.99, level: 'primary' },
+              published_at: '2026-11-14T00:00:00Z',
+              source: { direct: true, domain: 'reuters.com', name: 'Reuters' },
+              story_id: 'story_jpm_01',
+              title: 'JPMorgan Launches Institutional Liquidity Engine',
+              type: 'editorial',
+              url: 'https://www.reuters.com/jpm-liquidity',
+            },
+          ],
+          has_more: false,
+          meta: { count: 1 },
+          next_cursor: null,
+          request_id: 'req_mock_nyse_01',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        data: [],
+        has_more: false,
+        meta: { count: 0 },
+        next_cursor: null,
+        request_id: 'req_mock_empty',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  };
+
+  const nyseResult = await searchCompanyNews(
+    {
+      entityType: 'ticker',
+      entityValue: 'JPM',
+      sortBy: 'newest',
+      limit: 10,
+    },
+    {
+      apiKey: 'ctx_unit_test_token_xyz',
+      fetch: multiExchangeMockFetch,
+    }
+  );
+
+  assert.equal(attemptedEntities[0]?.exchange, undefined);
+  assert.equal(nyseResult.resolvedExchange, 'NYSE');
+  assert.equal(nyseResult.response.data.length, 1);
+  assert.equal(nyseResult.response.data[0]?.id, 'art_jpm_nyse_01');
+  console.info(
+    '✓ Test 5 Passed: US ticker search works without user exchange input and resolves across US exchanges automatically.'
+  );
+
+  // 6. Test unified auto-detection between Ticker and Company Name
+  console.info(
+    '\n[Test 6] Verifying unified auto-detection between Ticker and Company Name...'
+  );
+  const autoMockFetch: typeof globalThis.fetch = async (_input, init) => {
+    const parsedBody = init?.body ? JSON.parse(String(init.body)) : {};
+    const entity = parsedBody?.searchBy?.entity ?? {};
+
+    // Simulate "nike" failing as ticker but succeeding as company name, and "Stripe" going directly to name
+    if (
+      (entity.type === 'name' && entity.name === 'nike') ||
+      (entity.type === 'name' && entity.name === 'Stripe')
+    ) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: `art_${entity.name.toLowerCase()}_01`,
+              authors: ['Market Wire'],
+              description: `${entity.name} institutional update.`,
+              image_url: null,
+              language: 'en',
+              match: { confidence: 0.96, level: 'primary' },
+              published_at: '2026-11-14T00:00:00Z',
+              source: { direct: true, domain: 'reuters.com', name: 'Reuters' },
+              story_id: `story_${entity.name.toLowerCase()}`,
+              title: `${entity.name} Global Coverage`,
+              type: 'editorial',
+              url: 'https://www.reuters.com/example',
+            },
+          ],
+          has_more: false,
+          meta: { count: 1 },
+          next_cursor: null,
+          request_id: 'req_mock_auto',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        data: [],
+        has_more: false,
+        meta: { count: 0 },
+        next_cursor: null,
+        request_id: 'req_mock_empty',
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  };
+
+  const stripeAuto = await searchCompanyNews(
+    { entityType: 'auto', entityValue: 'Stripe', sortBy: 'newest', limit: 10 },
+    { apiKey: 'ctx_unit_test_token_xyz', fetch: autoMockFetch }
+  );
+  assert.equal(stripeAuto.resolvedEntityType, 'name');
+  assert.equal(stripeAuto.response.data.length, 1);
+
+  const nikeAuto = await searchCompanyNews(
+    { entityType: 'auto', entityValue: 'nike', sortBy: 'newest', limit: 10 },
+    { apiKey: 'ctx_unit_test_token_xyz', fetch: autoMockFetch }
+  );
+  assert.equal(nikeAuto.resolvedEntityType, 'name');
+  assert.equal(nikeAuto.response.data.length, 1);
+  console.info(
+    '✓ Test 6 Passed: Unified search resolves both company names and tickers seamlessly.'
+  );
+
   console.info('\n============================================================');
   console.info('ALL CONTEXT.DEV SDK VERIFICATION TESTS PASSED SUCCESSFULLY!');
   console.info('============================================================');

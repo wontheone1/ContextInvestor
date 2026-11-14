@@ -22,12 +22,6 @@ import { Trash2, ExternalLink } from 'lucide-react';
 import type { SavedArticleRecord } from '@/lib/firebase-client';
 
 export interface SdkCacheInspectorProps {
-  lastRequestPayload: unknown;
-  lastCacheKey: string;
-  cacheStatus: 'hit' | 'miss' | 'live' | 'idle';
-  keyConfigured: boolean;
-  apiMode: string;
-  warningMessage: string | null;
   savedArticles: Array<SavedArticleRecord & { docId: string }>;
   onRemoveSavedArticle: (docId: string) => void;
   userEmail: string | null;
@@ -35,81 +29,28 @@ export interface SdkCacheInspectorProps {
 }
 
 /**
- * Renders the SDK Request Inspector and Saved Firestore Watchlist view.
+ * Renders the Saved Articles Watchlist section.
  */
 export function SdkCacheInspector({
-  lastRequestPayload,
-  lastCacheKey,
-  cacheStatus,
-  keyConfigured,
-  apiMode,
-  warningMessage,
   savedArticles,
   onRemoveSavedArticle,
   userEmail,
   onSignIn,
 }: SdkCacheInspectorProps) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-8">
-      {/* Left 6 cols: Official Context.dev SDK Request & Firestore Cache Inspector */}
-      <div className="lg:col-span-6 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-bold text-white">
-            Context.dev SDK &amp; Firestore Cache Inspector
-          </h2>
-          <span className="text-xs text-[#49afe9] font-mono-tabular">
-            POST /v1/news/search
-          </span>
-        </div>
-
-        <div className="space-y-2 text-xs text-slate-300 font-mono-tabular mb-4">
-          <div>
-            <span className="text-slate-400">SDK Method: </span>
-            <span className="text-white">client.news.search(params)</span>
-          </div>
-          <div>
-            <span className="text-slate-400">Firestore Cache Doc: </span>
-            <span className="text-[#49afe9]">
-              /cached_searches/{lastCacheKey || 'none'}
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-400">Cache State: </span>
-            <span className="text-emerald-400">{cacheStatus.toUpperCase()}</span>
-            <span aria-hidden="true"> · </span>
-            <span className="text-slate-400">Mode: </span>
-            <span className="text-white">{apiMode}</span>
-          </div>
-        </div>
-
-        {!keyConfigured && warningMessage && (
-          <div className="p-3.5 rounded-lg bg-[#091326] border border-[#09a4ff]/40 text-xs text-slate-300 mb-4 leading-relaxed">
-            <p className="font-semibold text-white mb-1">
-              Configure CONTEXT_DEV_API_KEY in .env.local for Live Queries
-            </p>
-            <p>{warningMessage}</p>
-          </div>
-        )}
-
-        <div>
-          <div className="text-xs font-medium text-slate-400 mb-2">
-            Active SDK Request Payload:
-          </div>
-          <pre className="p-4 rounded-lg bg-[#091326] border border-[#212c42] text-xs text-[#49afe9] font-mono-tabular overflow-x-auto">
-            {JSON.stringify(lastRequestPayload ?? {}, null, 2)}
-          </pre>
-        </div>
-      </div>
-
-      {/* Right 6 cols: Saved Articles in Firestore (/saved_articles) */}
-      <div className="lg:col-span-6 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6">
+    <div className="mt-8">
+      {/* Saved Articles Watchlist */}
+      <div
+        id="watchlist"
+        className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6"
+      >
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-bold text-white">
-              Bookmarked Articles in Firestore
+              Saved Articles Watchlist
             </h2>
             <p className="text-xs text-slate-400">
-              Collection: /saved_articles (Owner-Isolated Security Rules)
+              Your bookmarked company news and research articles
             </p>
           </div>
           <span className="text-xs text-slate-300 font-mono-tabular">
@@ -123,10 +64,8 @@ export function SdkCacheInspector({
               Sign in to Save Articles to Your Personal Watchlist
             </p>
             <p className="text-xs text-slate-400 mb-4">
-              Search results are automatically cached in Firestore{' '}
-              <code className="text-[#49afe9]">/cached_searches</code>. Sign in
-              with Google to bookmark individual articles to{' '}
-              <code className="text-[#49afe9]">/saved_articles</code>.
+              Sign in with Google to bookmark individual articles and sync your
+              personal research watchlist across sessions.
             </p>
             <button
               type="button"
@@ -142,8 +81,8 @@ export function SdkCacheInspector({
               No Bookmarked Articles Yet
             </p>
             <p className="text-xs text-slate-400">
-              Click &ldquo;Save&rdquo; on any news article in the terminal to persist it
-              to your Firestore watchlist.
+              Click &ldquo;Save&rdquo; on any news article in the terminal to add it
+              to your personal watchlist.
             </p>
           </div>
         ) : (
@@ -176,7 +115,7 @@ export function SdkCacheInspector({
                   type="button"
                   onClick={() => onRemoveSavedArticle(item.docId)}
                   className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
-                  title="Remove from Firestore"
+                  title="Remove from watchlist"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
