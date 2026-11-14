@@ -3,11 +3,11 @@
  * FILE: components/TopNavbar.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Institutional 3-Zone Top Navigation Bar for OpticAlpha Investor Intelligence.
+ * Institutional 3-Zone Top Navigation Bar for Contextual Investing.
  *
  * USE CASES:
  * 1. Enforcing the strict 3-zone Top Bar Contract:
- *    - Zone 1: Single-line Brand Wordmark (`OpticAlpha`).
+ *    - Zone 1: Single-line Brand Wordmark (`Contextual Investing`).
  *    - Zone 2: Concise single-line section navigation links (`Watchlist Pulse`,
  *      `Company Search`, `Price & Metrics`, `News Terminal`, `Saved Articles`).
  *    - Zone 3: Single primary action button (Google Sign-In / Account status for
@@ -75,7 +75,7 @@ export function TopNavbar({
         }}
         className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-[#49afe9] transition-colors"
       >
-        OpticAlpha
+        Contextual Investing
       </a>
 
       {/* Zone 2: Clean single-line text navigation links */}

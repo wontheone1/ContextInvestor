@@ -1,4 +1,4 @@
-# Max Context Intelligence — 24-Hour Hackathon Feature Roadmap (`ROADMAP.md`)
+# Contextual Investing — 24-Hour Hackathon Feature Roadmap (`ROADMAP.md`)
 
 > **Constraint**: Less than 24 hours remaining before hackathon submission & live 3-minute demo.
 > **Goal**: Ship features that are **dead-simple to explain to any judge or general audience in 10 seconds**, maximize our score on **`challenge.md`** (*Creative use of live web data 20%* & *Real-timeness 20%*), and are **100% realistic to finish and polish today**.
@@ -6,7 +6,7 @@
 ---
 
 ## Why This Roadmap Exists
-Right now, **Max Context Intelligence** uses **1 Context.dev API** (`client.news.search`). To stand out cleanly against `challenge.md`:
+Right now, **Contextual Investing** uses **1 Context.dev API** (`client.news.search`). To stand out cleanly against `challenge.md`:
 1. **Simple story**: Everyone understands *"Don't just read the news—fact-check rumors in one click, and get alerted when a company's own pricing or jobs page changes."*
 2. **Low risk, high demo wow-factor**: Every feature below uses methods already typed in our installed `context.dev` SDK (`v3.29.0`) without needing brittle webhook servers, ngrok tunnels, or massive batch pipelines.
 
@@ -56,7 +56,7 @@ Right now, **Max Context Intelligence** uses **1 Context.dev API** (`client.news
 
 ## Phase 2: Polish & Demo Prep (Final 4–6 Hours)
 
-1. **Rebrand UI to "Max Context Intelligence"**: Update the top navbar wordmark, browser `<title>`, and `metadata.json` so the live app matches `PITCH.md`.
+1. **Rebrand UI to "Contextual Investing"**: Update the top navbar wordmark, browser `<title>`, and `metadata.json` so the live app matches `PITCH.md`.
 2. **Pre-Warm / Seed 1–2 Live Monitors Before Judging**: Create 1–2 active monitors ahead of the pitch so the **Change Radar** panel shows real history + can still be triggered live with **Check Now**.
 3. **2-Minute End-to-End Dry Run**: Walk through the exact 3-minute script in `PITCH.md` (`Watchlist Pulse` → `NVDA Chart & Ecosystem` → `Verify Claim` → `Change Radar Check Now` → `Save Bookmark`) to ensure zero slow spinners or broken states.
 
@@ -80,4 +80,4 @@ To protect polish and reliability before the deadline, we are intentionally **no
 | **2. Official Brand Logos & Verified Metadata** | `brand.retrieve` | Completeness of Demo, Polish | 1–2 hrs | **P0 (Quick Win)** |
 | **3. Company Change Radar** (Pricing/Jobs/IR Watch) | `web.mapUrls` + `monitors.*` | **The Web, Watched**, **Real-timeness (20%)** | 3–4 hrs | **P1 (Core Differentiator)** |
 | **4. Wall Street vs. Reddit Buzz** | `web.scrape` (`reddit-search`) | **Scrape the Economy**, Creative Live Web | 2–3 hrs | **P2 (If Time Allows)** |
-| **5. UI Rebrand → Max Context Intelligence** | — | Brand Consistency with `PITCH.md` | 30 mins | **P0 (Before Demo)** |
+| **5. UI Rebrand → Contextual Investing** | — | Brand Consistency with `PITCH.md` | 30 mins | **P0 (Before Demo)** |

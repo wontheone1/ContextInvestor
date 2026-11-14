@@ -3,16 +3,17 @@
  * FILE: components/NewsSearchControlBar.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Structured Context.dev `POST /v1/news/search` Filter, Entity & Sort Control Bar.
+ * Unified Company Search, Natural-Language Cohort Screener Entry & Context.dev
+ * `POST /v1/news/search` Filter/Sort Control Bar.
  *
  * USE CASES:
- * 1. Unified company news search supporting direct entry of either Company Name
- *    (`entity.type = 'name'`) or US Stock Ticker (`entity.type = 'ticker'`).
- * 2. Selecting publication date ranges (`filterBy.date.from` and `filterBy.date.to`)
- *    via quick time-window presets (`All Dates`, `24h`, `7d`, `30d`, `90d`) or
- *    explicit custom start/end date inputs.
- * 3. Selecting optional category filters (`articleType`, `articleLanguage`,
- *    `sourceCountry`, or `sourceDomain`) and sorting standards (`newest` vs `relevance`).
+ * 1. Unified search bar auto-detecting direct Company Name / US Stock Ticker
+ *    lookups (`NVDA`, `Stripe`, `OpenAI`) vs. natural-language multi-company
+ *    screening queries (`"AI chip companies with over 200 bn USD market cap"`).
+ * 2. Offering 1-click sample natural-language screening queries and an explicit
+ *    escape hatch to switch between Cohort Screen and Single-Company modes.
+ * 3. Selecting publication date ranges (`filterBy.date`) and category/sort
+ *    facets when inspecting single-company news coverage.
  * ============================================================================
  */
 
@@ -21,6 +22,10 @@
 import React from 'react';
 import { Search, RotateCcw } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
+import {
+  detectSearchQueryIntent,
+  type SearchWorkspaceMode,
+} from '@/lib/query-intent';
 import { logFunctionCall } from '@/lib/logger';
 
 export type DatePreset = 'all' | '24h' | '7d' | '30d' | '90d' | 'custom';
@@ -54,25 +59,38 @@ export interface NewsSearchControlBarProps {
   onChange: (updated: Partial<NewsSearchControlState>) => void;
   onSubmitSearch: (forceRefreshCache?: boolean) => void;
   isLoading: boolean;
+  workspaceMode?: SearchWorkspaceMode;
+  isScreeningCohort?: boolean;
+  onRunSampleNaturalQuery?: (sampleQuery: string) => void;
+  onForceWorkspaceMode?: (mode: SearchWorkspaceMode) => void;
 }
 
 /**
- * Renders the interactive company news search control bar.
+ * Renders the unified company & natural-language cohort search control bar.
  */
 export function NewsSearchControlBar({
   state,
   onChange,
   onSubmitSearch,
   isLoading,
+  workspaceMode = 'single',
+  isScreeningCohort = false,
+  onRunSampleNaturalQuery,
+  onForceWorkspaceMode,
 }: NewsSearchControlBarProps) {
+  const detectedIntent = detectSearchQueryIntent(state.entityValue);
+  const busy = isLoading || isScreeningCohort;
+
   /**
-   * Handles form submission to execute a fresh page-1 Context.dev search.
+   * Handles form submission to execute either a natural-language cohort screen
+   * or a fresh page-1 single-company search.
    */
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     logFunctionCall('NewsSearchControlBar.handleFormSubmit', {
       entityType: state.entityType,
       entityValue: state.entityValue,
+      detectedIntent,
       sortBy: state.sortBy,
       datePreset: state.datePreset,
     });
@@ -84,16 +102,32 @@ export function NewsSearchControlBar({
       onSubmit={handleFormSubmit}
       className="p-6 rounded-xl bg-[#0d1b33] border border-[#212c42] mb-6"
     >
-      {/* Top Row: Unified Ticker/Company Name Input, Sort Standard, Page Size, Submit */}
+      {/* Top Row: Unified Ticker / Company / Natural Query Input + Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-        {/* 1. Unified Company Name or US Stock Ticker Input */}
-        <div className="lg:col-span-7">
-          <label
-            htmlFor="company-entity-input"
-            className="block text-xs font-medium text-slate-300 mb-2"
-          >
-            Company Name or Stock Ticker (US Exchanges Supported)
-          </label>
+        {/* 1. Unified Company Name, Ticker, or Natural Screening Query Input */}
+        <div
+          className={
+            workspaceMode === 'cohort' || detectedIntent === 'cohort'
+              ? 'lg:col-span-9'
+              : 'lg:col-span-7'
+          }
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <label
+              htmlFor="company-entity-input"
+              className="block text-xs font-medium text-slate-300"
+            >
+              Company Name, Stock Ticker, or Natural Screening Query
+            </label>
+            <span className="text-[11px] text-slate-400 font-mono-tabular">
+              Auto-detect:{' '}
+              <span className="text-[#49afe9]">
+                {detectedIntent === 'cohort'
+                  ? 'Cohort Screen & Compare'
+                  : 'Single-Company Deep Dive'}
+              </span>
+            </span>
+          </div>
           <input
             id="company-entity-input"
             type="text"
@@ -104,80 +138,92 @@ export function NewsSearchControlBar({
                 entityType: 'auto',
               })
             }
-            placeholder="Enter ticker or company name (e.g. NVDA, Stripe, JPM, OpenAI, PLTR)..."
+            placeholder="Search ticker, company, or natural screen (e.g. AI chip companies with over 200 bn USD market cap)..."
             className="w-full px-3.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
           />
         </div>
 
-        {/* 3. Sorting Standard (newest vs relevance) */}
-        <div className="lg:col-span-2">
-          <label className="block text-xs font-medium text-slate-300 mb-2">
-            Sort Order
-          </label>
-          <div className="grid grid-cols-2 gap-1 p-1 bg-[#091326] rounded-lg border border-[#212c42]">
-            <button
-              type="button"
-              onClick={() => onChange({ sortBy: 'newest' })}
-              className={`py-2 px-2.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                state.sortBy === 'newest'
-                  ? 'bg-[#09a4ff] text-white'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Newest
-            </button>
-            <button
-              type="button"
-              onClick={() => onChange({ sortBy: 'relevance' })}
-              className={`py-2 px-2.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                state.sortBy === 'relevance'
-                  ? 'bg-[#09a4ff] text-white'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Relevance
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Page Limit & Search Action */}
-        <div className="lg:col-span-3 flex items-end gap-2">
-          <div className="w-24 shrink-0">
-            <label
-              htmlFor="page-limit-select"
-              className="block text-xs font-medium text-slate-300 mb-2"
-            >
-              Per Page
+        {/* 2. Sorting Standard & Per-Page Limit (shown in Single-Company mode) */}
+        {workspaceMode === 'single' && detectedIntent === 'single' && (
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-medium text-slate-300 mb-2">
+              Sort Order
             </label>
-            <select
-              id="page-limit-select"
-              value={state.limit}
-              onChange={(e) =>
-                onChange({ limit: parseInt(e.target.value, 10) || 4 })
-              }
-              className="w-full px-2.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
-            >
-              <option value={4}>4 rows</option>
-              <option value={8}>8 rows</option>
-              <option value={10}>10 rows</option>
-              <option value={15}>15 rows</option>
-            </select>
+            <div className="grid grid-cols-2 gap-1 p-1 bg-[#091326] rounded-lg border border-[#212c42]">
+              <button
+                type="button"
+                onClick={() => onChange({ sortBy: 'newest' })}
+                className={`py-2 px-2.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  state.sortBy === 'newest'
+                    ? 'bg-[#09a4ff] text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Newest
+              </button>
+              <button
+                type="button"
+                onClick={() => onChange({ sortBy: 'relevance' })}
+                className={`py-2 px-2.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  state.sortBy === 'relevance'
+                    ? 'bg-[#09a4ff] text-white'
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                Relevance
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* 3. Search / Screen Action */}
+        <div className="lg:col-span-3 flex items-end gap-2">
+          {workspaceMode === 'single' && detectedIntent === 'single' && (
+            <div className="w-24 shrink-0">
+              <label
+                htmlFor="page-limit-select"
+                className="block text-xs font-medium text-slate-300 mb-2"
+              >
+                Per Page
+              </label>
+              <select
+                id="page-limit-select"
+                value={state.limit}
+                onChange={(e) =>
+                  onChange({ limit: parseInt(e.target.value, 10) || 4 })
+                }
+                className="w-full px-2.5 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
+              >
+                <option value={4}>4 rows</option>
+                <option value={8}>8 rows</option>
+                <option value={10}>10 rows</option>
+                <option value={15}>15 rows</option>
+              </select>
+            </div>
+          )}
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={busy}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Search className="w-4 h-4" />
-            <span>{isLoading ? 'Searching...' : 'Search News'}</span>
+            <span>
+              {busy
+                ? detectedIntent === 'cohort'
+                  ? 'Screening...'
+                  : 'Searching...'
+                : detectedIntent === 'cohort'
+                  ? 'Screen & Compare'
+                  : 'Search Company'}
+            </span>
           </button>
 
           <button
             type="button"
-            title="Refresh latest news"
+            title="Refresh live data"
             onClick={() => onSubmitSearch(true)}
-            disabled={isLoading}
+            disabled={busy}
             className="p-2.5 text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors shrink-0 cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
@@ -185,13 +231,67 @@ export function NewsSearchControlBar({
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-[#212c42] my-4" />
+      {/* Natural-Language Screening Examples & Mode Escape Hatch Row */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-slate-400 mr-1">
+            Natural cohort screens:
+          </span>
+          {APP_CONFIG.cohortScreener.sampleQueries.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => {
+                logFunctionCall(
+                  'NewsSearchControlBar.handleSampleNaturalQuery',
+                  { query: item.query }
+                );
+                onRunSampleNaturalQuery?.(item.query);
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Bottom Row: Selectable Date Range (All Included + Presets + Custom Dates) & Optional Facet Filter */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-        {/* Selectable Date Range */}
-        <div className="lg:col-span-6">
+        {onForceWorkspaceMode && state.entityValue.trim().length > 0 && (
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span>
+              Active mode:{' '}
+              <span className="text-slate-200 font-medium">
+                {workspaceMode === 'cohort'
+                  ? 'Cohort Comparison'
+                  : 'Single Company'}
+              </span>
+            </span>
+            <span aria-hidden="true">·</span>
+            <button
+              type="button"
+              onClick={() =>
+                onForceWorkspaceMode(
+                  workspaceMode === 'cohort' ? 'single' : 'cohort'
+                )
+              }
+              className="text-[#49afe9] hover:text-white font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              {workspaceMode === 'cohort'
+                ? 'Switch to Single Company'
+                : 'Run as Cohort Screen'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {workspaceMode === 'single' && (
+        <>
+          {/* Divider */}
+          <div className="border-t border-[#212c42] my-4" />
+
+          {/* Bottom Row: Selectable Date Range (All Included + Presets + Custom Dates) & Optional Facet Filter */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+            {/* Selectable Date Range */}
+            <div className="lg:col-span-6">
           <label className="block text-xs font-medium text-slate-300 mb-2">
             Publication Date Range
           </label>
@@ -385,6 +485,8 @@ export function NewsSearchControlBar({
           )}
         </div>
       </div>
+        </>
+      )}
     </form>
   );
 }

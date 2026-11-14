@@ -1,8 +1,8 @@
-# OpticAlpha Investor Intelligence — Architecture & Design Document (`Design.md`)
+# Contextual Investing — Architecture & Design Document (`Design.md`)
 
 ## 1. Overview & Purpose
 
-**OpticAlpha Investor Intelligence** is a quantitative investor dashboard and AI financial research terminal built with Next.js 15 (App Router), TypeScript, the official **Context.dev SDK (`context.dev`)**, **Firebase Firestore** article & watchlist persistence, live **US Equity Market Charts & Key Investment Metrics**, and **Google Gemini (`@google/genai`)** market synthesis.
+**Contextual Investing** is a quantitative investor dashboard and AI financial research terminal built with Next.js 15 (App Router), TypeScript, the official **Context.dev SDK (`context.dev`)**, **Firebase Firestore** article & watchlist persistence, live **US Equity Market Charts & Key Investment Metrics**, and **Google Gemini (`@google/genai`)** market synthesis.
 
 ---
 
@@ -31,6 +31,11 @@
 - **Top-Match Resolution**: Resolves short stock tickers to company names before querying `/v1/company/search` and scores candidates (`stock_symbols`, exact company name, domain stem, and relevance rank) so only the single best-matching profile is displayed without cluttering the workspace.
 - **Progressive Disclosure UX**: Renders collapsed by default as a 1-line summary bar (`Company Name · Organization Type · HQ · Headcount · Est. Year · Stage / Revenue`) directly beneath the Company Research header, expanding on click into a 3-column firmographic, industry/revenue, and chronological funding dossier.
 
+### 2.3c Natural-Language Cohort Screening & Multi-Company Comparison (`lib/query-intent.ts`, `lib/cohort-screener-service.ts`, `app/api/screener/query/route.ts`, `app/api/screener/compare/route.ts`, `components/CohortComparisonWorkspace.tsx`)
+- **Search-Bar Intent Auto-Detection**: Automatically classifies inputs inside `NewsSearchControlBar` into direct single-company lookups (`NVDA`, `Stripe`) vs. natural-language screening queries (`"AI CHIP companies with over 200 bn USD market cap"`, `"Private frontier AI unicorns over $10B valuation"`), with clickable sample prompts and a 1-click mode override.
+- **Grounded Discovery + Live Threshold Gatekeeping**: Combines `gemini-4-hydrogen` Google Search grounding and Context.dev `POST /v1/company/search` across both public equities and private unicorns, then verifies every candidate's real-time Market Cap / Valuation via `getCompanyMarketOverview` against numeric bounds (`> $200B`) and pre-selects the top 3 verified matches (up to 4 selectable simultaneously, plus `+ Add to Compare` for custom peers).
+- **Normalized Multi-Stock `%` Price Chart Overlay & 4-Dimension Matrix**: Renders an interactive SVG `%` return chart (`1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y`) indexed to `0.00%` alongside a side-by-side comparison matrix covering Valuation & Market Action, Context.dev Company Profile & Operating Scale, Live News Sentiment & Top Catalyst Headline, Watchlist Follow/Unfollow, and 1-click Single-Company Deep Dive pivoting.
+
 ### 2.4 Related Companies Ecosystem Grouped by Relationship (`lib/related-companies-service.ts`, `app/api/ai/related/route.ts`, `components/RelatedCompaniesPanel.tsx`)
 - Suggests related companies for the currently searched company grouped into 4 relationship tabs: **Suppliers & Infra**, **Customers & Adopters**, **Peers & Competitors**, and **Strategic Partners**.
 - Supports multi-relationship membership (e.g., Microsoft or Amazon appearing as both a Customer and a Strategic Partner/Competitor) with cross-group badges and 1-click search pivoting.
@@ -49,6 +54,11 @@
 
 ### 2.8 Structured Telemetry Logging (`lib/logger.ts`)
 - Logs all function calls at `INFO` level with sanitized parameters (`logFunctionCall` / `logInfo`) and logs all `@google/genai` invocations with model, prompt, config, and output while stripping `inlineData` (`logGenAICall`).
+
+### 2.9 Contextual Research Assistant Drawer (`lib/research-chat-types.ts`, `lib/research-chat-service.ts`, `app/api/ai/chat/route.ts`, `components/ContextualResearchDrawer.tsx`)
+- **Collapsible Right-Side Research Drawer**: Opens as a `440px` right-side analyst drawer (reserving `xl:pr-[440px]` on wide viewports so charts, cohort tables, and news remain fully visible beside the chat) via the workspace **Ask Research Assistant** button, docked right-edge desktop handle, or `Cmd/Ctrl + K`.
+- **Automatic Live Workspace Context Injection**: Serializes the active view on every turn—either **Single-Company Deep Dive** (quote, multiples, 52W range, Context.dev firmographics, related ecosystem, AI bull/bear brief, and loaded news headlines) or **Cohort Comparison** (query, verified candidates, selected company dossiers, `%` chart returns, and top catalysts)—alongside the **Watchlist Pulse** summary and top conviction movers.
+- **Google Search Grounding & Clickable Citations**: Uses server-side `gemini-4-hydrogen` (`ThinkingLevel.LOW`, `tools: [{ googleSearch: {} }]`) to combine exact dashboard numbers with live web research, surfacing clickable publisher links for both referenced terminal news and Google Search `groundingChunks` in a continuous session with dynamic context-aware starter prompts and a 1-click **Clear Chat** reset.
 
 ---
 

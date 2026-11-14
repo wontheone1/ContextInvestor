@@ -16,18 +16,18 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Context Investor Intelligence',
+  title: 'Contextual Investing',
   description:
     'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
   openGraph: {
-    title: 'Context Investor Intelligence',
+    title: 'Contextual Investing',
     description:
       'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Context Investor Intelligence',
+    title: 'Contextual Investing',
     description:
       'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
   },

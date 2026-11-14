@@ -5,7 +5,7 @@
  *
  * Detailed Feature Overview:
  * Renders the primary landing intelligence experience at the very top of the
- * OpticAlpha dashboard. Before diving into a single company's deep-dive metrics,
+ * Contextual Investing dashboard. Before diving into a single company's deep-dive metrics,
  * investors immediately see:
  * 1. An executive cross-watchlist news synthesis covering all companies they
  *    are currently following (`NVDA`, `Stripe`, `AAPL`, `MSFT`, `PLTR`, `OpenAI`,

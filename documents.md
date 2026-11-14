@@ -1,6 +1,6 @@
 # Context.dev API Documentation Directory (`documents.md`)
 
-Curated reference of official **Context.dev** documentation URLs relevant to building and extending **Max Context Intelligence** (TypeScript / Next.js), distilled from [`https://docs.context.dev/introduction`](https://docs.context.dev/introduction) and [`https://docs.context.dev/llms.txt`](https://docs.context.dev/llms.txt).
+Curated reference of official **Context.dev** documentation URLs relevant to building and extending **Contextual Investing** (TypeScript / Next.js), distilled from [`https://docs.context.dev/introduction`](https://docs.context.dev/introduction) and [`https://docs.context.dev/llms.txt`](https://docs.context.dev/llms.txt).
 
 > **Tip for AI Agents & Scripts**: Append `.md` to any documentation URL (e.g., `https://docs.context.dev/answers/overview.md`) to fetch clean Markdown directly.
 > - **Full Index (`llms.txt`)**: https://docs.context.dev/llms.txt

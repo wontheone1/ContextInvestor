@@ -3,8 +3,8 @@
  * FILE: lib/config.ts
  * ============================================================================
  * FEATURE OVERVIEW:
- * Centralized Configuration & Constants Registry for the OpticAlpha Investor
- * Intelligence Terminal.
+ * Centralized Configuration & Constants Registry for the Contextual Investing
+ * Terminal.
  *
  * USE CASES:
  * 1. Centralizing AI model aliases (e.g., 'gemini-4-hydrogen' for market intelligence
@@ -34,7 +34,7 @@ export interface CompanyPreset {
 }
 
 export const APP_CONFIG = {
-  appName: 'OpticAlpha Terminal',
+  appName: 'Contextual Investing',
   appSubtitle: 'Quantitative News & AI Research Desk',
 
   /**
@@ -63,6 +63,40 @@ export const APP_CONFIG = {
     envKeyName: 'CONTEXT_DEV_API_KEY',
     dashboardKeysUrl: 'https://www.context.dev/dashboard/api-keys',
     usExchanges: ['NASDAQ', 'NYSE', 'AMEX', 'CBOE', 'OTC'] as const,
+  },
+
+  /**
+   * Natural-Language Cohort Screening & Multi-Company Comparison Configuration
+   */
+  cohortScreener: {
+    maxCandidates: 8,
+    defaultPreselectedCount: 3,
+    maxCompareColumns: 4,
+    seriesColors: ['#09a4ff', '#10B981', '#F59E0B', '#A78BFA'] as const,
+    sampleQueries: [
+      {
+        label: 'AI chip companies > $200B',
+        query: 'AI chip companies with over 200 bn USD market cap',
+      },
+      {
+        label: 'Cloud cybersecurity > $50B',
+        query: 'Cloud cybersecurity stocks with over $50B market cap',
+      },
+      {
+        label: 'Private AI unicorns > $10B',
+        query: 'Private frontier AI unicorns over $10B valuation',
+      },
+    ] as const,
+  },
+
+  /**
+   * Contextual Research Assistant Drawer Configuration
+   */
+  researchChat: {
+    maxHistoryMessages: 12,
+    maxContextArticles: 10,
+    maxCitations: 6,
+    drawerWidthPx: 440,
   },
 
   /**

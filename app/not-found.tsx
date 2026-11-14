@@ -3,13 +3,13 @@
  * FILE: app/not-found.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Custom 404 Not Found Page for Context Investor Intelligence.
+ * Custom 404 Not Found Page for Contextual Investing.
  *
  * USE CASES:
  * 1. Providing an explicit App Router `/_not-found` entry point so Next.js 15
  *    production builds (`next build`) reliably generate the `/_not-found` route
  *    even if `next dev` is running concurrently.
- * 2. Guiding users back to the main Context Investor Intelligence News Terminal
+ * 2. Guiding users back to the main Contextual Investing News Terminal
  *    when they navigate to a non-existent route.
  * ============================================================================
  */
@@ -30,7 +30,7 @@ export default function NotFoundPage() {
         Requested Terminal View Does Not Exist
       </h1>
       <p className="text-sm text-slate-300 max-w-md mb-6">
-        Return to the Context Investor Intelligence dashboard to search company
+        Return to the Contextual Investing dashboard to search company
         news and synthesize AI market briefings.
       </p>
       <Link

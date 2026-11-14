@@ -3,7 +3,7 @@
  * FILE: app/page.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Main OpticAlpha Quantitative Investor Dashboard & AI Research Terminal Page.
+ * Main Contextual Investing Quantitative Investor Dashboard & AI Research Terminal Page.
  *
  * USE CASES:
  * 1. Opening immediately with the **Watchlist News Summary & Top Conviction
@@ -26,8 +26,14 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Check, Plus } from 'lucide-react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
+import { Check, MessageSquare, Plus } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
 import type { EnrichedNewsArticle } from '@/lib/translation-service';
@@ -47,12 +53,30 @@ import { SdkCacheInspector } from '@/components/SdkCacheInspector';
 import { CompanyMarketOverview } from '@/components/CompanyMarketOverview';
 import { RelatedCompaniesPanel } from '@/components/RelatedCompaniesPanel';
 import { CollapsibleCompanyProfile } from '@/components/CollapsibleCompanyProfile';
+import { CohortComparisonWorkspace } from '@/components/CohortComparisonWorkspace';
+import { ContextualResearchDrawer } from '@/components/ContextualResearchDrawer';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
   PriceChartPoint,
 } from '@/lib/market-data-service';
+import {
+  detectSearchQueryIntent,
+  parseCompactUsdString,
+  type CohortCompareRequestItem,
+  type CohortCompareResponse,
+  type CohortScreenResponse,
+  type ComparedCompanyDossier,
+  type ScreenedCandidateItem,
+  type SearchWorkspaceMode,
+} from '@/lib/query-intent';
+import {
+  buildWorkspaceResearchContext,
+  type ResearchChatMessage,
+  type ResearchChatReplyPayload,
+  type ResearchChatTurnInput,
+} from '@/lib/research-chat-types';
 import type {
   RelatedCompaniesResponse,
   RelatedCompanyItem,
@@ -81,7 +105,7 @@ import type { AIMarketBriefResponse } from '@/lib/gemini-service';
 import { APP_CONFIG, type CompanyPreset } from '@/lib/config';
 import { logFunctionCall } from '@/lib/logger';
 
-const FOLLOWED_STORAGE_KEY = 'opticalpha_followed_companies_v1';
+const FOLLOWED_STORAGE_KEY = 'contextual_investing_followed_companies_v1';
 
 /**
  * Infers whether a user-entered string is a US ticker symbol or company name
@@ -253,6 +277,41 @@ export default function InvestorDashboardPage() {
     new Map()
   );
   const profileReqSeqRef = useRef<number>(0);
+
+  // Natural-Language Cohort Screening & Multi-Company Comparison State
+  const [workspaceMode, setWorkspaceMode] =
+    useState<SearchWorkspaceMode>('single');
+  const [activeCohortQuery, setActiveCohortQuery] = useState<string>('');
+  const [cohortScreen, setCohortScreen] =
+    useState<CohortScreenResponse | null>(null);
+  const [isScreeningCohort, setIsScreeningCohort] = useState<boolean>(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
+  const [selectedCohortIds, setSelectedCohortIds] = useState<string[]>([]);
+  const [cohortRange, setCohortRange] = useState<ChartRange>('1M');
+  const [cohortDossiersById, setCohortDossiersById] = useState<
+    Record<string, ComparedCompanyDossier>
+  >({});
+  const [comparativeSummary, setComparativeSummary] = useState<string | null>(
+    null
+  );
+  const [isHydratingComparison, setIsHydratingComparison] =
+    useState<boolean>(false);
+  const [isAddingCustomCompare, setIsAddingCustomCompare] =
+    useState<boolean>(false);
+  const [customCompareError, setCustomCompareError] = useState<string | null>(
+    null
+  );
+  const cohortScreenSeqRef = useRef<number>(0);
+  const cohortCompareSeqRef = useRef<number>(0);
+
+  // Contextual Research Assistant Drawer State (Continuous Session)
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [chatMessages, setChatMessages] = useState<ResearchChatMessage[]>([]);
+  const [isSendingChat, setIsSendingChat] = useState<boolean>(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [lastFailedChatQuestion, setLastFailedChatQuestion] = useState<
+    string | null
+  >(null);
 
   // Firebase Auth & Saved Watchlist State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1011,8 +1070,354 @@ export default function InvestorDashboardPage() {
   }, []);
 
   /**
+   * Hydrates side-by-side dossiers (market series, Context.dev profile, news pulse,
+   * and executive AI comparative takeaway) for the selected cohort companies.
+   */
+  const hydrateSelectedCohort = useCallback(
+    async (
+      candidatesList: ScreenedCandidateItem[],
+      targetSelectedIds: string[],
+      range: ChartRange,
+      theme: string,
+      chartOnly = false
+    ) => {
+      const byId = new Map<string, ScreenedCandidateItem>();
+      for (const c of candidatesList) {
+        byId.set(c.id, c);
+      }
+
+      const items: CohortCompareRequestItem[] = targetSelectedIds
+        .map((id) => byId.get(id))
+        .filter((c): c is ScreenedCandidateItem => Boolean(c))
+        .slice(0, APP_CONFIG.cohortScreener.maxCompareColumns)
+        .map((c) => ({
+          id: c.id,
+          searchQuery: c.searchQuery,
+          name: c.name,
+          entityType: c.entityType,
+          kind: c.kind,
+        }));
+
+      if (items.length === 0) {
+        if (!chartOnly) {
+          setComparativeSummary(null);
+        }
+        return;
+      }
+
+      const seq = ++cohortCompareSeqRef.current;
+      setIsHydratingComparison(true);
+
+      try {
+        const res = await fetch('/api/screener/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items,
+            range,
+            theme,
+            chartOnly,
+          }),
+        });
+        const json = await res.json();
+        if (seq !== cohortCompareSeqRef.current) return;
+        if (!res.ok || !json.ok || !json.comparison) {
+          throw new Error(
+            json.error || 'Failed to hydrate side-by-side company comparison.'
+          );
+        }
+
+        const comparison = json.comparison as CohortCompareResponse;
+        setCohortDossiersById((prev) => {
+          const next = { ...prev };
+          for (const [id, dossier] of Object.entries(
+            comparison.dossiersById || {}
+          )) {
+            const existing = prev[id];
+            next[id] = chartOnly
+              ? {
+                  id,
+                  market: dossier.market ?? existing?.market ?? null,
+                  profile: existing?.profile ?? null,
+                  newsPulse: existing?.newsPulse ?? null,
+                }
+              : {
+                  id,
+                  market: dossier.market ?? existing?.market ?? null,
+                  profile: dossier.profile ?? existing?.profile ?? null,
+                  newsPulse: dossier.newsPulse ?? existing?.newsPulse ?? null,
+                };
+          }
+          return next;
+        });
+
+        if (!chartOnly) {
+          setComparativeSummary(comparison.comparativeSummary ?? null);
+        }
+      } catch (err) {
+        console.warn('Cohort comparison hydration warning:', err);
+      } finally {
+        if (seq === cohortCompareSeqRef.current) {
+          setIsHydratingComparison(false);
+        }
+      }
+    },
+    []
+  );
+
+  /**
+   * Executes a natural-language cohort screen (`POST /api/screener/query`),
+   * pre-selects the top 3 verified matches, seeds initial market data immediately,
+   * and triggers full comparison dossier hydration.
+   */
+  const runCohortScreen = useCallback(
+    async (rawQuery: string, forceRefresh = false) => {
+      const trimmed = rawQuery.trim();
+      if (!trimmed) return;
+
+      logFunctionCall('InvestorDashboardPage.runCohortScreen', {
+        query: trimmed,
+        forceRefresh,
+      });
+
+      const seq = ++cohortScreenSeqRef.current;
+      setWorkspaceMode('cohort');
+      setActiveCohortQuery(trimmed);
+      setIsScreeningCohort(true);
+      setCohortError(null);
+      setCustomCompareError(null);
+      if (forceRefresh) {
+        setComparativeSummary(null);
+      }
+
+      try {
+        const res = await fetch('/api/screener/query', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: trimmed,
+            range: cohortRange,
+            forceRefresh,
+          }),
+        });
+        const json = await res.json();
+        if (seq !== cohortScreenSeqRef.current) return;
+        if (!res.ok || !json.ok || !json.result) {
+          throw new Error(
+            json.error || 'Failed to screen matching companies.'
+          );
+        }
+
+        const result = json.result as CohortScreenResponse;
+        setCohortScreen(result);
+        setSelectedCohortIds(result.preselectedIds);
+
+        // Immediately seed initial market & chart series so chart + multiples render right away
+        const seededDossiers: Record<string, ComparedCompanyDossier> = {};
+        for (const [id, mkt] of Object.entries(
+          result.initialMarketById || {}
+        )) {
+          seededDossiers[id] = {
+            id,
+            market: mkt,
+            profile: null,
+            newsPulse: null,
+          };
+        }
+        setCohortDossiersById(seededDossiers);
+        setComparativeSummary(null);
+
+        void hydrateSelectedCohort(
+          result.candidates,
+          result.preselectedIds,
+          cohortRange,
+          result.interpretedTheme,
+          false
+        );
+      } catch (err) {
+        if (seq !== cohortScreenSeqRef.current) return;
+        setCohortError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to complete natural-language cohort screen.'
+        );
+      } finally {
+        if (seq === cohortScreenSeqRef.current) {
+          setIsScreeningCohort(false);
+        }
+      }
+    },
+    [cohortRange, hydrateSelectedCohort]
+  );
+
+  /**
+   * Toggles a candidate checkbox in the Cohort Comparison Workspace (up to 4 max).
+   */
+  const handleToggleCohortCandidate = (id: string) => {
+    if (!cohortScreen) return;
+    const isAlreadySelected = selectedCohortIds.includes(id);
+    let nextSelected: string[];
+
+    if (isAlreadySelected) {
+      nextSelected = selectedCohortIds.filter((x) => x !== id);
+    } else {
+      if (
+        selectedCohortIds.length >=
+        APP_CONFIG.cohortScreener.maxCompareColumns
+      ) {
+        return;
+      }
+      nextSelected = [...selectedCohortIds, id];
+    }
+
+    setSelectedCohortIds(nextSelected);
+    void hydrateSelectedCohort(
+      cohortScreen.candidates,
+      nextSelected,
+      cohortRange,
+      cohortScreen.interpretedTheme,
+      false
+    );
+  };
+
+  /**
+   * Switches timeframe (`1D`..`5Y`) on the Normalized Multi-Stock `%` Price Chart Overlay.
+   */
+  const handleCohortRangeChange = (nextRange: ChartRange) => {
+    setCohortRange(nextRange);
+    if (!cohortScreen || selectedCohortIds.length === 0) return;
+    void hydrateSelectedCohort(
+      cohortScreen.candidates,
+      selectedCohortIds,
+      nextRange,
+      cohortScreen.interpretedTheme,
+      true
+    );
+  };
+
+  /**
+   * Appends any custom public ticker or private unicorn into the active Cohort Comparison.
+   */
+  const handleAddCustomCompareCompany = async (rawInput: string) => {
+    const trimmed = rawInput.trim();
+    if (!trimmed || !cohortScreen) return;
+
+    setIsAddingCustomCompare(true);
+    setCustomCompareError(null);
+
+    try {
+      const params = new URLSearchParams({
+        query: trimmed,
+        entityType: 'auto',
+        range: cohortRange,
+      });
+      const res = await fetch(`/api/market/overview?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json.ok || !json.overview) {
+        throw new Error(
+          json.error || `Could not resolve "${trimmed}" for comparison.`
+        );
+      }
+
+      const overview = json.overview as CompanyMarketOverviewData;
+      const ticker = overview.kind === 'public' ? overview.symbol : null;
+      const name = overview.companyName || trimmed;
+      const id =
+        overview.kind === 'public' && ticker
+          ? `ticker:${ticker.toLowerCase()}`
+          : `name:${name.toLowerCase()}`;
+
+      const valDisplay =
+        overview.kind === 'public'
+          ? overview.metrics.marketCap
+          : overview.latestValuation || overview.totalFunding;
+      const valUsd = parseCompactUsdString(valDisplay);
+
+      let passesThreshold = true;
+      if (cohortScreen.minThresholdUsd !== null) {
+        passesThreshold =
+          valUsd !== null ? valUsd >= cohortScreen.minThresholdUsd : false;
+      }
+      if (passesThreshold && cohortScreen.maxThresholdUsd !== null) {
+        passesThreshold =
+          valUsd !== null ? valUsd <= cohortScreen.maxThresholdUsd : false;
+      }
+
+      const newCandidate: ScreenedCandidateItem = {
+        id,
+        name,
+        ticker,
+        searchQuery: ticker || name,
+        entityType: ticker ? 'ticker' : 'name',
+        kind: overview.kind,
+        sector: overview.sector,
+        valuationUsd: valUsd,
+        valuationDisplay: valDisplay || 'Unlisted',
+        passesThreshold,
+        matchReason: 'Custom peer added for side-by-side comparison.',
+      };
+
+      const existsInCandidates = cohortScreen.candidates.some(
+        (c) => c.id === id
+      );
+      const updatedCandidates = existsInCandidates
+        ? cohortScreen.candidates
+        : [...cohortScreen.candidates, newCandidate];
+
+      const maxCols = APP_CONFIG.cohortScreener.maxCompareColumns;
+      let nextSelected = selectedCohortIds.includes(id)
+        ? selectedCohortIds
+        : [...selectedCohortIds, id];
+
+      if (nextSelected.length > maxCols) {
+        nextSelected = [
+          ...selectedCohortIds.slice(0, maxCols - 1),
+          id,
+        ];
+      }
+
+      const updatedScreen: CohortScreenResponse = {
+        ...cohortScreen,
+        candidates: updatedCandidates,
+        initialMarketById: {
+          ...cohortScreen.initialMarketById,
+          [id]: overview,
+        },
+      };
+
+      setCohortScreen(updatedScreen);
+      setSelectedCohortIds(nextSelected);
+      setCohortDossiersById((prev) => ({
+        ...prev,
+        [id]: {
+          id,
+          market: overview,
+          profile: prev[id]?.profile ?? null,
+          newsPulse: prev[id]?.newsPulse ?? null,
+        },
+      }));
+
+      void hydrateSelectedCohort(
+        updatedCandidates,
+        nextSelected,
+        cohortRange,
+        updatedScreen.interpretedTheme,
+        false
+      );
+    } catch (err) {
+      setCustomCompareError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to add company to comparison.'
+      );
+    } finally {
+      setIsAddingCustomCompare(false);
+    }
+  };
+
+  /**
    * Updates search controls and immediately triggers a fresh Page 1 lookup
-   * when key parameters (`entityType`, `sortBy`, `datePreset`, `limit`, `filterCategory`) change.
+   * when key single-company parameters (`sortBy`, `datePreset`, `limit`, `filterCategory`) change.
    */
   const handleUpdateSearchControls = (
     updated: Partial<NewsSearchControlState>
@@ -1030,9 +1435,11 @@ export default function InvestorDashboardPage() {
       'selectedCountry',
     ];
 
-    const shouldAutoSearch = Object.keys(updated).some((k) =>
-      immediateTriggerKeys.includes(k as keyof NewsSearchControlState)
-    );
+    const shouldAutoSearch =
+      workspaceMode === 'single' &&
+      Object.keys(updated).some((k) =>
+        immediateTriggerKeys.includes(k as keyof NewsSearchControlState)
+      );
 
     if (shouldAutoSearch) {
       setCursorStack([null]);
@@ -1044,37 +1451,97 @@ export default function InvestorDashboardPage() {
   };
 
   /**
-   * Resets cursor stack to page 1 and runs the search.
+   * Executes a single-company deep dive for a given search state snapshot.
    */
-  const handleRunSearch = (forceRefresh = false) => {
+  const runSingleCompanySearch = (
+    targetState: NewsSearchControlState,
+    forceRefresh = false
+  ) => {
+    setWorkspaceMode('single');
     setCursorStack([null]);
     setCurrentPageIndex(0);
     setResolvedExchange(null);
     setAiBrief(null);
     setSentimentFilter('all');
-    executeSearchForCursor(searchState, null, 0, forceRefresh, null, null);
+    executeSearchForCursor(targetState, null, 0, forceRefresh, null, null);
     void fetchMarketOverview(
-      searchState.entityValue,
-      searchState.entityType,
+      targetState.entityValue,
+      targetState.entityType,
       chartRange
     );
     void fetchCompanyProfile(
-      searchState.entityValue,
-      searchState.entityType,
+      targetState.entityValue,
+      targetState.entityType,
       undefined,
       forceRefresh
     );
-    void fetchRelatedCompanies(searchState.entityValue, forceRefresh);
+    void fetchRelatedCompanies(targetState.entityValue, forceRefresh);
+  };
+
+  /**
+   * Auto-detects whether the user entered a natural-language screening query
+   * vs. a single company/ticker and routes accordingly.
+   */
+  const handleRunSearch = (forceRefresh = false) => {
+    const intent = detectSearchQueryIntent(searchState.entityValue);
+    if (intent === 'cohort') {
+      void runCohortScreen(searchState.entityValue, forceRefresh);
+      return;
+    }
+    runSingleCompanySearch(searchState, forceRefresh);
+  };
+
+  /**
+   * Runs one of the clickable sample natural-language cohort screening queries.
+   */
+  const handleRunSampleNaturalQuery = (sampleQuery: string) => {
+    setSearchState((prev) => ({
+      ...prev,
+      entityType: 'auto',
+      entityValue: sampleQuery,
+    }));
+    void runCohortScreen(sampleQuery, false);
+    const researchEl = document.getElementById('company-research');
+    if (researchEl) {
+      researchEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  /**
+   * Explicit user override to switch between Single-Company and Cohort Comparison modes.
+   */
+  const handleForceWorkspaceMode = (nextMode: SearchWorkspaceMode) => {
+    const trimmed = searchState.entityValue.trim();
+    if (!trimmed) {
+      setWorkspaceMode(nextMode);
+      return;
+    }
+    if (nextMode === 'cohort') {
+      void runCohortScreen(trimmed, false);
+    } else {
+      const fallbackTarget =
+        detectSearchQueryIntent(trimmed) === 'cohort' &&
+        cohortScreen?.candidates[0]
+          ? {
+              ...searchState,
+              entityType: cohortScreen.candidates[0].entityType,
+              entityValue: cohortScreen.candidates[0].searchQuery,
+            }
+          : searchState;
+      setSearchState(fallbackTarget);
+      runSingleCompanySearch(fallbackTarget, false);
+    }
   };
 
   /**
    * Pivots the deep-dive company research view when a user clicks a company
-   * inside the Watchlist Landing Brief or Watchlist Carousel.
+   * inside the Watchlist Landing Brief, Watchlist Carousel, or Cohort Comparison Matrix.
    */
   const handleSelectCompanyFromBrief = (
     companyValue: string,
     entityType: 'name' | 'ticker'
   ) => {
+    setWorkspaceMode('single');
     const nextState: NewsSearchControlState = {
       ...searchState,
       entityType,
@@ -1111,6 +1578,7 @@ export default function InvestorDashboardPage() {
    * pivoting search coverage across news, price chart, AI brief, and ecosystem.
    */
   const handleSelectRelatedCompany = (company: RelatedCompanyItem) => {
+    setWorkspaceMode('single');
     const nextState: NewsSearchControlState = {
       ...searchState,
       entityType: company.entityType,
@@ -1278,7 +1746,167 @@ export default function InvestorDashboardPage() {
     }
   };
 
+  // Bind Cmd/Ctrl + K keyboard shortcut to toggle the Research Assistant Drawer
+  useEffect(() => {
+    const handleGlobalShortcut = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsChatOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalShortcut);
+  }, []);
+
+  // Build fresh live workspace context snapshot for the Research Assistant Drawer
+  const activeResearchContext = useMemo(
+    () =>
+      buildWorkspaceResearchContext({
+        workspaceMode,
+        searchedQuery: searchState.entityValue,
+        marketData,
+        chartRange,
+        companyProfile,
+        aiBrief,
+        relatedData,
+        articles,
+        cohortQuery: activeCohortQuery || searchState.entityValue,
+        cohortScreen,
+        selectedCohortIds,
+        cohortDossiersById,
+        cohortRange,
+        comparativeSummary,
+        followedCompanies,
+        watchlistDigest,
+      }),
+    [
+      workspaceMode,
+      searchState.entityValue,
+      marketData,
+      chartRange,
+      companyProfile,
+      aiBrief,
+      relatedData,
+      articles,
+      activeCohortQuery,
+      cohortScreen,
+      selectedCohortIds,
+      cohortDossiersById,
+      cohortRange,
+      comparativeSummary,
+      followedCompanies,
+      watchlistDigest,
+    ]
+  );
+
+  /**
+   * Sends a question to `POST /api/ai/chat` along with the active workspace
+   * context snapshot and bounded multi-turn conversation history.
+   */
+  const handleSendResearchChatMessage = async (
+    question: string,
+    isRetry = false
+  ) => {
+    const trimmed = question.trim();
+    if (!trimmed || isSendingChat) return;
+
+    logFunctionCall('InvestorDashboardPage.handleSendResearchChatMessage', {
+      workspaceMode,
+      contextShortLabel: activeResearchContext.contextShortLabel,
+      isRetry,
+    });
+
+    const userMsg: ResearchChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: trimmed,
+      contextLabel: activeResearchContext.contextShortLabel,
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextMessages = isRetry ? chatMessages : [...chatMessages, userMsg];
+    if (!isRetry) {
+      setChatMessages(nextMessages);
+    }
+
+    setIsSendingChat(true);
+    setChatError(null);
+
+    const historyTurns: ResearchChatTurnInput[] = nextMessages
+      .slice(-APP_CONFIG.researchChat.maxHistoryMessages)
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: historyTurns,
+          context: activeResearchContext,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok || !json.reply) {
+        throw new Error(
+          json.error || 'Failed to generate Research Assistant response.'
+        );
+      }
+
+      const reply = json.reply as ResearchChatReplyPayload;
+      const assistantMsg: ResearchChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: reply.content,
+        contextLabel: activeResearchContext.contextShortLabel,
+        citations: reply.citations,
+        createdAt: reply.generatedAt || new Date().toISOString(),
+      };
+
+      setChatMessages((prev) => [...prev, assistantMsg]);
+      setLastFailedChatQuestion(null);
+    } catch (err) {
+      setLastFailedChatQuestion(trimmed);
+      setChatError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to reach Research Assistant. Please retry.'
+      );
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+  /**
+   * Retries the most recent failed Research Assistant question without duplicating the user turn.
+   */
+  const handleRetryLastChatQuestion = async () => {
+    const fallbackLastUser =
+      lastFailedChatQuestion ||
+      [...chatMessages].reverse().find((m) => m.role === 'user')?.content ||
+      null;
+    if (!fallbackLastUser) return;
+    await handleSendResearchChatMessage(fallbackLastUser, true);
+  };
+
+  /**
+   * Clears the continuous Research Assistant conversation thread.
+   */
+  const handleClearResearchChat = () => {
+    setChatMessages([]);
+    setChatError(null);
+    setLastFailedChatQuestion(null);
+  };
+
   const savedArticleIds = new Set(savedArticles.map((s) => s.articleId));
+  const followedValuesLower = new Set<string>(
+    followedCompanies.flatMap((c) => [
+      c.value.trim().toLowerCase(),
+      c.label.trim().toLowerCase(),
+    ])
+  );
   const isCurrentCompanyFollowed = followedCompanies.some(
     (c) =>
       c.value.toLowerCase() === searchState.entityValue.trim().toLowerCase() ||
@@ -1286,7 +1914,11 @@ export default function InvestorDashboardPage() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#091326] text-white">
+    <div
+      className={`min-h-screen flex flex-col bg-[#091326] text-white ${
+        isChatOpen ? 'xl:pr-[440px]' : ''
+      }`}
+    >
       {/* 3-Zone Top Bar */}
       <TopNavbar
         activeSection={activeSection}
@@ -1300,7 +1932,7 @@ export default function InvestorDashboardPage() {
         {/* Followed Companies Watchlist Strip with Follow / Unfollow Controls */}
         <WatchlistCarousel
           companies={followedCompanies}
-          activeValue={searchState.entityValue}
+          activeValue={workspaceMode === 'single' ? searchState.entityValue : ''}
           activeEntityType={searchState.entityType}
           onSelectPreset={handleSelectPreset}
           onAddCompany={(rawInput) => void handleAddFollowedCompany(rawInput)}
@@ -1321,153 +1953,249 @@ export default function InvestorDashboardPage() {
           savedArticleIds={savedArticleIds}
         />
 
-        {/* Deep-Dive Company Research Section Divider */}
+        {/* Research & Screening Section Divider */}
         <div
           id="company-research"
           className="mb-6 pt-4 flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-[#212c42]"
         >
           <div>
             <p className="text-xs font-medium text-[#49afe9] mb-1">
-              Single-Company Deep Dive · Price Chart &amp; Metrics · Supply Chain &amp; Peer Ecosystem
+              {workspaceMode === 'cohort'
+                ? 'Natural-Language Cohort Screening · Normalized % Chart · Side-by-Side Comparison'
+                : 'Single-Company Deep Dive · Price Chart & Metrics · Supply Chain & Peer Ecosystem'}
             </p>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-balance">
-              Company Research Terminal:{' '}
-              <span className="text-[#49afe9]">{searchState.entityValue}</span>
+              {workspaceMode === 'cohort' ? (
+                <>
+                  Cohort Comparison Desk:{' '}
+                  <span className="text-[#49afe9]">
+                    {activeCohortQuery || searchState.entityValue}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Company Research Terminal:{' '}
+                  <span className="text-[#49afe9]">
+                    {searchState.entityValue}
+                  </span>
+                </>
+              )}
             </h2>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {workspaceMode === 'single' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCurrentCompanyFollowed) {
+                      void handleRemoveFollowedCompany(
+                        searchState.entityValue.trim()
+                      );
+                    } else {
+                      const label =
+                        marketData?.companyName ||
+                        searchState.entityValue.trim();
+                      const sector = marketData?.sector || undefined;
+                      void handleAddFollowedCompany(
+                        searchState.entityValue.trim(),
+                        label,
+                        sector
+                      );
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    isCurrentCompanyFollowed
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                      : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c]'
+                  }`}
+                >
+                  {isCurrentCompanyFollowed ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      Following in Watchlist
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      Follow {searchState.entityValue} in Watchlist
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center gap-3 text-xs text-slate-300 font-mono-tabular">
+                  <span>Coverage: {searchState.entityValue}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    Sort:{' '}
+                    {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
+                  </span>
+                </div>
+              </>
+            )}
+
             <button
               type="button"
               onClick={() => {
-                if (isCurrentCompanyFollowed) {
-                  void handleRemoveFollowedCompany(
-                    searchState.entityValue.trim()
-                  );
-                } else {
-                  const label =
-                    marketData?.companyName || searchState.entityValue.trim();
-                  const sector = marketData?.sector || undefined;
-                  void handleAddFollowedCompany(
-                    searchState.entityValue.trim(),
-                    label,
-                    sector
-                  );
-                }
+                logFunctionCall('InvestorDashboardPage.toggleResearchChat', {
+                  nextOpen: !isChatOpen,
+                });
+                setIsChatOpen((prev) => !prev);
               }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                isCurrentCompanyFollowed
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
-                  : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c]'
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                isChatOpen
+                  ? 'bg-[#09a4ff] text-white border-[#09a4ff]'
+                  : 'bg-[#0d1b33] text-white border-[#09a4ff]/50 hover:bg-[#102344]'
               }`}
             >
-              {isCurrentCompanyFollowed ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  Following in Watchlist
-                </>
-              ) : (
-                <>
-                  <Plus className="w-3.5 h-3.5" />
-                  Follow {searchState.entityValue} in Watchlist
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center gap-3 text-xs text-slate-300 font-mono-tabular">
-              <span>Coverage: {searchState.entityValue}</span>
-              <span aria-hidden="true">·</span>
+              <MessageSquare className="w-3.5 h-3.5" />
               <span>
-                Sort: {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
+                {isChatOpen
+                  ? 'Hide Research Assistant'
+                  : chatMessages.length > 0
+                    ? `Ask Research Assistant (${Math.ceil(chatMessages.length / 2)})`
+                    : 'Ask Research Assistant'}
               </span>
-            </div>
+            </button>
           </div>
         </div>
 
-        {/* Collapsible Company Profile Bar (Context.dev /v1/company/search) */}
-        <CollapsibleCompanyProfile
-          searchedQuery={searchState.entityValue}
-          profile={companyProfile}
-          isLoading={isLoadingProfile}
-          error={profileError}
-          onRetry={() =>
-            void fetchCompanyProfile(
-              searchState.entityValue,
-              searchState.entityType,
-              marketData?.companyName,
-              true
-            )
-          }
-        />
+        {/* Collapsible Company Profile Bar (shown in Single-Company mode) */}
+        {workspaceMode === 'single' && (
+          <CollapsibleCompanyProfile
+            searchedQuery={searchState.entityValue}
+            profile={companyProfile}
+            isLoading={isLoadingProfile}
+            error={profileError}
+            onRetry={() =>
+              void fetchCompanyProfile(
+                searchState.entityValue,
+                searchState.entityType,
+                marketData?.companyName,
+                true
+              )
+            }
+          />
+        )}
 
-        {/* Search & Filter Control Bar */}
+        {/* Unified Company & Natural-Language Screening Search Bar */}
         <NewsSearchControlBar
           state={searchState}
           onChange={handleUpdateSearchControls}
           onSubmitSearch={handleRunSearch}
           isLoading={isLoadingNews}
+          workspaceMode={workspaceMode}
+          isScreeningCohort={isScreeningCohort}
+          onRunSampleNaturalQuery={handleRunSampleNaturalQuery}
+          onForceWorkspaceMode={handleForceWorkspaceMode}
         />
 
-        {/* Related Companies Ecosystem Grouped by Relationship */}
-        <RelatedCompaniesPanel
-          searchedQuery={searchState.entityValue}
-          data={relatedData}
-          isLoading={isLoadingRelated}
-          error={relatedError}
-          onSelectCompany={handleSelectRelatedCompany}
-          onRefresh={() =>
-            void fetchRelatedCompanies(searchState.entityValue, true)
-          }
-        />
-
-        {/* Searched Company Price Chart & Key Investment Metrics */}
-        <CompanyMarketOverview
-          data={marketData}
-          isLoading={isLoadingMarket}
-          isLoadingChart={isLoadingChart}
-          error={marketError}
-          activeRange={chartRange}
-          onRangeChange={handleChartRangeChange}
-          onRetry={() =>
-            void fetchMarketOverview(
-              searchState.entityValue,
-              searchState.entityType,
-              chartRange
-            )
-          }
-          searchedQuery={searchState.entityValue}
-        />
-
-        {/* Side-by-Side Catalysts vs. Risks & Overall AI Assessment */}
-        <AIMarketBriefPanel
-          companyLabel={searchState.entityValue}
-          brief={aiBrief}
-          isLoading={isGeneratingBrief}
-          error={briefError}
-          onGenerate={handleGenerateAIBrief}
-        />
-
-        {/* Full-Width Paginated News Feed Table */}
-        <div id="terminal">
-          <NewsFeedTable
-            articles={articles}
-            isLoading={isLoadingNews}
-            currentPageIndex={currentPageIndex}
-            hasPreviousPage={currentPageIndex > 0}
-            hasNextPage={hasMore && Boolean(nextCursor)}
-            onPreviousPage={handlePreviousPage}
-            onNextPage={handleNextPage}
-            onBookmarkArticle={handleBookmarkArticle}
-            savedArticleIds={savedArticleIds}
-            onGenerateAIBrief={handleGenerateAIBrief}
-            isGeneratingBrief={isGeneratingBrief}
-            companyLabel={searchState.entityValue}
-            sentimentFilter={sentimentFilter}
-            onSentimentFilterChange={setSentimentFilter}
-            isAnalyzingSentiment={isAnalyzingSentiment}
-            sentimentError={sentimentError}
+        {workspaceMode === 'cohort' ? (
+          <CohortComparisonWorkspace
+            query={activeCohortQuery || searchState.entityValue}
+            screenResult={cohortScreen}
+            isScreening={isScreeningCohort}
+            screenError={cohortError}
+            selectedIds={selectedCohortIds}
+            onToggleCandidate={handleToggleCohortCandidate}
+            onAddCustomCompany={handleAddCustomCompareCompany}
+            isAddingCustom={isAddingCustomCompare}
+            customAddError={customCompareError}
+            dossiersById={cohortDossiersById}
+            comparativeSummary={comparativeSummary}
+            isHydratingComparison={isHydratingComparison}
+            activeRange={cohortRange}
+            onRangeChange={handleCohortRangeChange}
+            onRefreshScreen={() =>
+              void runCohortScreen(
+                activeCohortQuery || searchState.entityValue,
+                true
+              )
+            }
+            onSwitchToSingleMode={() => handleForceWorkspaceMode('single')}
+            onOpenDeepDive={handleSelectCompanyFromBrief}
+            followedValuesLower={followedValuesLower}
+            onToggleFollowCompany={(value, label, sector) => {
+              const isFollowed =
+                followedValuesLower.has(value.trim().toLowerCase()) ||
+                followedValuesLower.has(label.trim().toLowerCase());
+              if (isFollowed) {
+                void handleRemoveFollowedCompany(value.trim());
+              } else {
+                void handleAddFollowedCompany(
+                  value.trim(),
+                  label,
+                  sector || undefined
+                );
+              }
+            }}
+            onRunSampleQuery={handleRunSampleNaturalQuery}
           />
-        </div>
+        ) : (
+          <>
+            {/* Related Companies Ecosystem Grouped by Relationship */}
+            <RelatedCompaniesPanel
+              searchedQuery={searchState.entityValue}
+              data={relatedData}
+              isLoading={isLoadingRelated}
+              error={relatedError}
+              onSelectCompany={handleSelectRelatedCompany}
+              onRefresh={() =>
+                void fetchRelatedCompanies(searchState.entityValue, true)
+              }
+            />
+
+            {/* Searched Company Price Chart & Key Investment Metrics */}
+            <CompanyMarketOverview
+              data={marketData}
+              isLoading={isLoadingMarket}
+              isLoadingChart={isLoadingChart}
+              error={marketError}
+              activeRange={chartRange}
+              onRangeChange={handleChartRangeChange}
+              onRetry={() =>
+                void fetchMarketOverview(
+                  searchState.entityValue,
+                  searchState.entityType,
+                  chartRange
+                )
+              }
+              searchedQuery={searchState.entityValue}
+            />
+
+            {/* Side-by-Side Catalysts vs. Risks & Overall AI Assessment */}
+            <AIMarketBriefPanel
+              companyLabel={searchState.entityValue}
+              brief={aiBrief}
+              isLoading={isGeneratingBrief}
+              error={briefError}
+              onGenerate={handleGenerateAIBrief}
+            />
+
+            {/* Full-Width Paginated News Feed Table */}
+            <div id="terminal">
+              <NewsFeedTable
+                articles={articles}
+                isLoading={isLoadingNews}
+                currentPageIndex={currentPageIndex}
+                hasPreviousPage={currentPageIndex > 0}
+                hasNextPage={hasMore && Boolean(nextCursor)}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
+                onBookmarkArticle={handleBookmarkArticle}
+                savedArticleIds={savedArticleIds}
+                onGenerateAIBrief={handleGenerateAIBrief}
+                isGeneratingBrief={isGeneratingBrief}
+                companyLabel={searchState.entityValue}
+                sentimentFilter={sentimentFilter}
+                onSentimentFilterChange={setSentimentFilter}
+                isAnalyzingSentiment={isAnalyzingSentiment}
+                sentimentError={sentimentError}
+              />
+            </div>
+          </>
+        )}
 
         {/* Bottom Section: Saved Articles Watchlist */}
         <SdkCacheInspector
@@ -1481,10 +2209,24 @@ export default function InvestorDashboardPage() {
       {/* Quiet Institutional Footer */}
       <footer className="border-t border-[#212c42] py-6 px-6 mt-12">
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-          <span>OpticAlpha Investor Intelligence</span>
+          <span>Contextual Investing</span>
           <span>US Equities &amp; Private Company News Terminal</span>
         </div>
       </footer>
+
+      {/* Collapsible Right-Side Contextual Research Assistant Drawer */}
+      <ContextualResearchDrawer
+        isOpen={isChatOpen}
+        onOpen={() => setIsChatOpen(true)}
+        onClose={() => setIsChatOpen(false)}
+        context={activeResearchContext}
+        messages={chatMessages}
+        isSending={isSendingChat}
+        error={chatError}
+        onSendMessage={(q) => handleSendResearchChatMessage(q, false)}
+        onRetryLastQuestion={handleRetryLastChatQuestion}
+        onClearChat={handleClearResearchChat}
+      />
     </div>
   );
 }
