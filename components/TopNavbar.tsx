@@ -21,9 +21,9 @@ import React from 'react';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface TopNavbarProps {
-  activeSection: 'market' | 'terminal' | 'watchlist' | 'briefing';
+  activeSection: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing';
   onSelectSection: (
-    section: 'market' | 'terminal' | 'watchlist' | 'briefing'
+    section: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
   ) => void;
   userEmail: string | null;
   onAuthAction: () => void;
@@ -43,7 +43,7 @@ export function TopNavbar({
    * Handles navigation section selection, scrolls smoothly to the section, and logs the interaction.
    */
   const handleNavClick = (
-    section: 'market' | 'terminal' | 'watchlist' | 'briefing'
+    section: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
   ) => {
     logFunctionCall('TopNavbar.handleNavClick', { section });
     onSelectSection(section);
@@ -72,6 +72,17 @@ export function TopNavbar({
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
         <button
           type="button"
+          onClick={() => handleNavClick('ecosystem')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeSection === 'ecosystem'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          Ecosystem
+        </button>
+        <button
+          type="button"
           onClick={() => handleNavClick('market')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
             activeSection === 'market'
@@ -83,17 +94,6 @@ export function TopNavbar({
         </button>
         <button
           type="button"
-          onClick={() => handleNavClick('terminal')}
-          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'terminal'
-              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
-              : 'hover:text-white'
-          }`}
-        >
-          News Terminal
-        </button>
-        <button
-          type="button"
           onClick={() => handleNavClick('briefing')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
             activeSection === 'briefing'
@@ -102,6 +102,17 @@ export function TopNavbar({
           }`}
         >
           AI Analyst
+        </button>
+        <button
+          type="button"
+          onClick={() => handleNavClick('terminal')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeSection === 'terminal'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          News Terminal
         </button>
         <button
           type="button"

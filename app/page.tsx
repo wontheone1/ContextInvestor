@@ -39,11 +39,16 @@ import {
 import { AIMarketBriefPanel } from '@/components/AIMarketBriefPanel';
 import { SdkCacheInspector } from '@/components/SdkCacheInspector';
 import { CompanyMarketOverview } from '@/components/CompanyMarketOverview';
+import { RelatedCompaniesPanel } from '@/components/RelatedCompaniesPanel';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
   PriceChartPoint,
 } from '@/lib/market-data-service';
+import type {
+  RelatedCompaniesResponse,
+  RelatedCompanyItem,
+} from '@/lib/related-companies-service';
 import {
   auth,
   testFirestoreConnection,
@@ -104,7 +109,7 @@ function resolveDateBounds(state: NewsSearchControlState): {
  */
 export default function InvestorDashboardPage() {
   const [activeSection, setActiveSection] = useState<
-    'market' | 'terminal' | 'watchlist' | 'briefing'
+    'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
   >('terminal');
 
   // Search Control State
@@ -158,6 +163,16 @@ export default function InvestorDashboardPage() {
   const [sentimentError, setSentimentError] = useState<string | null>(null);
   const briefCacheRef = useRef<Map<string, AIMarketBriefResponse>>(new Map());
   const briefReqSeqRef = useRef<number>(0);
+
+  // Related Companies Ecosystem Suggestions State
+  const [relatedData, setRelatedData] =
+    useState<RelatedCompaniesResponse | null>(null);
+  const [isLoadingRelated, setIsLoadingRelated] = useState<boolean>(true);
+  const [relatedError, setRelatedError] = useState<string | null>(null);
+  const relatedCacheRef = useRef<Map<string, RelatedCompaniesResponse>>(
+    new Map()
+  );
+  const relatedReqSeqRef = useRef<number>(0);
 
   // Firebase Auth & Saved Watchlist State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -345,6 +360,62 @@ export default function InvestorDashboardPage() {
         );
       } finally {
         setIsLoadingMarket(false);
+      }
+    },
+    []
+  );
+
+  /**
+   * Loads related company search suggestions grouped by relationship
+   * (`Suppliers`, `Customers`, `Peers & Competitors`, `Strategic Partners`).
+   */
+  const fetchRelatedCompanies = useCallback(
+    async (query: string, forceRefresh = false) => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      const cacheKey = trimmed.toLowerCase();
+      if (!forceRefresh) {
+        const cached = relatedCacheRef.current.get(cacheKey);
+        if (cached) {
+          setRelatedError(null);
+          setRelatedData(cached);
+          setIsLoadingRelated(false);
+          return;
+        }
+      }
+
+      const seq = ++relatedReqSeqRef.current;
+      setIsLoadingRelated(true);
+      setRelatedError(null);
+
+      try {
+        const params = new URLSearchParams({ query: trimmed });
+        if (forceRefresh) {
+          params.set('refresh', '1');
+        }
+        const res = await fetch(`/api/ai/related?${params.toString()}`);
+        const json = await res.json();
+        if (seq !== relatedReqSeqRef.current) return;
+        if (!res.ok || !json.ok || !json.data) {
+          throw new Error(
+            json.error || 'Failed to load related company suggestions.'
+          );
+        }
+        const payload = json.data as RelatedCompaniesResponse;
+        relatedCacheRef.current.set(cacheKey, payload);
+        setRelatedData(payload);
+      } catch (err) {
+        if (seq !== relatedReqSeqRef.current) return;
+        setRelatedError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to retrieve related companies.'
+        );
+      } finally {
+        if (seq === relatedReqSeqRef.current) {
+          setIsLoadingRelated(false);
+        }
       }
     },
     []
@@ -582,7 +653,7 @@ export default function InvestorDashboardPage() {
     [enrichMissingSentiments, generateBriefForArticles]
   );
 
-  // Trigger initial search and market overview on mount
+  // Trigger initial search, market overview, and related companies on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       void executeSearchForCursor(searchState, null, 0, false);
@@ -591,6 +662,7 @@ export default function InvestorDashboardPage() {
         searchState.entityType,
         chartRange
       );
+      void fetchRelatedCompanies(searchState.entityValue, false);
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -637,12 +709,14 @@ export default function InvestorDashboardPage() {
     setCurrentPageIndex(0);
     setResolvedExchange(null);
     setAiBrief(null);
+    setSentimentFilter('all');
     executeSearchForCursor(searchState, null, 0, forceRefresh, null, null);
     void fetchMarketOverview(
       searchState.entityValue,
       searchState.entityType,
       chartRange
     );
+    void fetchRelatedCompanies(searchState.entityValue, forceRefresh);
   };
 
   /**
@@ -661,8 +735,36 @@ export default function InvestorDashboardPage() {
     setResolvedEntityType(presetType);
     setResolvedExchange(null);
     setAiBrief(null);
+    setSentimentFilter('all');
     executeSearchForCursor(nextState, null, 0, false, null, null);
     void fetchMarketOverview(preset.value, presetType, chartRange);
+    void fetchRelatedCompanies(preset.value, false);
+  };
+
+  /**
+   * Handles clicking a suggested related company across any relationship group,
+   * pivoting search coverage across news, price chart, AI brief, and ecosystem.
+   */
+  const handleSelectRelatedCompany = (company: RelatedCompanyItem) => {
+    const nextState: NewsSearchControlState = {
+      ...searchState,
+      entityType: company.entityType,
+      entityValue: company.searchQuery,
+    };
+    setSearchState(nextState);
+    setCursorStack([null]);
+    setCurrentPageIndex(0);
+    setResolvedEntityType(company.entityType);
+    setResolvedExchange(null);
+    setAiBrief(null);
+    setSentimentFilter('all');
+    executeSearchForCursor(nextState, null, 0, false, null, null);
+    void fetchMarketOverview(
+      company.searchQuery,
+      company.entityType,
+      chartRange
+    );
+    void fetchRelatedCompanies(company.searchQuery, false);
   };
 
   /**
@@ -819,6 +921,18 @@ export default function InvestorDashboardPage() {
           onChange={handleUpdateSearchControls}
           onSubmitSearch={handleRunSearch}
           isLoading={isLoadingNews}
+        />
+
+        {/* Related Companies Ecosystem Grouped by Relationship */}
+        <RelatedCompaniesPanel
+          searchedQuery={searchState.entityValue}
+          data={relatedData}
+          isLoading={isLoadingRelated}
+          error={relatedError}
+          onSelectCompany={handleSelectRelatedCompany}
+          onRefresh={() =>
+            void fetchRelatedCompanies(searchState.entityValue, true)
+          }
         />
 
         {/* Searched Company Price Chart & Key Investment Metrics */}
