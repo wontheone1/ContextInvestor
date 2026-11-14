@@ -39,20 +39,20 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'OpticAlpha Investor Intelligence',
+  title: 'Context Investor Intelligence',
   description:
-    'Quantitative investor dashboard and AI financial research terminal powered by Context.dev company news search, Firestore article caching, and Gemini AI market briefings.',
+    'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
   openGraph: {
-    title: 'OpticAlpha Investor Intelligence',
+    title: 'Context Investor Intelligence',
     description:
-      'Quantitative investor dashboard and AI financial research terminal powered by Context.dev company news search, Firestore article caching, and Gemini AI market briefings.',
+      'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OpticAlpha Investor Intelligence',
+    title: 'Context Investor Intelligence',
     description:
-      'Quantitative investor dashboard and AI financial research terminal powered by Context.dev company news search, Firestore article caching, and Gemini AI market briefings.',
+      'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
   },
 };
 

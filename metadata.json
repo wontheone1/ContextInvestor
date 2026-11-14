@@ -1,6 +1,8 @@
 {
-  "name": "OpticAlpha Investor Intelligence",
-  "description": "Quantitative investor dashboard and AI financial research terminal powered by Context.dev company news search, Firestore article caching, and Gemini AI market briefings.",
+  "name": "Context Investor Intelligence",
+  "description": "Quantitative investor dashboard and AI financial research terminal powered by Context.dev.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
