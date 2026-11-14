@@ -55,6 +55,8 @@ export const APP_CONFIG = {
   contextDev: {
     baseUrl: 'https://api.context.dev/v1',
     newsSearchEndpoint: '/v1/news/search',
+    companySearchEndpoint: '/company/search',
+    companySearchMode: 'fast' as 'fast' | 'ultra',
     defaultLimit: 10,
     maxLimit: 25,
     defaultSort: 'newest' as 'newest' | 'relevance',

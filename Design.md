@@ -26,6 +26,11 @@
 - **Interactive SVG Area/Line Chart**: Supports `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, and `5Y` timeframes with interactive crosshair scrubbers, previous-close reference line, and period high/low statistics.
 - **8-Card Key Investment Metrics Grid**: Displays Market Cap, P/E Ratio (TTM & Forward), EPS (TTM), 52-Week Range progress bar, Volume vs. Avg Volume, and Dividend Yield & Beta for public equities, or a Private Company Valuation & Funding Profile for unlisted companies (`Stripe`, `OpenAI`, `SpaceX`, `Databricks`, `Anthropic`).
 
+### 2.3b Collapsible Company Profile (`lib/company-profile-service.ts`, `app/api/company/profile/route.ts`, `components/CollapsibleCompanyProfile.tsx`)
+- **Context.dev Company Search (`POST /v1/company/search`)**: Enriches the currently searched public ticker or private company with corporate firmographics, social links, industry classifications, estimated annual revenue, and funding round history (`mode: 'fast'`).
+- **Top-Match Resolution**: Resolves short stock tickers to company names before querying `/v1/company/search` and scores candidates (`stock_symbols`, exact company name, domain stem, and relevance rank) so only the single best-matching profile is displayed without cluttering the workspace.
+- **Progressive Disclosure UX**: Renders collapsed by default as a 1-line summary bar (`Company Name · Organization Type · HQ · Headcount · Est. Year · Stage / Revenue`) directly beneath the Company Research header, expanding on click into a 3-column firmographic, industry/revenue, and chronological funding dossier.
+
 ### 2.4 Related Companies Ecosystem Grouped by Relationship (`lib/related-companies-service.ts`, `app/api/ai/related/route.ts`, `components/RelatedCompaniesPanel.tsx`)
 - Suggests related companies for the currently searched company grouped into 4 relationship tabs: **Suppliers & Infra**, **Customers & Adopters**, **Peers & Competitors**, and **Strategic Partners**.
 - Supports multi-relationship membership (e.g., Microsoft or Amazon appearing as both a Customer and a Strategic Partner/Competitor) with cross-group badges and 1-click search pivoting.

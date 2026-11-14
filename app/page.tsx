@@ -46,6 +46,8 @@ import { AIMarketBriefPanel } from '@/components/AIMarketBriefPanel';
 import { SdkCacheInspector } from '@/components/SdkCacheInspector';
 import { CompanyMarketOverview } from '@/components/CompanyMarketOverview';
 import { RelatedCompaniesPanel } from '@/components/RelatedCompaniesPanel';
+import { CollapsibleCompanyProfile } from '@/components/CollapsibleCompanyProfile';
+import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
@@ -241,6 +243,16 @@ export default function InvestorDashboardPage() {
     new Map()
   );
   const relatedReqSeqRef = useRef<number>(0);
+
+  // Collapsible Company Profile (Context.dev /v1/company/search) State
+  const [companyProfile, setCompanyProfile] =
+    useState<CompanyProfileData | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState<boolean>(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const profileCacheRef = useRef<Map<string, CompanyProfileData | null>>(
+    new Map()
+  );
+  const profileReqSeqRef = useRef<number>(0);
 
   // Firebase Auth & Saved Watchlist State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -682,6 +694,70 @@ export default function InvestorDashboardPage() {
   );
 
   /**
+   * Loads the top-match corporate profile (firmographics, website/socials,
+   * industries, and funding history) via GET /api/company/profile.
+   */
+  const fetchCompanyProfile = useCallback(
+    async (
+      query: string,
+      entityType: 'auto' | 'name' | 'ticker',
+      companyNameHint?: string,
+      forceRefresh = false
+    ) => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      const cacheKey = `${entityType}::${trimmed.toLowerCase()}`;
+      if (!forceRefresh && profileCacheRef.current.has(cacheKey)) {
+        setProfileError(null);
+        setCompanyProfile(profileCacheRef.current.get(cacheKey) ?? null);
+        setIsLoadingProfile(false);
+        return;
+      }
+
+      const seq = ++profileReqSeqRef.current;
+      setIsLoadingProfile(true);
+      setProfileError(null);
+
+      try {
+        const params = new URLSearchParams({
+          query: trimmed,
+          entityType,
+        });
+        if (companyNameHint && companyNameHint.trim()) {
+          params.set('companyNameHint', companyNameHint.trim());
+        }
+        if (forceRefresh) {
+          params.set('refresh', '1');
+        }
+
+        const res = await fetch(`/api/company/profile?${params.toString()}`);
+        const json = await res.json();
+        if (seq !== profileReqSeqRef.current) return;
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error || 'Failed to load company profile.');
+        }
+
+        const resolvedProfile = (json.profile as CompanyProfileData) ?? null;
+        profileCacheRef.current.set(cacheKey, resolvedProfile);
+        setCompanyProfile(resolvedProfile);
+      } catch (err) {
+        if (seq !== profileReqSeqRef.current) return;
+        setProfileError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to retrieve company profile.'
+        );
+      } finally {
+        if (seq === profileReqSeqRef.current) {
+          setIsLoadingProfile(false);
+        }
+      }
+    },
+    []
+  );
+
+  /**
    * Fast chart-only refresh when switching timeframe tabs (1D, 5D, 1M, 6M, YTD, 1Y, 5Y).
    */
   const handleChartRangeChange = async (nextRange: ChartRange) => {
@@ -913,7 +989,7 @@ export default function InvestorDashboardPage() {
     [enrichMissingSentiments, generateBriefForArticles]
   );
 
-  // Trigger initial search, market overview, and related companies on mount
+  // Trigger initial search, market overview, company profile, and related companies on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       void executeSearchForCursor(searchState, null, 0, false);
@@ -921,6 +997,12 @@ export default function InvestorDashboardPage() {
         searchState.entityValue,
         searchState.entityType,
         chartRange
+      );
+      void fetchCompanyProfile(
+        searchState.entityValue,
+        searchState.entityType,
+        undefined,
+        false
       );
       void fetchRelatedCompanies(searchState.entityValue, false);
     }, 0);
@@ -976,6 +1058,12 @@ export default function InvestorDashboardPage() {
       searchState.entityType,
       chartRange
     );
+    void fetchCompanyProfile(
+      searchState.entityValue,
+      searchState.entityType,
+      undefined,
+      forceRefresh
+    );
     void fetchRelatedCompanies(searchState.entityValue, forceRefresh);
   };
 
@@ -1001,6 +1089,7 @@ export default function InvestorDashboardPage() {
     setSentimentFilter('all');
     executeSearchForCursor(nextState, null, 0, false, null, null);
     void fetchMarketOverview(companyValue, entityType, chartRange);
+    void fetchCompanyProfile(companyValue, entityType, undefined, false);
     void fetchRelatedCompanies(companyValue, false);
 
     const researchEl = document.getElementById('company-research');
@@ -1039,6 +1128,12 @@ export default function InvestorDashboardPage() {
       company.searchQuery,
       company.entityType,
       chartRange
+    );
+    void fetchCompanyProfile(
+      company.searchQuery,
+      company.entityType,
+      company.name,
+      false
     );
     void fetchRelatedCompanies(company.searchQuery, false);
   };
@@ -1288,6 +1383,22 @@ export default function InvestorDashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Collapsible Company Profile Bar (Context.dev /v1/company/search) */}
+        <CollapsibleCompanyProfile
+          searchedQuery={searchState.entityValue}
+          profile={companyProfile}
+          isLoading={isLoadingProfile}
+          error={profileError}
+          onRetry={() =>
+            void fetchCompanyProfile(
+              searchState.entityValue,
+              searchState.entityType,
+              marketData?.companyName,
+              true
+            )
+          }
+        />
 
         {/* Search & Filter Control Bar */}
         <NewsSearchControlBar
