@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-accent: #09a4ff;
+  --color-accent-secondary: #49afe9;
+  --color-background: #091326;
+  --color-surface: #0d1b33;
+  --color-border: #212c42;
+  --color-text: #ffffff;
+}
+
+body {
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}

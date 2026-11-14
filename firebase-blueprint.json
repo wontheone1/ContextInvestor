@@ -1,0 +1,187 @@
+{
+  "entities": {
+    "CachedSearch": {
+      "title": "CachedSearch",
+      "description": "Cached page of Context.dev company news search results stored in Firestore to accelerate repeated lookups and pagination.",
+      "type": "object",
+      "properties": {
+        "cacheKey": {
+          "type": "string",
+          "description": "Deterministic cache key identifier matching the document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entityType": {
+          "type": "string",
+          "description": "Type of company entity searched.",
+          "enum": ["name", "ticker", "domain", "isin"]
+        },
+        "entityValue": {
+          "type": "string",
+          "description": "Company name or stock ticker value.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sortBy": {
+          "type": "string",
+          "description": "Sort order used for the search.",
+          "enum": ["newest", "relevance"]
+        },
+        "cursorKey": {
+          "type": "string",
+          "description": "Cursor token or page1 marker.",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "articlesJson": {
+          "type": "string",
+          "description": "Serialized articles array from Context.dev NewsSearchResponse.",
+          "minLength": 2,
+          "maxLength": 500000
+        },
+        "nextCursor": {
+          "type": "string",
+          "description": "Opaque next_cursor token from Context.dev or empty string.",
+          "maxLength": 512
+        },
+        "hasMore": {
+          "type": "boolean",
+          "description": "Whether additional pages exist after this cursor."
+        },
+        "articleCount": {
+          "type": "number",
+          "description": "Number of articles stored in this cached page."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Context.dev X-Request-Id or cache reference.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "cachedAtMs": {
+          "type": "number",
+          "description": "Epoch milliseconds when the cache entry was stored."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the cache write."
+        }
+      },
+      "required": [
+        "cacheKey",
+        "entityType",
+        "entityValue",
+        "sortBy",
+        "cursorKey",
+        "articlesJson",
+        "nextCursor",
+        "hasMore",
+        "articleCount",
+        "requestId",
+        "cachedAtMs",
+        "updatedAt"
+      ]
+    },
+    "SavedArticle": {
+      "title": "SavedArticle",
+      "description": "Individual news article bookmarked by an authenticated investor.",
+      "type": "object",
+      "properties": {
+        "articleId": {
+          "type": "string",
+          "description": "Unique Context.dev article ID.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the investor who saved the article.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Headline of the saved article.",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "url": {
+          "type": "string",
+          "description": "Article URL on the publisher site.",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "sourceName": {
+          "type": "string",
+          "description": "Publisher name (e.g. Reuters).",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "sourceDomain": {
+          "type": "string",
+          "description": "Publisher website domain.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "publishedAt": {
+          "type": "string",
+          "description": "ISO 8601 publication timestamp.",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "articleType": {
+          "type": "string",
+          "description": "Coverage type (editorial, press_release, regulatory_filing, advisory).",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "companyTag": {
+          "type": "string",
+          "description": "Company ticker or name tag associated with the bookmark.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Article summary excerpt.",
+          "maxLength": 2000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when bookmarked."
+        }
+      },
+      "required": [
+        "articleId",
+        "userId",
+        "title",
+        "url",
+        "sourceName",
+        "sourceDomain",
+        "publishedAt",
+        "articleType",
+        "companyTag",
+        "description",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/cached_searches/{cacheId}": {
+      "schema": {
+        "$ref": "#/entities/CachedSearch"
+      },
+      "description": "Stores cached Context.dev company news search pages keyed by deterministic query parameters."
+    },
+    "/saved_articles/{savedId}": {
+      "schema": {
+        "$ref": "#/entities/SavedArticle"
+      },
+      "description": "Stores user-bookmarked company news articles scoped strictly to the authenticated owner."
+    }
+  }
+}

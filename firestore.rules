@@ -1,0 +1,164 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Hardened Global Primitives
+    // =========================================================================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // =========================================================================
+    // Validation Blueprint: CachedSearch (/cached_searches/{cacheId})
+    // =========================================================================
+    function isValidCachedSearch(data, cacheId) {
+      return data.keys().hasAll([
+        'cacheKey',
+        'entityType',
+        'entityValue',
+        'sortBy',
+        'cursorKey',
+        'articlesJson',
+        'nextCursor',
+        'hasMore',
+        'articleCount',
+        'requestId',
+        'cachedAtMs',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'cacheKey',
+        'entityType',
+        'entityValue',
+        'sortBy',
+        'cursorKey',
+        'articlesJson',
+        'nextCursor',
+        'hasMore',
+        'articleCount',
+        'requestId',
+        'cachedAtMs',
+        'updatedAt'
+      ]) &&
+      data.cacheKey is string && data.cacheKey == cacheId && data.cacheKey.size() >= 1 && data.cacheKey.size() <= 128 &&
+      data.entityType is string && (data.entityType == 'name' || data.entityType == 'ticker' || data.entityType == 'domain' || data.entityType == 'isin') &&
+      data.entityValue is string && data.entityValue.size() >= 1 && data.entityValue.size() <= 120 &&
+      data.sortBy is string && (data.sortBy == 'newest' || data.sortBy == 'relevance') &&
+      data.cursorKey is string && data.cursorKey.size() >= 1 && data.cursorKey.size() <= 256 &&
+      data.articlesJson is string && data.articlesJson.size() >= 2 && data.articlesJson.size() <= 500000 &&
+      data.nextCursor is string && data.nextCursor.size() <= 512 &&
+      data.hasMore is bool &&
+      data.articleCount is number && data.articleCount >= 0 && data.articleCount <= 100 &&
+      data.requestId is string && data.requestId.size() >= 1 && data.requestId.size() <= 128 &&
+      data.cachedAtMs is number && data.cachedAtMs > 0 &&
+      data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    match /cached_searches/{cacheId} {
+      // Deterministic single-document cache lookup and write (no list queries needed)
+      allow get: if isValidId(cacheId);
+      allow list: if false;
+      allow create: if isValidId(cacheId) && isValidCachedSearch(incoming(), cacheId);
+      allow update: if isValidId(cacheId) &&
+        isValidCachedSearch(incoming(), cacheId) &&
+        incoming().cacheKey == existing().cacheKey &&
+        incoming().entityType == existing().entityType &&
+        incoming().entityValue == existing().entityValue &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'sortBy',
+          'cursorKey',
+          'articlesJson',
+          'nextCursor',
+          'hasMore',
+          'articleCount',
+          'requestId',
+          'cachedAtMs',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // Validation Blueprint: SavedArticle (/saved_articles/{savedId})
+    // =========================================================================
+    function isValidSavedArticle(data) {
+      return data.keys().hasAll([
+        'articleId',
+        'userId',
+        'title',
+        'url',
+        'sourceName',
+        'sourceDomain',
+        'publishedAt',
+        'articleType',
+        'companyTag',
+        'description',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'articleId',
+        'userId',
+        'title',
+        'url',
+        'sourceName',
+        'sourceDomain',
+        'publishedAt',
+        'articleType',
+        'companyTag',
+        'description',
+        'createdAt'
+      ]) &&
+      data.articleId is string && data.articleId.size() >= 1 && data.articleId.size() <= 128 &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId == request.auth.uid &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 500 &&
+      data.url is string && data.url.size() >= 1 && data.url.size() <= 2000 &&
+      data.sourceName is string && data.sourceName.size() >= 1 && data.sourceName.size() <= 200 &&
+      data.sourceDomain is string && data.sourceDomain.size() >= 1 && data.sourceDomain.size() <= 200 &&
+      data.publishedAt is string && data.publishedAt.size() >= 1 && data.publishedAt.size() <= 64 &&
+      data.articleType is string && data.articleType.size() >= 1 && data.articleType.size() <= 64 &&
+      data.companyTag is string && data.companyTag.size() >= 1 && data.companyTag.size() <= 120 &&
+      data.description is string && data.description.size() <= 2000 &&
+      data.createdAt is timestamp;
+    }
+
+    match /saved_articles/{savedId} {
+      allow get: if isVerifiedUser() && isValidId(savedId) && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(savedId) &&
+        isValidSavedArticle(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(savedId) &&
+        isValidSavedArticle(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().articleId == existing().articleId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['companyTag', 'description']);
+      allow delete: if isVerifiedUser() && isValidId(savedId) && existing().userId == request.auth.uid;
+    }
+  }
+}
