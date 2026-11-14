@@ -168,6 +168,64 @@
         "description",
         "createdAt"
       ]
+    },
+    "FollowedCompany": {
+      "title": "FollowedCompany",
+      "description": "Company or US equity ticker followed in an authenticated investor's watchlist.",
+      "type": "object",
+      "properties": {
+        "companyKey": {
+          "type": "string",
+          "description": "Normalized company key identifier.",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the investor following the company.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable company name.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "entityType": {
+          "type": "string",
+          "description": "Entity lookup mode for this company.",
+          "enum": ["name", "ticker"]
+        },
+        "value": {
+          "type": "string",
+          "description": "US stock ticker or company name search string.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "sector": {
+          "type": "string",
+          "description": "Industry or sector descriptor.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when added to watchlist."
+        }
+      },
+      "required": [
+        "companyKey",
+        "userId",
+        "label",
+        "entityType",
+        "value",
+        "sector",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
@@ -182,6 +240,12 @@
         "$ref": "#/entities/SavedArticle"
       },
       "description": "Stores user-bookmarked company news articles scoped strictly to the authenticated owner."
+    },
+    "/followed_companies/{followId}": {
+      "schema": {
+        "$ref": "#/entities/FollowedCompany"
+      },
+      "description": "Stores companies followed in each authenticated user's personal watchlist."
     }
   }
 }

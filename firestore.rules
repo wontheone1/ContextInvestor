@@ -160,5 +160,54 @@ service cloud.firestore {
         incoming().diff(existing()).affectedKeys().hasOnly(['companyTag', 'description']);
       allow delete: if isVerifiedUser() && isValidId(savedId) && existing().userId == request.auth.uid;
     }
+
+    // =========================================================================
+    // Validation Blueprint: FollowedCompany (/followed_companies/{followId})
+    // =========================================================================
+    function isValidFollowedCompany(data) {
+      return data.keys().hasAll([
+        'companyKey',
+        'userId',
+        'label',
+        'entityType',
+        'value',
+        'sector',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'companyKey',
+        'userId',
+        'label',
+        'entityType',
+        'value',
+        'sector',
+        'createdAt'
+      ]) &&
+      data.companyKey is string && data.companyKey.size() >= 1 && data.companyKey.size() <= 64 && data.companyKey.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 && data.userId == request.auth.uid &&
+      data.label is string && data.label.size() >= 1 && data.label.size() <= 120 &&
+      data.entityType is string && (data.entityType == 'name' || data.entityType == 'ticker') &&
+      data.value is string && data.value.size() >= 1 && data.value.size() <= 120 &&
+      data.sector is string && data.sector.size() >= 1 && data.sector.size() <= 120 &&
+      data.createdAt is timestamp;
+    }
+
+    match /followed_companies/{followId} {
+      allow get: if isVerifiedUser() && isValidId(followId) && existing().userId == request.auth.uid;
+      allow list: if isVerifiedUser() && resource.data.userId == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(followId) &&
+        isValidFollowedCompany(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(followId) &&
+        isValidFollowedCompany(incoming()) &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId &&
+        incoming().companyKey == existing().companyKey &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['label', 'sector']);
+      allow delete: if isVerifiedUser() && isValidId(followId) && existing().userId == request.auth.uid;
+    }
   }
 }

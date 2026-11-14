@@ -402,3 +402,127 @@ export async function listUserSavedArticles(
     handleFirestoreError(error, OperationType.LIST, path);
   }
 }
+
+export interface FollowedCompanyRecord {
+  companyKey: string;
+  userId: string;
+  label: string;
+  entityType: 'name' | 'ticker';
+  value: string;
+  sector: string;
+  createdAt?: Timestamp;
+}
+
+/**
+ * Generates a deterministic, URL-safe company follow key matching `^[a-zA-Z0-9_\-]+$`
+ * and `<= 64` characters.
+ */
+export function buildCompanyFollowKey(
+  entityType: 'name' | 'ticker',
+  value: string
+): string {
+  const sanitized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 50);
+  return `${entityType}_${sanitized || 'company'}`;
+}
+
+/**
+ * Adds a company to the authenticated user's `followed_companies` collection in Firestore.
+ */
+export async function followCompanyForUser(company: {
+  label: string;
+  entityType: 'name' | 'ticker';
+  value: string;
+  sector?: string;
+}): Promise<string> {
+  logFunctionCall('followCompanyForUser', { ...company });
+
+  if (!auth.currentUser) {
+    throw new Error('User must be signed in to sync followed companies.');
+  }
+
+  const companyKey = buildCompanyFollowKey(company.entityType, company.value);
+  const docId = `${auth.currentUser.uid}_${companyKey}`
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 128);
+  const path = `${APP_CONFIG.firestore.collections.followedCompanies}/${docId}`;
+
+  const payload = {
+    companyKey,
+    userId: auth.currentUser.uid,
+    label: (company.label.trim() || company.value.trim()).slice(0, 120),
+    entityType: company.entityType,
+    value: company.value.trim().slice(0, 120),
+    sector: (company.sector?.trim() || 'Tracked Company').slice(0, 120),
+    createdAt: serverTimestamp(),
+  };
+
+  try {
+    await setDoc(
+      doc(db, APP_CONFIG.firestore.collections.followedCompanies, docId),
+      payload
+    );
+    return docId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+/**
+ * Removes a company from the authenticated user's `followed_companies` collection in Firestore.
+ */
+export async function unfollowCompanyForUser(
+  entityType: 'name' | 'ticker',
+  value: string
+): Promise<void> {
+  logFunctionCall('unfollowCompanyForUser', { entityType, value });
+
+  if (!auth.currentUser) {
+    throw new Error('User must be signed in to unfollow companies in Firestore.');
+  }
+
+  const companyKey = buildCompanyFollowKey(entityType, value);
+  const docId = `${auth.currentUser.uid}_${companyKey}`
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 128);
+  const path = `${APP_CONFIG.firestore.collections.followedCompanies}/${docId}`;
+
+  try {
+    await deleteDoc(
+      doc(db, APP_CONFIG.firestore.collections.followedCompanies, docId)
+    );
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Lists all companies followed by the currently signed-in user in Firestore.
+ */
+export async function listUserFollowedCompanies(
+  uid: string
+): Promise<Array<FollowedCompanyRecord & { docId: string }>> {
+  logFunctionCall('listUserFollowedCompanies', { uid });
+  const path = APP_CONFIG.firestore.collections.followedCompanies;
+
+  try {
+    const q = query(
+      collection(db, APP_CONFIG.firestore.collections.followedCompanies),
+      where('userId', '==', uid),
+      orderBy('createdAt', 'asc'),
+      firestoreLimit(20)
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({
+      docId: d.id,
+      ...(d.data() as FollowedCompanyRecord),
+    }));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}

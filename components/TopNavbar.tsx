@@ -8,10 +8,10 @@
  * USE CASES:
  * 1. Enforcing the strict 3-zone Top Bar Contract:
  *    - Zone 1: Single-line Brand Wordmark (`OpticAlpha`).
- *    - Zone 2: 4 concise single-line section navigation links (`News Terminal`,
- *      `Watchlist`, `AI Briefing`, `Firestore Cache`).
+ *    - Zone 2: Concise single-line section navigation links (`Watchlist Pulse`,
+ *      `Company Search`, `Price & Metrics`, `News Terminal`, `Saved Articles`).
  *    - Zone 3: Single primary action button (Google Sign-In / Account status for
- *      personal Firestore article bookmarking).
+ *      personal Firestore article bookmarking and watchlist persistence).
  * ============================================================================
  */
 
@@ -20,11 +20,16 @@
 import React from 'react';
 import { logFunctionCall } from '@/lib/logger';
 
+export type NavSectionId =
+  | 'pulse'
+  | 'research'
+  | 'market'
+  | 'terminal'
+  | 'watchlist';
+
 export interface TopNavbarProps {
-  activeSection: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing';
-  onSelectSection: (
-    section: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
-  ) => void;
+  activeSection: NavSectionId;
+  onSelectSection: (section: NavSectionId) => void;
   userEmail: string | null;
   onAuthAction: () => void;
 }
@@ -42,12 +47,17 @@ export function TopNavbar({
   /**
    * Handles navigation section selection, scrolls smoothly to the section, and logs the interaction.
    */
-  const handleNavClick = (
-    section: 'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
-  ) => {
+  const handleNavClick = (section: NavSectionId) => {
     logFunctionCall('TopNavbar.handleNavClick', { section });
     onSelectSection(section);
-    const targetId = section === 'market' ? 'market-overview' : section;
+    const targetId =
+      section === 'pulse'
+        ? 'watchlist-pulse'
+        : section === 'research'
+          ? 'company-research'
+          : section === 'market'
+            ? 'market-overview'
+            : section;
     const el = document.getElementById(targetId);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -58,10 +68,10 @@ export function TopNavbar({
     <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-4 bg-[#091326]/95 backdrop-blur-md border-b border-[#212c42]">
       {/* Zone 1: Single text element wordmark */}
       <a
-        href="#terminal"
+        href="#watchlist-pulse"
         onClick={(e) => {
           e.preventDefault();
-          handleNavClick('terminal');
+          handleNavClick('pulse');
         }}
         className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-[#49afe9] transition-colors"
       >
@@ -72,14 +82,25 @@ export function TopNavbar({
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
         <button
           type="button"
-          onClick={() => handleNavClick('ecosystem')}
+          onClick={() => handleNavClick('pulse')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'ecosystem'
+            activeSection === 'pulse'
               ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
               : 'hover:text-white'
           }`}
         >
-          Ecosystem
+          Watchlist Pulse
+        </button>
+        <button
+          type="button"
+          onClick={() => handleNavClick('research')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeSection === 'research'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          Company Search
         </button>
         <button
           type="button"
@@ -91,17 +112,6 @@ export function TopNavbar({
           }`}
         >
           Price &amp; Metrics
-        </button>
-        <button
-          type="button"
-          onClick={() => handleNavClick('briefing')}
-          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'briefing'
-              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
-              : 'hover:text-white'
-          }`}
-        >
-          AI Analyst
         </button>
         <button
           type="button"
@@ -123,7 +133,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Saved Watchlist
+          Saved Articles
         </button>
       </nav>
 

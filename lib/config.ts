@@ -18,9 +18,12 @@
 
 import { logFunctionCall } from './logger.ts';
 
+export type EntityType = 'name' | 'ticker' | 'domain' | 'isin';
+
 export interface CompanyPreset {
   label: string;
-  entityType: 'name' | 'ticker' | 'domain' | 'isin';
+  name?: string;
+  entityType: EntityType;
   value: string;
   exchange?: 'NASDAQ' | 'NYSE' | 'LSE' | 'XETRA' | 'JPX' | 'HKSE';
   sector: string;
@@ -67,6 +70,7 @@ export const APP_CONFIG = {
     collections: {
       cachedSearches: 'cached_searches',
       savedArticles: 'saved_articles',
+      followedCompanies: 'followed_companies',
     },
     /** Default cache freshness window in milliseconds (15 minutes) */
     cacheTtlMs: 15 * 60 * 1000,

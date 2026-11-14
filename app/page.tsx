@@ -6,28 +6,34 @@
  * Main OpticAlpha Quantitative Investor Dashboard & AI Research Terminal Page.
  *
  * USE CASES:
- * 1. Orchestrating the Context.dev Company News Search flow (`POST /v1/news/search`)
- *    identifying companies by Stock Ticker (`ticker`) or Company Name (`name`).
- * 2. Managing selectable publication date ranges (`All Dates`, `24h`, `7d`, `30d`,
- *    `90d`, or custom start/end timestamps), optional category filters, and
- *    selectable sorting standards (`newest` vs `relevance`).
- * 3. Managing deterministic Next / Previous cursor pagination (`cursorStack`)
- *    while keeping `searchBy`, `filterBy`, and `sortBy` locked across page hops.
- * 4. Reading and writing cached search pages to Firebase Firestore
- *    (`/cached_searches/{cacheId}`) and bookmarking articles to `/saved_articles`.
- * 5. Invoking Gemini AI (`/api/ai/brief`) to synthesize institutional market
- *    briefs from the loaded Context.dev news coverage.
+ * 1. Opening immediately with the **Watchlist News Summary & Top Conviction
+ *    Signals** (`WatchlistLandingBrief`) covering all companies the investor is
+ *    following (`NVDA`, `Stripe`, `AAPL`, `MSFT`, `PLTR`, `OpenAI` by default,
+ *    or any custom followed companies) and ranking the top most Bullish and
+ *    Bearish news stories across the entire watchlist.
+ * 2. Allowing investors to follow/unfollow any US ticker or private company
+ *    from the watchlist strip or active company research header, persisted in
+ *    `localStorage` and synchronized with Firestore (`/followed_companies`).
+ * 3. Orchestrating the Context.dev Company News Search flow (`POST /v1/news/search`)
+ *    identifying companies by Stock Ticker (`ticker`), Company Name (`name`), or
+ *    smart auto-detection (`auto`).
+ * 4. Displaying live US equity price charts & key investment metrics
+ *    (`/api/market/overview`), related companies grouped by relationship
+ *    (`/api/ai/related`), side-by-side Bull vs. Bear AI synthesis (`/api/ai/brief`),
+ *    and per-article sentiment rationale.
  * ============================================================================
  */
 
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Check, Plus } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
 import type { EnrichedNewsArticle } from '@/lib/translation-service';
-import { TopNavbar } from '@/components/TopNavbar';
+import { TopNavbar, type NavSectionId } from '@/components/TopNavbar';
 import { WatchlistCarousel } from '@/components/WatchlistCarousel';
+import { WatchlistLandingBrief } from '@/components/WatchlistLandingBrief';
 import {
   NewsSearchControlBar,
   type NewsSearchControlState,
@@ -49,6 +55,10 @@ import type {
   RelatedCompaniesResponse,
   RelatedCompanyItem,
 } from '@/lib/related-companies-service';
+import type {
+  WatchlistDigestResponse,
+  WatchlistMoverArticle,
+} from '@/lib/watchlist-digest-service';
 import {
   auth,
   testFirestoreConnection,
@@ -60,11 +70,54 @@ import {
   saveArticleForUser,
   removeSavedArticle,
   listUserSavedArticles,
+  followCompanyForUser,
+  unfollowCompanyForUser,
+  listUserFollowedCompanies,
   type SavedArticleRecord,
 } from '@/lib/firebase-client';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
-import type { CompanyPreset } from '@/lib/config';
+import { APP_CONFIG, type CompanyPreset } from '@/lib/config';
 import { logFunctionCall } from '@/lib/logger';
+
+const FOLLOWED_STORAGE_KEY = 'opticalpha_followed_companies_v1';
+
+/**
+ * Infers whether a user-entered string is a US ticker symbol or company name
+ * and constructs a `CompanyPreset` for the watchlist strip.
+ */
+function buildCustomPresetFromInput(
+  rawInput: string,
+  customLabel?: string,
+  customSector?: string
+): CompanyPreset {
+  const trimmed = rawInput.trim();
+  const knownPreset = APP_CONFIG.featuredCompanies.find(
+    (c) =>
+      c.value.toLowerCase() === trimmed.toLowerCase() ||
+      c.label.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (knownPreset) {
+    return knownPreset;
+  }
+
+  const isLikelyTicker =
+    /^[A-Z]{1,5}(\.[A-Z])?$/.test(trimmed) ||
+    (/^[a-zA-Z]{1,5}$/.test(trimmed) &&
+      !['stripe', 'openai', 'spacex'].includes(trimmed.toLowerCase()));
+
+  const normalizedValue = isLikelyTicker ? trimmed.toUpperCase() : trimmed;
+  return {
+    label: customLabel || normalizedValue,
+    entityType: isLikelyTicker ? 'ticker' : 'name',
+    value: normalizedValue,
+    sector:
+      customSector || (isLikelyTicker ? 'US Listed Equity' : 'Private / Growth'),
+    price: isLikelyTicker ? 'Tracked' : 'Private',
+    changePct: 'Following',
+    positive: true,
+    sparkline: [50, 52, 51, 54, 56, 55, 58, 60],
+  };
+}
 
 /**
  * Computes the epoch millisecond `dateFrom` and `dateTo` bounds for the selected
@@ -108,9 +161,24 @@ function resolveDateBounds(state: NewsSearchControlState): {
  * Main Investor Dashboard Page Component.
  */
 export default function InvestorDashboardPage() {
-  const [activeSection, setActiveSection] = useState<
-    'ecosystem' | 'market' | 'terminal' | 'watchlist' | 'briefing'
-  >('terminal');
+  const [activeSection, setActiveSection] = useState<NavSectionId>('pulse');
+
+  // Followed Watchlist Companies State
+  const [followedCompanies, setFollowedCompanies] = useState<CompanyPreset[]>(
+    () => [...APP_CONFIG.featuredCompanies]
+  );
+  const [isWatchlistCustomized, setIsWatchlistCustomized] =
+    useState<boolean>(false);
+
+  // Watchlist Cross-Company Landing Brief & Top Bullish/Bearish Movers State
+  const [watchlistDigest, setWatchlistDigest] =
+    useState<WatchlistDigestResponse | null>(null);
+  const [isLoadingWatchlistDigest, setIsLoadingWatchlistDigest] =
+    useState<boolean>(true);
+  const [watchlistDigestError, setWatchlistDigestError] = useState<
+    string | null
+  >(null);
+  const watchlistDigestReqSeqRef = useRef<number>(0);
 
   // Search Control State
   const [searchState, setSearchState] = useState<NewsSearchControlState>({
@@ -180,6 +248,79 @@ export default function InvestorDashboardPage() {
     Array<SavedArticleRecord & { docId: string }>
   >([]);
 
+  /**
+   * Fetches the cross-watchlist news summary and top bullish/bearish movers
+   * for the user's followed companies.
+   */
+  const fetchWatchlistDigest = useCallback(
+    async (companiesToTrack: CompanyPreset[], forceRefresh = false) => {
+      const seq = ++watchlistDigestReqSeqRef.current;
+      setIsLoadingWatchlistDigest(true);
+      setWatchlistDigestError(null);
+
+      try {
+        const res = await fetch('/api/news/watchlist-digest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            companies: companiesToTrack.map((c) => ({
+              label: c.label,
+              value: c.value,
+              entityType: c.entityType === 'ticker' ? 'ticker' : 'name',
+              sector: c.sector,
+            })),
+            forceRefresh,
+          }),
+        });
+        const data = await res.json();
+        if (seq !== watchlistDigestReqSeqRef.current) return;
+        if (!res.ok || !data.ok || !data.digest) {
+          throw new Error(
+            data.error || 'Failed to synthesize watchlist news briefing.'
+          );
+        }
+        setWatchlistDigest(data.digest as WatchlistDigestResponse);
+      } catch (err) {
+        if (seq !== watchlistDigestReqSeqRef.current) return;
+        setWatchlistDigestError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to load watchlist news summary.'
+        );
+      } finally {
+        if (seq === watchlistDigestReqSeqRef.current) {
+          setIsLoadingWatchlistDigest(false);
+        }
+      }
+    },
+    []
+  );
+
+  // Hydrate custom followed companies from localStorage on mount & fetch Watchlist Digest
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let initialCompanies: CompanyPreset[] = [
+        ...APP_CONFIG.featuredCompanies,
+      ];
+      try {
+        const rawSaved = window.localStorage.getItem(FOLLOWED_STORAGE_KEY);
+        if (rawSaved) {
+          const parsed = JSON.parse(rawSaved) as CompanyPreset[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            initialCompanies = parsed;
+            setFollowedCompanies(parsed);
+            setIsWatchlistCustomized(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not read followed companies from localStorage:', e);
+      }
+
+      void fetchWatchlistDigest(initialCompanies, false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchWatchlistDigest]);
+
   // Validate Firestore connection and listen to Auth state on mount
   useEffect(() => {
     testFirestoreConnection();
@@ -187,17 +328,136 @@ export default function InvestorDashboardPage() {
       setCurrentUser(user);
       if (user) {
         try {
-          const list = await listUserSavedArticles(user.uid);
-          setSavedArticles(list);
+          const [savedList, remoteFollowed] = await Promise.all([
+            listUserSavedArticles(user.uid),
+            listUserFollowedCompanies(user.uid).catch(() => []),
+          ]);
+          setSavedArticles(savedList);
+
+          if (remoteFollowed.length > 0) {
+            const mappedPresets = remoteFollowed.map((f) =>
+              buildCustomPresetFromInput(f.value, f.label, f.sector)
+            );
+            setFollowedCompanies(mappedPresets);
+            setIsWatchlistCustomized(true);
+            try {
+              window.localStorage.setItem(
+                FOLLOWED_STORAGE_KEY,
+                JSON.stringify(mappedPresets)
+              );
+            } catch {
+              // ignore storage quota errors
+            }
+            void fetchWatchlistDigest(mappedPresets, false);
+          }
         } catch (err) {
-          console.error('Failed to load user saved articles:', err);
+          console.error('Failed to load user Firestore data:', err);
         }
       } else {
         setSavedArticles([]);
       }
     });
     return () => unsub();
-  }, []);
+  }, [fetchWatchlistDigest]);
+
+  /**
+   * Adds a new company to the user's followed watchlist and refreshes the
+   * Watchlist News Summary & Top Movers briefing.
+   */
+  const handleAddFollowedCompany = async (
+    rawInput: string,
+    customLabel?: string,
+    customSector?: string
+  ) => {
+    const preset = buildCustomPresetFromInput(
+      rawInput,
+      customLabel,
+      customSector
+    );
+    const exists = followedCompanies.some(
+      (c) => c.value.toLowerCase() === preset.value.toLowerCase()
+    );
+    if (exists) return;
+
+    const updated = [...followedCompanies, preset].slice(0, 10);
+    setFollowedCompanies(updated);
+    setIsWatchlistCustomized(true);
+    try {
+      window.localStorage.setItem(
+        FOLLOWED_STORAGE_KEY,
+        JSON.stringify(updated)
+      );
+    } catch {
+      // ignore localStorage write errors
+    }
+
+    void fetchWatchlistDigest(updated, false);
+
+    if (currentUser) {
+      try {
+        await followCompanyForUser({
+          label: preset.label,
+          entityType: preset.entityType === 'ticker' ? 'ticker' : 'name',
+          value: preset.value,
+          sector: preset.sector,
+        });
+      } catch (err) {
+        console.warn('Firestore follow sync skipped:', err);
+      }
+    }
+  };
+
+  /**
+   * Removes a company from the user's followed watchlist and updates the
+   * Watchlist News Summary & Top Movers briefing.
+   */
+  const handleRemoveFollowedCompany = async (valueToRemove: string) => {
+    if (followedCompanies.length <= 1) return;
+    const target = followedCompanies.find(
+      (c) => c.value.toLowerCase() === valueToRemove.toLowerCase()
+    );
+    const updated = followedCompanies.filter(
+      (c) => c.value.toLowerCase() !== valueToRemove.toLowerCase()
+    );
+    setFollowedCompanies(updated);
+    setIsWatchlistCustomized(true);
+    try {
+      window.localStorage.setItem(
+        FOLLOWED_STORAGE_KEY,
+        JSON.stringify(updated)
+      );
+    } catch {
+      // ignore localStorage write errors
+    }
+
+    void fetchWatchlistDigest(updated, false);
+
+    if (currentUser && target) {
+      try {
+        await unfollowCompanyForUser(
+          target.entityType === 'ticker' ? 'ticker' : 'name',
+          target.value
+        );
+      } catch (err) {
+        console.warn('Firestore unfollow sync skipped:', err);
+      }
+    }
+  };
+
+  /**
+   * Resets the followed watchlist back to the default institutional companies.
+   */
+  const handleResetDefaultWatchlist = () => {
+    const defaults = [...APP_CONFIG.featuredCompanies];
+    setFollowedCompanies(defaults);
+    setIsWatchlistCustomized(false);
+    try {
+      window.localStorage.removeItem(FOLLOWED_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    void fetchWatchlistDigest(defaults, false);
+  };
 
   /**
    * Hydrates missing headline sentiments and reasons on cached articles via POST /api/ai/sentiment.
@@ -720,25 +980,41 @@ export default function InvestorDashboardPage() {
   };
 
   /**
-   * Handles selecting a preset equity or entity from the top watchlist carousel.
+   * Pivots the deep-dive company research view when a user clicks a company
+   * inside the Watchlist Landing Brief or Watchlist Carousel.
    */
-  const handleSelectPreset = (preset: CompanyPreset) => {
-    const presetType = preset.entityType === 'ticker' ? 'ticker' : 'name';
+  const handleSelectCompanyFromBrief = (
+    companyValue: string,
+    entityType: 'name' | 'ticker'
+  ) => {
     const nextState: NewsSearchControlState = {
       ...searchState,
-      entityType: presetType,
-      entityValue: preset.value,
+      entityType,
+      entityValue: companyValue,
     };
     setSearchState(nextState);
     setCursorStack([null]);
     setCurrentPageIndex(0);
-    setResolvedEntityType(presetType);
+    setResolvedEntityType(entityType);
     setResolvedExchange(null);
     setAiBrief(null);
     setSentimentFilter('all');
     executeSearchForCursor(nextState, null, 0, false, null, null);
-    void fetchMarketOverview(preset.value, presetType, chartRange);
-    void fetchRelatedCompanies(preset.value, false);
+    void fetchMarketOverview(companyValue, entityType, chartRange);
+    void fetchRelatedCompanies(companyValue, false);
+
+    const researchEl = document.getElementById('company-research');
+    if (researchEl) {
+      researchEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  /**
+   * Handles selecting a preset equity or entity from the top watchlist carousel.
+   */
+  const handleSelectPreset = (preset: CompanyPreset) => {
+    const presetType = preset.entityType === 'ticker' ? 'ticker' : 'name';
+    handleSelectCompanyFromBrief(preset.value, presetType);
   };
 
   /**
@@ -828,7 +1104,7 @@ export default function InvestorDashboardPage() {
   };
 
   /**
-   * Saves an article to the user's Firestore `/saved_articles` collection,
+   * Saves an article from the NewsFeedTable to the user's Firestore `/saved_articles` collection,
    * prompting Google Sign-In if not yet authenticated.
    */
   const handleBookmarkArticle = async (article: NewsSearchResponse.Data) => {
@@ -861,6 +1137,39 @@ export default function InvestorDashboardPage() {
   };
 
   /**
+   * Saves a top Bullish/Bearish mover article from the WatchlistLandingBrief
+   * to the user's Firestore `/saved_articles` collection.
+   */
+  const handleBookmarkMoverArticle = async (mover: WatchlistMoverArticle) => {
+    try {
+      let activeUser = currentUser;
+      if (!activeUser) {
+        const cred = await signInWithGoogle();
+        activeUser = cred.user;
+      }
+      if (!activeUser) return;
+
+      await saveArticleForUser({
+        articleId: mover.id,
+        userId: activeUser.uid,
+        title: mover.title,
+        url: mover.url,
+        sourceName: mover.sourceName || 'News Source',
+        sourceDomain: mover.sourceDomain || 'News Wire',
+        publishedAt: mover.publishedAt || new Date().toISOString(),
+        articleType: mover.articleType || 'editorial',
+        companyTag: mover.companyValue.toUpperCase(),
+        description: mover.description || mover.rationale || '',
+      });
+
+      const updatedList = await listUserSavedArticles(activeUser.uid);
+      setSavedArticles(updatedList);
+    } catch (err) {
+      console.error('Failed to save watchlist mover article:', err);
+    }
+  };
+
+  /**
    * Removes a bookmarked article from Firestore `/saved_articles`.
    */
   const handleRemoveSavedArticle = async (docId: string) => {
@@ -875,6 +1184,11 @@ export default function InvestorDashboardPage() {
   };
 
   const savedArticleIds = new Set(savedArticles.map((s) => s.articleId));
+  const isCurrentCompanyFollowed = followedCompanies.some(
+    (c) =>
+      c.value.toLowerCase() === searchState.entityValue.trim().toLowerCase() ||
+      c.label.toLowerCase() === searchState.entityValue.trim().toLowerCase()
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-[#091326] text-white">
@@ -888,32 +1202,92 @@ export default function InvestorDashboardPage() {
 
       {/* Main 1440px Quantitative Workspace Container */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-8">
-        {/* Hero Header Banner */}
-        <div className="mb-8 flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-6 border-b border-[#212c42]">
-          <div>
-            <p className="text-xs font-medium text-[#49afe9] mb-1">
-              US Exchanges Supported · Multi-Language Translation · AI Research Desk
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white text-balance">
-              Institutional Company News &amp; AI Market Intelligence
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 font-mono-tabular">
-            <span>Coverage: {searchState.entityValue}</span>
-            <span aria-hidden="true">·</span>
-            <span>
-              Sort: {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
-            </span>
-          </div>
-        </div>
-
-        {/* Featured Institutional Watchlist Strip with Sparklines */}
+        {/* Followed Companies Watchlist Strip with Follow / Unfollow Controls */}
         <WatchlistCarousel
+          companies={followedCompanies}
           activeValue={searchState.entityValue}
           activeEntityType={searchState.entityType}
           onSelectPreset={handleSelectPreset}
+          onAddCompany={(rawInput) => void handleAddFollowedCompany(rawInput)}
+          onRemoveCompany={(val) => void handleRemoveFollowedCompany(val)}
+          onResetDefaults={handleResetDefaultWatchlist}
+          isCustomized={isWatchlistCustomized}
         />
+
+        {/* LANDING DASHBOARD HERO: Watchlist Cross-Company News Summary & Top Bullish/Bearish Signals */}
+        <WatchlistLandingBrief
+          digest={watchlistDigest}
+          followedCount={followedCompanies.length}
+          isLoading={isLoadingWatchlistDigest}
+          error={watchlistDigestError}
+          onRefresh={() => void fetchWatchlistDigest(followedCompanies, true)}
+          onSelectCompany={handleSelectCompanyFromBrief}
+          onBookmarkArticle={handleBookmarkMoverArticle}
+          savedArticleIds={savedArticleIds}
+        />
+
+        {/* Deep-Dive Company Research Section Divider */}
+        <div
+          id="company-research"
+          className="mb-6 pt-4 flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-[#212c42]"
+        >
+          <div>
+            <p className="text-xs font-medium text-[#49afe9] mb-1">
+              Single-Company Deep Dive · Price Chart &amp; Metrics · Supply Chain &amp; Peer Ecosystem
+            </p>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-balance">
+              Company Research Terminal:{' '}
+              <span className="text-[#49afe9]">{searchState.entityValue}</span>
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (isCurrentCompanyFollowed) {
+                  void handleRemoveFollowedCompany(
+                    searchState.entityValue.trim()
+                  );
+                } else {
+                  const label =
+                    marketData?.companyName || searchState.entityValue.trim();
+                  const sector = marketData?.sector || undefined;
+                  void handleAddFollowedCompany(
+                    searchState.entityValue.trim(),
+                    label,
+                    sector
+                  );
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                isCurrentCompanyFollowed
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                  : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c]'
+              }`}
+            >
+              {isCurrentCompanyFollowed ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  Following in Watchlist
+                </>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5" />
+                  Follow {searchState.entityValue} in Watchlist
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center gap-3 text-xs text-slate-300 font-mono-tabular">
+              <span>Coverage: {searchState.entityValue}</span>
+              <span aria-hidden="true">·</span>
+              <span>
+                Sort: {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Search & Filter Control Bar */}
         <NewsSearchControlBar

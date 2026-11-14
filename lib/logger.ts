@@ -94,3 +94,32 @@ export function logGenAICall(details: {
     })
   );
 }
+
+/**
+ * Alias for logFunctionCall to log general info telemetry events with parameters.
+ */
+export function logInfo(
+  eventName: string,
+  params: Record<string, unknown> = {}
+): void {
+  logFunctionCall(eventName, params);
+}
+
+/**
+ * Logs an error telemetry event with sanitized parameters.
+ */
+export function logError(
+  eventName: string,
+  params: Record<string, unknown> = {}
+): void {
+  const sanitizedParams = stripInlineData(params);
+  console.error(
+    `[ERROR] ${eventName}`,
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      event: eventName,
+      params: sanitizedParams,
+    })
+  );
+}
+
