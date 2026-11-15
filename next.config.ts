@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['pptxgenjs'],
   transpilePackages: ['motion'],
+  experimental: {
+    cpus: 1,
+    webpackBuildWorker: false,
+  },
   webpack: (config, {dev}) => {
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modify—file watching is disabled to prevent flickering during agent edits.
@@ -30,6 +34,7 @@ const nextConfig: NextConfig = {
         ignored: /.*/,
       };
     }
+    config.cache = false;
     return config;
   },
 };

@@ -14,11 +14,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import PptxGenJS from 'pptxgenjs';
-import type { HackathonSlide } from '@/components/HackathonPitchDeck';
+import type { PitchSlideDefinition } from '@/components/HackathonPitchDeck';
 import { logFunctionCall } from '@/lib/logger';
 
 interface GeneratePptxPayload {
-  slides: HackathonSlide[];
+  slides: PitchSlideDefinition[];
   pngByUrl?: Record<string, string>;
 }
 
