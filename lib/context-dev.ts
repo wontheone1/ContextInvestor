@@ -23,7 +23,10 @@ import type {
   NewsSearchParams,
   NewsSearchResponse,
 } from 'context.dev/resources/news';
-import { lookupCompanyNameForAdrTicker } from './adr-directory.ts';
+import {
+  lookupCompanyNameForAdrTicker,
+  stripAdrSuffix,
+} from './adr-directory.ts';
 import { APP_CONFIG } from './config.ts';
 import { logFunctionCall } from './logger.ts';
 
@@ -416,11 +419,16 @@ export async function searchCompanyNews(
   resolvedEntityType: ResolvedEntityLookupType;
   resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
 }> {
-  logFunctionCall('searchCompanyNews', { ...input });
+  const normalizedInput: CompanyNewsQueryInput = {
+    ...input,
+    entityValue: stripAdrSuffix(input.entityValue),
+  };
+
+  logFunctionCall('searchCompanyNews', { ...normalizedInput });
 
   const client = createContextDevClient(clientOverrides);
 
-  if (input.entityType !== 'auto') {
+  if (normalizedInput.entityType !== 'auto') {
     let primaryExplicitError: unknown = null;
     let explicitResult: {
       response: NewsSearchResponse;
@@ -431,8 +439,8 @@ export async function searchCompanyNews(
 
     try {
       explicitResult = await executeSingleEntityTypeSearch(client, {
-        ...input,
-        entityType: input.entityType,
+        ...normalizedInput,
+        entityType: normalizedInput.entityType,
       });
     } catch (err) {
       primaryExplicitError = err;
@@ -441,17 +449,19 @@ export async function searchCompanyNews(
     // ADR / US OTC ticker fallback: if searching by an ADR ticker (e.g. SKHY, SSNLF, HNHPF, TELWY)
     // yields 0 articles or an unknown-ticker error, seamlessly fall back to canonical company name!
     if (
-      input.entityType === 'ticker' &&
-      !input.cursor &&
+      normalizedInput.entityType === 'ticker' &&
+      !normalizedInput.cursor &&
       (!explicitResult ||
         !explicitResult.response.data ||
         explicitResult.response.data.length === 0)
     ) {
-      const adrCompanyName = lookupCompanyNameForAdrTicker(input.entityValue);
+      const adrCompanyName = lookupCompanyNameForAdrTicker(
+        normalizedInput.entityValue
+      );
       if (adrCompanyName) {
         try {
           const adrNameResult = await executeSingleEntityTypeSearch(client, {
-            ...input,
+            ...normalizedInput,
             entityType: 'name',
             entityValue: adrCompanyName,
             exchange: undefined,
@@ -461,7 +471,7 @@ export async function searchCompanyNews(
             adrNameResult.response.data.length > 0
           ) {
             logFunctionCall('searchCompanyNews:adr_name_fallback', {
-              adrTicker: input.entityValue,
+              adrTicker: normalizedInput.entityValue,
               adrCompanyName,
               articleCount: adrNameResult.response.data.length,
             });
@@ -492,7 +502,7 @@ export async function searchCompanyNews(
     throw primaryExplicitError;
   }
 
-  const candidateOrder = inferEntitySearchOrder(input.entityValue);
+  const candidateOrder = inferEntitySearchOrder(normalizedInput.entityValue);
   let primaryResult: {
     response: NewsSearchResponse;
     requestPayload: NewsSearchParams;
@@ -503,9 +513,10 @@ export async function searchCompanyNews(
 
   try {
     primaryResult = await executeSingleEntityTypeSearch(client, {
-      ...input,
+      ...normalizedInput,
       entityType: candidateOrder[0],
-      exchange: candidateOrder[0] === 'ticker' ? input.exchange : undefined,
+      exchange:
+        candidateOrder[0] === 'ticker' ? normalizedInput.exchange : undefined,
     });
   } catch (err) {
     primaryError = err;
@@ -515,7 +526,7 @@ export async function searchCompanyNews(
     primaryResult &&
     ((primaryResult.response.data && primaryResult.response.data.length > 0) ||
       candidateOrder.length === 1 ||
-      Boolean(input.cursor))
+      Boolean(normalizedInput.cursor))
   ) {
     logFunctionCall('searchCompanyNews:completed', {
       requestId: primaryResult.response.request_id,
@@ -530,7 +541,7 @@ export async function searchCompanyNews(
   if (candidateOrder.length > 1) {
     try {
       const secondaryResult = await executeSingleEntityTypeSearch(client, {
-        ...input,
+        ...normalizedInput,
         entityType: candidateOrder[1],
         exchange: undefined,
       });
@@ -540,7 +551,7 @@ export async function searchCompanyNews(
         secondaryResult.response.data.length > 0
       ) {
         logFunctionCall('searchCompanyNews:auto_fallback_completed', {
-          query: input.entityValue,
+          query: normalizedInput.entityValue,
           resolvedEntityType: secondaryResult.resolvedEntityType,
           articleCount: secondaryResult.response.data.length,
         });

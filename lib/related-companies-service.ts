@@ -19,6 +19,7 @@
  */
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { isAdrTicker } from './adr-directory';
 import { APP_CONFIG } from './config';
 import { resolveFollowabilityForSuggestedCompany } from './watchlist-company-service';
 import { logFunctionCall, logGenAICall } from './logger';
@@ -63,6 +64,8 @@ export interface RelatedCompanyItem {
   name: string;
   /** US stock or US ADR/OTC ticker if traded in the US (e.g. "MSFT", "TSM", "SKHY", "SSNLF"), otherwise null */
   ticker: string | null;
+  /** True when the US ticker represents an ADR or US-traded foreign equity */
+  isAdr?: boolean;
   /** Search mode to use when clicked ('ticker' for US/ADR-listed, 'name' for private/non-US) */
   entityType: 'ticker' | 'name';
   /** Query string to populate in search ('MSFT', 'SKHY', or 'OpenAI') */
@@ -170,7 +173,7 @@ export async function getRelatedCompanies(
   forceRefresh = false
 ): Promise<RelatedCompaniesResponse> {
   const trimmedQuery = companyQuery.trim();
-  const cacheKey = `v2::${trimmedQuery.toLowerCase()}`;
+  const cacheKey = `v3::${trimmedQuery.toLowerCase()}`;
 
   logFunctionCall('getRelatedCompanies', {
     companyQuery: trimmedQuery,
@@ -368,6 +371,9 @@ Requirements:
         return {
           ...item,
           ticker: followCheck.ticker,
+          isAdr: Boolean(
+            followCheck.ticker && isAdrTicker(followCheck.ticker, item.name)
+          ),
           entityType: followCheck.entityType,
           searchQuery: followCheck.searchQuery,
           canFollow: followCheck.canFollow,

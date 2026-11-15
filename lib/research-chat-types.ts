@@ -18,6 +18,7 @@
  * ============================================================================
  */
 
+import { formatTickerWithAdr } from './adr-directory';
 import { APP_CONFIG, type CompanyPreset } from './config';
 import type { CompanyProfileData } from './company-profile-service';
 import type { AIMarketBriefResponse } from './gemini-service';
@@ -214,7 +215,9 @@ export function buildWorkspaceResearchContext(params: {
   // 1. Build Watchlist Context (always included per user preference)
   const watchlist: WatchlistChatContext = {
     followedCompanies: params.followedCompanies.map((c) =>
-      c.entityType === 'ticker' ? `${c.label} (${c.value})` : c.label
+      c.entityType === 'ticker'
+        ? `${c.label} (${formatTickerWithAdr(c.value, c.label, c.isAdr)})`
+        : c.label
     ),
     executiveSummary: params.watchlistDigest?.executiveSummary ?? null,
     keyThemes: params.watchlistDigest?.keyThemes ?? [],
@@ -273,7 +276,9 @@ export function buildWorkspaceResearchContext(params: {
           return {
             id: cand.id,
             name: cand.name,
-            ticker: cand.ticker,
+            ticker: cand.ticker
+              ? formatTickerWithAdr(cand.ticker, cand.name, cand.isAdr)
+              : null,
             kind: cand.kind,
             sector: cand.sector,
             valuationOrMarketCap:
@@ -322,7 +327,9 @@ export function buildWorkspaceResearchContext(params: {
       .filter((c) => !selectedSet.has(c.id))
       .map((c) => ({
         name: c.name,
-        ticker: c.ticker,
+        ticker: c.ticker
+          ? formatTickerWithAdr(c.ticker, c.name, c.isAdr)
+          : null,
         valuationDisplay: c.valuationDisplay,
       }));
 
@@ -359,7 +366,10 @@ export function buildWorkspaceResearchContext(params: {
   // 3. Single-Company Deep Dive Mode Snapshot
   const m = params.marketData;
   const p = params.companyProfile;
-  const displaySymbol = m?.kind === 'public' ? m.symbol : null;
+  const displaySymbol =
+    m?.kind === 'public'
+      ? formatTickerWithAdr(m.symbol, m.companyName, m.isAdr)
+      : null;
   const displayName =
     m?.companyName || p?.name || params.searchedQuery.trim() || 'Active Company';
 
@@ -441,7 +451,11 @@ export function buildWorkspaceResearchContext(params: {
       category: g.category,
       peers: g.companies
         .slice(0, 5)
-        .map((c) => (c.ticker ? `${c.name} (${c.ticker})` : c.name)),
+        .map((c) =>
+          c.ticker
+            ? `${c.name} (${formatTickerWithAdr(c.ticker, c.name, c.isAdr)})`
+            : c.name
+        ),
     })),
     articles: params.articles
       .slice(0, APP_CONFIG.researchChat.maxContextArticles)

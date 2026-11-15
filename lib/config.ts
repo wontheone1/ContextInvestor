@@ -28,6 +28,7 @@ export interface CompanyPreset {
   entityType: EntityType;
   value: string;
   kind?: 'public' | 'private';
+  isAdr?: boolean;
   exchange?: 'NASDAQ' | 'NYSE' | 'LSE' | 'XETRA' | 'JPX' | 'HKSE';
   sector: string;
   price: string;
@@ -298,7 +299,7 @@ export const APP_CONFIG = {
             entityType: 'ticker' as const,
             kind: 'public' as const,
             sector: 'Leading-Edge Foundry',
-            hint: 'Public · NYSE',
+            hint: 'ADR · NYSE',
           },
         ],
       },

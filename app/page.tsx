@@ -73,6 +73,7 @@ import {
   HackathonPitchDeck,
   type PitchDemoAction,
 } from '@/components/HackathonPitchDeck';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
   ChartRange,
@@ -1817,6 +1818,7 @@ export default function InvestorDashboardPage() {
         passesThreshold,
         matchReason: 'Custom peer added for side-by-side comparison.',
         canFollow: overview.canFollow,
+        isAdr: overview.kind === 'public' ? Boolean(overview.isAdr) : false,
       };
 
       const existsInCandidates = cohortScreen.candidates.some(
@@ -2428,6 +2430,14 @@ export default function InvestorDashboardPage() {
     marketData?.kind === 'public'
       ? marketData.symbol
       : searchState.entityValue.trim();
+  const activeDisplaySymbol =
+    marketData?.kind === 'public'
+      ? formatTickerWithAdr(
+          marketData.symbol,
+          marketData.companyName,
+          marketData.isAdr
+        )
+      : activeCanonicalSymbol;
   const activeCanonicalLabel =
     marketData?.companyName || searchState.entityValue.trim();
 
@@ -2646,7 +2656,11 @@ export default function InvestorDashboardPage() {
                             <span>{c.label}</span>
                             {c.entityType === 'ticker' && (
                               <span className="ml-1 font-mono-tabular opacity-85">
-                                {c.value}
+                                {formatTickerWithAdr(
+                                  c.value,
+                                  c.label,
+                                  c.isAdr
+                                )}
                               </span>
                             )}
                           </span>
@@ -2759,7 +2773,11 @@ export default function InvestorDashboardPage() {
                         {marketData?.kind === 'public' && (
                           <div className="flex items-baseline gap-2 text-sm font-mono-tabular">
                             <span className="text-[#49afe9] font-semibold">
-                              {marketData.symbol}
+                              {formatTickerWithAdr(
+                                marketData.symbol,
+                                marketData.companyName,
+                                marketData.isAdr
+                              )}
                             </span>
                             <span aria-hidden="true" className="text-slate-500">
                               ·
@@ -2825,7 +2843,7 @@ export default function InvestorDashboardPage() {
                           ) : (
                             <>
                               <Plus className="w-3.5 h-3.5" />
-                              <span>Follow {activeCanonicalSymbol}</span>
+                              <span>Follow {activeDisplaySymbol}</span>
                             </>
                           )}
                         </button>
@@ -2973,7 +2991,7 @@ export default function InvestorDashboardPage() {
                   {researchSubTab === 'news' && (
                     <div>
                       <AIMarketBriefPanel
-                        companyLabel={searchState.entityValue}
+                        companyLabel={activeDisplaySymbol}
                         brief={aiBrief}
                         isLoading={isGeneratingBrief}
                         error={briefError}
@@ -2993,7 +3011,7 @@ export default function InvestorDashboardPage() {
                           savedArticleIds={savedArticleIds}
                           onGenerateAIBrief={handleGenerateAIBrief}
                           isGeneratingBrief={isGeneratingBrief}
-                          companyLabel={searchState.entityValue}
+                          companyLabel={activeDisplaySymbol}
                           sentimentFilter={sentimentFilter}
                           onSentimentFilterChange={setSentimentFilter}
                           isAnalyzingSentiment={isAnalyzingSentiment}
@@ -3198,7 +3216,10 @@ export default function InvestorDashboardPage() {
                                   </span>
                                   {starter.entityType === 'ticker' && (
                                     <span className="text-xs font-mono-tabular text-[#49afe9] shrink-0">
-                                      {starter.value}
+                                      {formatTickerWithAdr(
+                                        starter.value,
+                                        starter.label
+                                      )}
                                     </span>
                                   )}
                                 </div>

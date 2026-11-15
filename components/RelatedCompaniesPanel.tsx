@@ -22,6 +22,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { ArrowUpRight, Check, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type {
   RelatedCompaniesResponse,
   RelatedCompanyItem,
@@ -410,7 +411,11 @@ export function RelatedCompaniesPanel({
                             </span>
                             {company.ticker && (
                               <span className="text-xs font-medium text-[#49afe9] font-mono-tabular shrink-0">
-                                {company.ticker}
+                                {formatTickerWithAdr(
+                                  company.ticker,
+                                  company.name,
+                                  company.isAdr
+                                )}
                               </span>
                             )}
                             <ArrowUpRight

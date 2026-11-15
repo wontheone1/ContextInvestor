@@ -22,6 +22,9 @@
  * 4. Ranking Yahoo Finance US equity search quotes so NYSE/NASDAQ primary ADRs
  *    and Sponsored Level I/II/III ADRs (`*Y`) take precedence over illiquid
  *    foreign-ordinary (`*F`) share classes.
+ * 5. Formatting ADR / US-traded foreign depositary tickers with an explicit
+ *    `(ADR)` suffix (`ASML (ADR)`, `ARM (ADR)`, `SKHY (ADR)`, `TSM (ADR)`) across
+ *    all UI surfaces so investors never confuse them with local home-market listings.
  * ============================================================================
  */
 
@@ -270,7 +273,7 @@ const ADR_AND_BRAND_ALIASES: Array<{
       symbol: 'NXPI',
       canonicalName: 'NXP Semiconductors',
       sector: 'Automotive & Industrial Chips',
-      isAdr: true,
+      isAdr: false,
     },
   },
   {
@@ -460,6 +463,66 @@ const ADR_AND_BRAND_ALIASES: Array<{
   },
 ];
 
+/**
+ * Additional NYSE / NASDAQ listed American Depositary Receipts (ADRs) & NY Registry
+ * shares of foreign-domiciled issuers that also maintain primary home-country listings.
+ */
+const KNOWN_ADR_SYMBOLS = new Set<string>([
+  'AZN',
+  'BNTX',
+  'SE',
+  'TM',
+  'HMC',
+  'HSBC',
+  'SHEL',
+  'BP',
+  'RIO',
+  'BHP',
+  'VALE',
+  'PDD',
+  'JD',
+  'BIDU',
+  'NTES',
+  'NIO',
+  'XPEV',
+  'LI',
+  'INFY',
+  'WIT',
+  'HDB',
+  'IBN',
+  'NOK',
+  'ERIC',
+  'SNY',
+  'GSK',
+  'NVS',
+  'TTE',
+  'UL',
+  'DEO',
+  'BUD',
+  'MUFG',
+  'SMFG',
+  'TAK',
+  'ARGX',
+  'GMAB',
+  'TEVA',
+  'RELX',
+  'NGG',
+  'VOD',
+  'ING',
+  'PHG',
+  'SAN',
+  'BBVA',
+  'BCS',
+  'ITUB',
+  'PBR',
+  'ABEV',
+  'KB',
+  'SHG',
+  'PKX',
+  'KEP',
+  'CHT',
+]);
+
 const ALIAS_LOOKUP_MAP = new Map<string, AdrAliasRecord>();
 const SYMBOL_TO_ADR_RECORD = new Map<string, AdrAliasRecord>();
 
@@ -515,6 +578,98 @@ export function lookupAdrOrBrandAlias(query: string): AdrAliasRecord | null {
 }
 
 /**
+ * Strips any trailing `(ADR)` display suffix from a user-entered or formatted
+ * ticker/query string so underlying API lookups always receive clean symbols.
+ *
+ * @param raw - Raw ticker or search string (e.g. `"ASML (ADR)"` or `"SKHY"`)
+ * @returns Clean string without trailing `(ADR)`
+ */
+export function stripAdrSuffix(raw: string): string {
+  return raw.replace(/\s*\(\s*ADR\s*\)\s*$/i, '').trim();
+}
+
+/**
+ * Determines whether a US-traded stock symbol represents an American Depositary
+ * Receipt (ADR) or US OTC foreign equity of an international company so UI
+ * surfaces can append `(ADR)` after the ticker.
+ *
+ * @param symbol - US/ADR stock symbol (e.g. `"ASML"`, `"ARM"`, `"SKHY"`, `"NVDA"`)
+ * @param companyNameHint - Optional company name or security title hint
+ * @param explicitIsAdr - Optional pre-computed boolean flag from server payload
+ * @returns `true` if the ticker is an ADR / US-traded foreign equity
+ */
+export function isAdrTicker(
+  symbol?: string | null,
+  companyNameHint?: string | null,
+  explicitIsAdr?: boolean
+): boolean {
+  if (explicitIsAdr === true) {
+    return true;
+  }
+  if (!symbol) {
+    return false;
+  }
+
+  const upper = stripAdrSuffix(symbol)
+    .replace(/^\$/, '')
+    .trim()
+    .toUpperCase();
+  if (!upper) {
+    return false;
+  }
+
+  const curated = SYMBOL_TO_ADR_RECORD.get(upper);
+  if (curated) {
+    return curated.isAdr;
+  }
+
+  if (KNOWN_ADR_SYMBOLS.has(upper)) {
+    return true;
+  }
+
+  // Standard 5-letter FINRA US ADR (`*Y`) or US OTC foreign ordinary (`*F`) symbol
+  if (/^[A-Z]{4}[YF]$/.test(upper)) {
+    return true;
+  }
+
+  if (
+    companyNameHint &&
+    /\b(ADR|ADS|American Depositary|NY Registry)\b/i.test(companyNameHint)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Formats a stock ticker for UI display, appending ` (ADR)` immediately after
+ * ADR / US-traded foreign equity symbols (e.g. `ASML (ADR)`, `ARM (ADR)`,
+ * `SKHY (ADR)`) while keeping domestic US stocks (`NVDA`, `MSFT`) unchanged.
+ *
+ * @param symbol - Raw stock ticker symbol
+ * @param companyNameHint - Optional company name or security title hint
+ * @param explicitIsAdr - Optional pre-computed ADR boolean flag
+ * @returns Display-formatted ticker string
+ */
+export function formatTickerWithAdr(
+  symbol?: string | null,
+  companyNameHint?: string | null,
+  explicitIsAdr?: boolean
+): string {
+  if (!symbol) {
+    return '';
+  }
+  const cleaned = stripAdrSuffix(symbol).trim();
+  if (!cleaned) {
+    return '';
+  }
+  return isAdrTicker(cleaned, companyNameHint, explicitIsAdr)
+    ? `${cleaned} (ADR)`
+    : cleaned;
+}
+
+/**
  * Resolves an ADR or US OTC symbol back to a clean operating company name so
  * news endpoints that index international issuers by name rather than OTC ticker
  * still return full institutional article coverage.
@@ -523,7 +678,7 @@ export function lookupAdrOrBrandAlias(query: string): AdrAliasRecord | null {
  * @returns Canonical company name or `null` if not in the ADR directory
  */
 export function lookupCompanyNameForAdrTicker(symbol: string): string | null {
-  const upper = symbol.trim().toUpperCase();
+  const upper = stripAdrSuffix(symbol).toUpperCase();
   const record = SYMBOL_TO_ADR_RECORD.get(upper);
   if (!record || !record.isAdr) {
     return null;

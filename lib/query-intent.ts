@@ -18,6 +18,7 @@
  * ============================================================================
  */
 
+import { stripAdrSuffix } from './adr-directory';
 import type { CompanyProfileData } from './company-profile-service';
 import type {
   ChartRange,
@@ -52,6 +53,8 @@ export interface ScreenedCandidateItem {
   matchReason: string;
   /** Whether this company can currently be followed in Watchlist (US/ADR equity or verified private company) */
   canFollow?: boolean;
+  /** True when `ticker` represents an ADR / US-traded foreign equity */
+  isAdr?: boolean;
 }
 
 export interface ComparedCompanyNewsPulse {
@@ -126,7 +129,7 @@ const SINGLE_COMPANY_SUFFIX =
  * @returns `'cohort'` for descriptive screening queries, `'single'` for direct company/ticker lookups
  */
 export function detectSearchQueryIntent(rawQuery: string): SearchWorkspaceMode {
-  const trimmed = rawQuery.trim();
+  const trimmed = stripAdrSuffix(rawQuery);
   logFunctionCall('detectSearchQueryIntent', { query: trimmed });
 
   if (!trimmed) {

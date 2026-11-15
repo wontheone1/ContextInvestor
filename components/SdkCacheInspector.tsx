@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { ArrowRight, Bookmark, ExternalLink, Trash2 } from 'lucide-react';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type { SavedArticleRecord } from '@/lib/firebase-client';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
@@ -134,7 +135,13 @@ export function SdkCacheInspector({
         </div>
       ) : (
         <div className="divide-y divide-[#212c42]">
-          {savedArticles.map((item) => (
+          {savedArticles.map((item) => {
+            const rawTag = (item.companyTag || '').trim();
+            const displayCompanyTag = /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(rawTag)
+              ? formatTickerWithAdr(rawTag)
+              : item.companyTag;
+
+            return (
             <div
               key={item.docId}
               className="py-4 first:pt-0 last:pb-0 flex items-start justify-between gap-4"
@@ -147,11 +154,11 @@ export function SdkCacheInspector({
                       onClick={() => onSelectSavedCompany(item.companyTag)}
                       className="text-[#49afe9] hover:text-white font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
                     >
-                      {item.companyTag}
+                      {displayCompanyTag}
                     </button>
                   ) : (
                     <span className="text-[#49afe9] font-semibold">
-                      {item.companyTag}
+                      {displayCompanyTag}
                     </span>
                   )}
                   <span aria-hidden="true">·</span>
@@ -189,7 +196,8 @@ export function SdkCacheInspector({
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

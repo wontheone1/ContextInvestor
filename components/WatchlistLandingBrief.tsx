@@ -36,6 +36,7 @@ import type {
   WatchlistDigestResponse,
   WatchlistMoverArticle,
 } from '@/lib/watchlist-digest-service';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logInfo } from '@/lib/logger';
 
@@ -174,12 +175,17 @@ export function WatchlistLandingBrief({
                   )
                 }
                 title={`Open Step 3 deep-dive research for ${article.companyLabel}`}
-                className="font-sans font-semibold text-white hover:text-[#49afe9] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-baseline gap-1.5 font-sans font-semibold text-white hover:text-[#49afe9] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                {article.companyLabel}
-                {article.companyEntityType === 'ticker'
-                  ? ` (${article.companyValue})`
-                  : ''}
+                <span>{article.companyLabel}</span>
+                {article.companyEntityType === 'ticker' && (
+                  <span className="font-mono-tabular text-xs text-[#49afe9]">
+                    {formatTickerWithAdr(
+                      article.companyValue,
+                      article.companyLabel
+                    )}
+                  </span>
+                )}
               </button>
               <span className="text-slate-500" aria-hidden="true">
                 ·
@@ -446,7 +452,10 @@ export function WatchlistLandingBrief({
                             </span>
                             {company.entityType === 'ticker' ? (
                               <span className="font-mono-tabular text-xs text-[#49afe9] shrink-0">
-                                {company.value}
+                                {formatTickerWithAdr(
+                                  company.value,
+                                  company.label
+                                )}
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400 shrink-0">

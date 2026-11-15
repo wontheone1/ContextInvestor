@@ -25,6 +25,7 @@
  */
 
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+import { formatTickerWithAdr } from './adr-directory';
 import { APP_CONFIG } from './config';
 import {
   formatUsdCompact,
@@ -286,7 +287,7 @@ export async function screenNaturalCompanyCohort(options: {
     forceRefresh: options.forceRefresh ?? false,
   });
 
-  const cacheKey = `v2::${trimmedQuery.toLowerCase()}::${range}`;
+  const cacheKey = `v3::${trimmedQuery.toLowerCase()}::${range}`;
   if (!options.forceRefresh) {
     const cached = screenCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
@@ -470,6 +471,7 @@ export async function screenNaturalCompanyCohort(options: {
           passesThreshold,
           matchReason: cand.matchReason,
           canFollow: overview.canFollow,
+          isAdr: overview.kind === 'public' ? Boolean(overview.isAdr) : false,
         };
       } catch {
         return null;
@@ -694,7 +696,11 @@ async function synthesizeComparativeSummary(
     const n = d.newsPulse;
     if (m?.kind === 'public') {
       return {
-        company: `${m.companyName} (${m.symbol})`,
+        company: `${m.companyName} (${formatTickerWithAdr(
+          m.symbol,
+          m.companyName,
+          m.isAdr
+        )})`,
         marketCap: m.metrics.marketCap,
         periodReturnPct: `${m.changePercent >= 0 ? '+' : ''}${m.changePercent.toFixed(2)}% (${m.range})`,
         trailingPE: m.metrics.trailingPE,

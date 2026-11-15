@@ -30,6 +30,7 @@ import {
   Plus,
   Loader2,
 } from 'lucide-react';
+import { formatTickerWithAdr, isAdrTicker } from '@/lib/adr-directory';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
@@ -737,9 +738,17 @@ export function CompanyMarketOverview({
     );
   }
 
-  // Public US Equity View
+  // Public US / ADR Equity View
   const isPositive = data.change >= 0;
   const isFlat = Math.abs(data.change) < 0.005;
+  const isAdrEquity = Boolean(
+    data.isAdr || isAdrTicker(data.symbol, data.companyName)
+  );
+  const displaySymbol = formatTickerWithAdr(
+    data.symbol,
+    data.companyName,
+    isAdrEquity
+  );
 
   const metricGroups: Array<{
     heading: string;
@@ -864,10 +873,12 @@ export function CompanyMarketOverview({
             <div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mb-1">
                 <span className="text-[#49afe9] font-semibold font-mono-tabular">
-                  {data.symbol}
+                  {displaySymbol}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span>US Listed Equity</span>
+                <span>
+                  {isAdrEquity ? 'US-Traded ADR Equity' : 'US Listed Equity'}
+                </span>
                 {data.sector && (
                   <>
                     <span aria-hidden="true">·</span>
@@ -900,8 +911,8 @@ export function CompanyMarketOverview({
                     }}
                     title={
                       isFollowed
-                        ? `Unfollow ${data.symbol}`
-                        : `Follow ${data.symbol}`
+                        ? `Unfollow ${displaySymbol}`
+                        : `Follow ${displaySymbol}`
                     }
                     className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                       isFollowed
@@ -927,7 +938,7 @@ export function CompanyMarketOverview({
                     ) : (
                       <>
                         <Plus className="w-3 h-3" />
-                        <span>Follow {data.symbol}</span>
+                        <span>Follow {displaySymbol}</span>
                       </>
                     )}
                   </button>
@@ -1034,7 +1045,7 @@ export function CompanyMarketOverview({
               Key Investment Metrics
             </h3>
             <p className="text-xs text-slate-400">
-              Valuation, profitability &amp; consensus ({data.symbol})
+              Valuation, profitability &amp; consensus ({displaySymbol})
             </p>
           </div>
           <span className="text-xs text-slate-400 font-mono-tabular">

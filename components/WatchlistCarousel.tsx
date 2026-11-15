@@ -27,6 +27,7 @@
 
 import React, { useState } from 'react';
 import { AlertCircle, Check, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import {
   APP_CONFIG,
   type CompanyPreset,
@@ -308,11 +309,14 @@ export function WatchlistCarousel({
             const isPublicEquity =
               item.kind !== 'private' && item.entityType === 'ticker';
             const effectiveTimeframe = item.timeframe || sparklineRange;
+            const displayTicker = isPublicEquity
+              ? formatTickerWithAdr(item.value, item.label, item.isAdr)
+              : '';
             const sparklineNode = isPublicEquity
               ? renderSparklineSvg(
                   item.sparkline,
                   item.positive,
-                  `${effectiveTimeframe} (${item.value})`
+                  `${effectiveTimeframe} (${displayTicker})`
                 )
               : null;
 
@@ -336,7 +340,7 @@ export function WatchlistCarousel({
                 <div className="flex items-center justify-between gap-2 mb-2">
                   {isPublicEquity ? (
                     <span className="text-xs text-[#49afe9] font-mono-tabular font-semibold shrink-0">
-                      {item.value}
+                      {displayTicker}
                     </span>
                   ) : (
                     <span className="text-[11px] text-slate-400 shrink-0">

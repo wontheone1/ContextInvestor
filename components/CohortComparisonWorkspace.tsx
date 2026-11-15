@@ -35,6 +35,7 @@ import {
   Plus,
   RotateCcw,
 } from 'lucide-react';
+import { formatTickerWithAdr, isAdrTicker } from '@/lib/adr-directory';
 import { APP_CONFIG } from '@/lib/config';
 import type {
   ChartRange,
@@ -253,7 +254,11 @@ export function CohortComparisonWorkspace({
 
           pub.push({
             id: cand.id,
-            symbol: pubMarket.symbol,
+            symbol: formatTickerWithAdr(
+              pubMarket.symbol,
+              pubMarket.companyName,
+              pubMarket.isAdr
+            ),
             name: pubMarket.companyName || cand.name,
             color: colorBySelectedId.get(cand.id) || '#09a4ff',
             latestPrice: pubMarket.price,
@@ -744,7 +749,11 @@ export function CohortComparisonWorkspace({
                         </span>
                         <span className="ml-1.5 text-xs text-slate-400 font-mono-tabular">
                           {cand.ticker
-                            ? cand.ticker
+                            ? formatTickerWithAdr(
+                                cand.ticker,
+                                cand.name,
+                                cand.isAdr
+                              )
                             : cand.canFollow === false
                               ? 'Non-US Exchange'
                               : 'Private'}
@@ -1168,7 +1177,16 @@ export function CohortComparisonWorkspace({
                               </div>
                               <div className="text-xs text-slate-400 font-mono-tabular mt-0.5">
                                 {cand.ticker
-                                  ? `${cand.ticker} · Public Equity`
+                                  ? `${formatTickerWithAdr(
+                                      cand.ticker,
+                                      cand.name,
+                                      cand.isAdr
+                                    )} · ${
+                                      cand.isAdr ||
+                                      isAdrTicker(cand.ticker, cand.name)
+                                        ? 'US ADR Equity'
+                                        : 'Public Equity'
+                                    }`
                                   : cand.canFollow === false
                                     ? 'Foreign-Listed Equity · No US ADR'
                                     : 'Privately Held'}

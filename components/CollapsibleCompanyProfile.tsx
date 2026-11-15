@@ -34,6 +34,7 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
+import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import { logFunctionCall } from '@/lib/logger';
 
@@ -43,6 +44,37 @@ export interface CollapsibleCompanyProfileProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+}
+
+const US_PROFILE_EXCHANGES = new Set([
+  'NASDAQ',
+  'NYSE',
+  'AMEX',
+  'ARCA',
+  'BATS',
+  'OTC',
+  'OTCMKTS',
+  'US',
+]);
+
+/**
+ * Formats stock symbols listed in a Context.dev company profile so US-traded
+ * ADR tickers display `(ADR)` while explicit foreign-exchange symbols (e.g.
+ * `KRX:000660`, `TWSE:2330`) remain clearly distinguishable.
+ */
+function formatProfileStockSymbol(rawSym: string, companyName: string): string {
+  const trimmed = rawSym.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes(':')) {
+    const [exch, sym] = trimmed.split(':');
+    const upperExch = (exch || '').trim().toUpperCase();
+    const cleanSym = (sym || '').trim();
+    if (US_PROFILE_EXCHANGES.has(upperExch) && cleanSym) {
+      return `${upperExch}:${formatTickerWithAdr(cleanSym, companyName)}`;
+    }
+    return trimmed;
+  }
+  return formatTickerWithAdr(trimmed, companyName);
 }
 
 /**
@@ -341,7 +373,11 @@ export function CollapsibleCompanyProfile({
                     {profile.stockSymbols.length > 0 && (
                       <span className="font-mono-tabular text-slate-300">
                         {' '}
-                        · {profile.stockSymbols.join(', ')}
+                        ·{' '}
+                        {profile.stockSymbols
+                          .map((s) => formatProfileStockSymbol(s, profile.name))
+                          .filter(Boolean)
+                          .join(', ')}
                       </span>
                     )}
                   </dd>

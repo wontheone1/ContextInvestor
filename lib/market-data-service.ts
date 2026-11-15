@@ -19,8 +19,10 @@
 
 import { GoogleGenAI } from '@google/genai';
 import {
+  isAdrTicker,
   lookupAdrOrBrandAlias,
   rankUsAndAdrEquityQuotes,
+  stripAdrSuffix,
 } from './adr-directory';
 import { APP_CONFIG } from './config';
 import { logFunctionCall, logGenAICall } from './logger';
@@ -62,6 +64,7 @@ export interface KeyInvestmentMetrics {
 export interface PublicCompanyMarketOverview {
   kind: 'public';
   canFollow: boolean;
+  isAdr?: boolean;
   query: string;
   symbol: string;
   companyName: string;
@@ -186,7 +189,7 @@ function formatCompactNumber(val: number | null | undefined): string | null {
  * Normalizes a ticker symbol for Yahoo Finance (e.g. BRK.B -> BRK-B).
  */
 function normalizeYahooSymbol(raw: string): string {
-  return raw.trim().toUpperCase().replace(/\./g, '-');
+  return stripAdrSuffix(raw).toUpperCase().replace(/\./g, '-');
 }
 
 /**
@@ -267,7 +270,7 @@ async function resolveUsEquitySymbol(
   query: string,
   entityType: 'auto' | 'name' | 'ticker' = 'auto'
 ): Promise<{ symbol: string; shortName: string } | null> {
-  const trimmed = query.trim();
+  const trimmed = stripAdrSuffix(query);
   if (!trimmed) return null;
 
   if (KNOWN_PRIVATE_COMPANIES.has(trimmed.toLowerCase())) {
@@ -812,7 +815,7 @@ export async function getCompanyMarketOverview(options: {
   entityType?: 'auto' | 'name' | 'ticker';
   range?: ChartRange;
 }): Promise<CompanyMarketOverviewData> {
-  const query = options.query.trim();
+  const query = stripAdrSuffix(options.query);
   const range: ChartRange =
     options.range && options.range in RANGE_MAP ? options.range : '1M';
 
@@ -872,12 +875,20 @@ export async function getCompanyMarketOverview(options: {
         ? (change / baseline) * 100
         : 0;
 
+  const resolvedCompanyName =
+    summary?.companyName || chart.companyName || resolved.shortName;
+  const isAdr = isAdrTicker(
+    resolved.symbol,
+    `${resolvedCompanyName} ${chart.companyName || ''} ${resolved.shortName || ''}`
+  );
+
   return {
     kind: 'public',
     canFollow: true,
+    isAdr,
     query,
     symbol: resolved.symbol,
-    companyName: summary?.companyName || chart.companyName || resolved.shortName,
+    companyName: resolvedCompanyName,
     sector: summary?.sector ?? null,
     industry: summary?.industry ?? null,
     currency: chart.currency || 'USD',

@@ -38,9 +38,11 @@ import {
   type ContextDevCompanyRecord,
 } from './company-profile-service';
 import {
+  isAdrTicker,
   lookupAdrOrBrandAlias,
   lookupCompanyNameForAdrTicker,
   rankUsAndAdrEquityQuotes,
+  stripAdrSuffix,
 } from './adr-directory';
 import { fetchChartData } from './market-data-service';
 import { detectSearchQueryIntent } from './query-intent';
@@ -392,7 +394,9 @@ export async function buildLivePublicPreset(
   labelHint?: string | null,
   sectorHint?: string | null
 ): Promise<CompanyPreset | null> {
-  const normalizedSymbol = symbol.trim().toUpperCase().replace(/\./g, '-');
+  const normalizedSymbol = stripAdrSuffix(symbol)
+    .toUpperCase()
+    .replace(/\./g, '-');
   const cacheKey = `${normalizedSymbol}::${range}`;
   const cached = quotePresetCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
@@ -438,14 +442,22 @@ export async function buildLivePublicPreset(
     adrDisplayName ||
     cleanDisplayCompanyLabel(chart.companyName || normalizedSymbol);
 
+  const isAdr = isAdrTicker(
+    normalizedSymbol,
+    `${resolvedLabel} ${chart.companyName || ''}`
+  );
+
   const resolvedSector =
-    sectorHint?.trim() || knownFeatured?.sector || 'US / ADR Equity';
+    sectorHint?.trim() ||
+    knownFeatured?.sector ||
+    (isAdr ? 'US-Traded ADR Equity' : 'US Listed Equity');
 
   const preset: CompanyPreset = {
     label: resolvedLabel,
     entityType: 'ticker',
     value: normalizedSymbol,
     kind: 'public',
+    isAdr,
     sector: resolvedSector,
     price: `$${currentPrice.toFixed(2)}`,
     changePct: formattedPct,
@@ -474,7 +486,7 @@ async function resolveVerifiedPublicPreset(
   rawQuery: string,
   range: WatchlistSparklineRange
 ): Promise<CompanyPreset | null> {
-  const cleaned = rawQuery.trim().replace(/^\$/, '').trim();
+  const cleaned = stripAdrSuffix(rawQuery).replace(/^\$/, '').trim();
   if (!cleaned) return null;
 
   if (VERIFIED_PRIVATE_COMPANIES[cleaned.toLowerCase()]) {
@@ -1065,7 +1077,7 @@ export async function validateAndResolveFollowCompany(
 ): Promise<ValidateFollowResult> {
   logFunctionCall('validateAndResolveFollowCompany', { rawInput, range });
 
-  const trimmed = rawInput.trim();
+  const trimmed = stripAdrSuffix(rawInput);
   if (!trimmed) {
     return {
       valid: false,
@@ -1189,8 +1201,10 @@ export async function resolveFollowabilityForSuggestedCompany(
   entityType: 'ticker' | 'name';
   searchQuery: string;
 }> {
-  const cleanName = name.trim();
-  const cleanTicker = tickerHint?.trim().toUpperCase() || null;
+  const cleanName = stripAdrSuffix(name);
+  const cleanTicker = tickerHint
+    ? stripAdrSuffix(tickerHint).toUpperCase() || null
+    : null;
   const cacheKey = `${cleanName.toLowerCase()}::${cleanTicker || ''}`;
 
   const cached = followabilityCache.get(cacheKey);
@@ -1351,7 +1365,7 @@ export async function hydrateWatchlistPresets(
 
   const resolved = await Promise.all(
     bounded.map(async (item): Promise<CompanyPreset | null> => {
-      const rawVal = (item.value || '').trim();
+      const rawVal = stripAdrSuffix(item.value || '');
       if (!rawVal) return null;
 
       // 1. Known private company fast-path (guarantees zero fake sparklines!)
