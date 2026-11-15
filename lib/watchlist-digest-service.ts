@@ -368,7 +368,7 @@ Instructions:
       thinkingLevel: ThinkingLevel.LOW,
     },
     systemInstruction:
-      'You are a Managing Director of Institutional Equity Research synthesizing a multi-company watchlist morning briefing. Be factual, balanced, crisp, and grounded strictly in the provided articles.',
+      'You are a Managing Director of Institutional Equity Research synthesizing a multi-company watchlist daily briefing. Be factual, balanced, crisp, and grounded strictly in the provided articles.',
     responseMimeType: 'application/json',
     responseSchema: {
       type: Type.OBJECT,

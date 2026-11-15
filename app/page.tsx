@@ -8,7 +8,7 @@
  *
  * USE CASES:
  * 1. Providing an immediate, uncluttered quantitative workspace organized into
- *    4 focused views (`Morning Brief`, `Research & Compare`, `Watchlist`, and
+ *    4 focused views (`Daily Brief`, `Research & Compare`, `Watchlist`, and
  *    `Saved Library`) with zero arrival gates or popups.
  * 2. Enabling verified, concurrent-safe 1-click `+ Follow` / `Following`
  *    watchlist curation at every point of discovery:
@@ -17,7 +17,7 @@
  *    - Natural-Language Cohort Search Results (`CohortComparisonWorkspace`
  *      candidate cards, batch `Follow Selected`, and comparison matrix).
  * 3. Synchronizing followed companies, live public sparklines (`1D`..`1Y`),
- *    honest private valuations, Morning Brief digests, and the collapsible
+ *    honest private valuations, Daily Brief digests, and the collapsible
  *    right-side Contextual Research Assistant Drawer (`Cmd/Ctrl + K`).
  * ============================================================================
  */
@@ -240,7 +240,7 @@ export default function InvestorDashboardPage() {
   >(null);
   const watchlistQuotesSeqRef = useRef<number>(0);
 
-  // Watchlist Cross-Company Morning Brief & Top Bullish/Bearish Movers State
+  // Watchlist Cross-Company Daily Brief & Top Bullish/Bearish Movers State
   const [watchlistDigest, setWatchlistDigest] =
     useState<WatchlistDigestResponse | null>(null);
   const [isLoadingWatchlistDigest, setIsLoadingWatchlistDigest] =
@@ -736,7 +736,7 @@ export default function InvestorDashboardPage() {
   /**
    * Verifies and follows multiple discovered companies in parallel (e.g., `"Follow Selected"`
    * in Natural-Language Cohort Search or `"Follow Group"` in Related Companies)
-   * without stale-closure race conditions, refreshing the Morning Brief once at completion.
+   * without stale-closure race conditions, refreshing the Daily Brief once at completion.
    */
   const handleBatchFollowCompanies = async (
     items: Array<{ query: string; label?: string; sector?: string | null }>
@@ -867,7 +867,7 @@ export default function InvestorDashboardPage() {
 
   /**
    * Removes a company from the user's followed watchlist (matching by ticker,
-   * query value, or display label) and updates the Watchlist Morning Brief.
+   * query value, or display label) and updates the Watchlist Daily Brief.
    */
   const handleRemoveFollowedCompany = async (
     valueToRemove: string,
@@ -2000,7 +2000,7 @@ export default function InvestorDashboardPage() {
 
   /**
    * Pivots to `Research & Compare` in Single-Company mode when a user clicks
-   * any company across Watchlist, Morning Brief, Cohort Matrix, or Saved Library.
+   * any company across Watchlist, Daily Brief, Cohort Matrix, or Saved Library.
    */
   const handleSelectCompanyFromBrief = (
     companyValue: string,
@@ -2137,7 +2137,7 @@ export default function InvestorDashboardPage() {
    * presenters can jump directly from any slide to the live interactive feature.
    */
   const handleTriggerPitchDemoAction = (action: PitchDemoAction) => {
-    if (action === 'open_morning_brief') {
+    if (action === 'open_daily_brief') {
       setActiveStage('pulse');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -2213,7 +2213,7 @@ export default function InvestorDashboardPage() {
   };
 
   /**
-   * Saves a top Bullish/Bearish mover article from the Morning Brief
+   * Saves a top Bullish/Bearish mover article from the Daily Brief
    * to the user's Firestore `/saved_articles` collection.
    */
   const handleBookmarkMoverArticle = async (mover: WatchlistMoverArticle) => {
@@ -2541,7 +2541,7 @@ export default function InvestorDashboardPage() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>
-                Morning Brief
+                Daily Brief
                 {totalSignalCount > 0 ? ` (${totalSignalCount})` : ''}
               </span>
             </button>
@@ -3061,7 +3061,7 @@ export default function InvestorDashboardPage() {
           )}
 
           {/* ============================================================
-              VIEW 2: MORNING BRIEF (Watchlist Signal & Movers)
+              VIEW 2: DAILY BRIEF (Watchlist Signal & Movers)
               ============================================================ */}
           {activeStage === 'pulse' && (
             <motion.div
@@ -3074,7 +3074,7 @@ export default function InvestorDashboardPage() {
               <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight text-white text-balance">
-                    Morning Brief Across Your Watchlist
+                    Daily Brief Across Your Watchlist
                   </h1>
                   <p className="text-sm text-slate-300 mt-1 max-w-3xl">
                     Cross-company executive synthesis and highest-conviction bullish catalysts vs. bearish risks across your {followedCompanies.length} followed companies.
@@ -3278,7 +3278,7 @@ export default function InvestorDashboardPage() {
                   Your Saved Research Library
                 </h1>
                 <p className="text-sm text-slate-300 mt-1 max-w-3xl">
-                  Review catalysts and filings you bookmarked from your Morning Brief or Company News feeds. Click any company tag to reopen its full research view.
+                  Review catalysts and filings you bookmarked from your Daily Brief or Company News feeds. Click any company tag to reopen its full research view.
                 </p>
               </div>
 
@@ -3287,7 +3287,7 @@ export default function InvestorDashboardPage() {
                 onRemoveSavedArticle={handleRemoveSavedArticle}
                 userEmail={currentUser?.email ?? null}
                 onSignIn={() => signInWithGoogle()}
-                onGoToMorningBrief={() => {
+                onGoToDailyBrief={() => {
                   setActiveStage('pulse');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}

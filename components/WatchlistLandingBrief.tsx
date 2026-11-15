@@ -3,7 +3,7 @@
  * FILE: components/WatchlistLandingBrief.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Stage 02 — Morning Brief: Cross-Watchlist Synthesis & Ranked Conviction Movers.
+ * Stage 02 — Daily Brief: Cross-Watchlist Synthesis & Ranked Conviction Movers.
  *
  * USE CASES:
  * 1. Distilling news across all followed companies into a single calm executive
@@ -113,7 +113,7 @@ function renderInlineStance(
 }
 
 /**
- * Renders the Morning Brief watchlist summary and ranked Bullish/Bearish conviction movers.
+ * Renders the Daily Brief watchlist summary and ranked Bullish/Bearish conviction movers.
  */
 export function WatchlistLandingBrief({
   digest,
@@ -318,7 +318,7 @@ export function WatchlistLandingBrief({
               )}
             </div>
             <h2 className="text-xl font-bold tracking-tight text-white text-balance">
-              Your Personalized Morning Brief
+              Your Personalized Daily Brief
             </h2>
           </div>
         </div>
@@ -372,7 +372,7 @@ export function WatchlistLandingBrief({
             onClick={onRefresh}
             className="px-3.5 py-2 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs font-semibold text-rose-200 hover:bg-rose-950/60 cursor-pointer whitespace-nowrap shrink-0"
           >
-            Retry Morning Brief
+            Retry Daily Brief
           </button>
         </div>
       )}
@@ -380,7 +380,7 @@ export function WatchlistLandingBrief({
       {/* Empty Watchlist State */}
       {!isLoading && !error && !digest && followedCount === 0 && (
         <div className="p-6 text-sm text-slate-300">
-          Follow at least one public equity or private company to generate your daily cross-watchlist Morning Brief.
+          Follow at least one public equity or private company to generate your cross-watchlist Daily Brief.
         </div>
       )}
 

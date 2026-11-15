@@ -9,7 +9,7 @@
  * 1. Enforcing the strict 3-zone Top Bar Contract:
  *    - Zone 1: Single-line Brand Wordmark (`Contextual Investing`).
  *    - Zone 2: 4 concise single-line stage navigation links (`Watchlist`,
- *      `Morning Brief`, `Research & Compare`, `Saved Library`).
+ *      `Daily Brief`, `Research & Compare`, `Saved Library`).
  *    - Zone 3: Single primary action button (Google Sign-In / Account status for
  *      personal Firestore article bookmarking and watchlist persistence).
  * ============================================================================
@@ -91,7 +91,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Morning Brief
+          Daily Brief
         </button>
         <button
           type="button"

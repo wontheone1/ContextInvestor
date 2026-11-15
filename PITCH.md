@@ -8,7 +8,7 @@
 
 **Contextual Investing** is a real-time investment intelligence terminal built for **active investors tracking public companies**. Instead of bouncing between stock charts, fragmented financial blogs, paywalled wires, and machine-translated foreign articles, investors get one live workspace that watches their portfolio, explains *why* each headline matters, and maps supply-chain ripple effects as they happen.
 
-### 1. Watchlist Morning Pulse & Top Conviction Signals
+### 1. Watchlist Daily Brief & Top Conviction Signals
 - **Cross-Watchlist Executive Summary**: The moment an investor opens Contextual Investing, they receive a unified briefing synthesizing breaking coverage across every company they follow (e.g., `NVDA`, `AAPL`, `MSFT`, `PLTR`, alongside key ecosystem benchmarks).
 - **Company-by-Company Digest Strip**: A scannable grid condenses each followed company's latest news posture (`Bullish`, `Bearish`, `Mixed`, or `Neutral`) into a single actionable sentence, allowing one-click pivoting into deep research.
 - **Top Most Bullish & Bearish Movers**: Surfaces the highest-impact upside catalysts and downside risks across the entire watchlist—scored by materiality (`1–100%` Conviction)—with a one-sentence explanation of *why* the story moves the needle.
@@ -52,11 +52,11 @@
 
 > **Speaker Goal**: Show—don't just tell—how **Contextual Investing** turns the live web into an instant decision engine for active public-market investors. Keep mouse movements deliberate and let the live UI updates carry each beat.
 
-#### `[0:00 – 0:35]` Hook & Problem: The Morning Blind Spot
-**On Screen**: Start on a clean slide or straight on the top of **Contextual Investing** showing the Watchlist Intelligence Pulse.
+#### `[0:00 – 0:35]` Hook & Problem: The Research Blind Spot
+**On Screen**: Start on a clean slide or straight on the top of **Contextual Investing** showing the Watchlist Daily Brief.
 
 > **Spoken Script**:
-> "If you actively invest in public equities—say Nvidia, Apple, Microsoft, or Palantir—your morning routine is broken. You open ten browser tabs: one for price charts, three for US financial news, another to check what TSMC or Asian suppliers announced overnight in Korean or Japanese, and a spreadsheet to track why a stock is actually moving.
+> "If you actively invest in public equities—say Nvidia, Apple, Microsoft, or Palantir—your daily research routine is broken. You open ten browser tabs: one for price charts, three for US financial news, another to check what TSMC or Asian suppliers announced overnight in Korean or Japanese, and a spreadsheet to track why a stock is actually moving.
 >
 > Most software runs on stale snapshots or gives you an AI summary with zero proof. We built **Contextual Investing**—a real-time market intelligence terminal powered by Context.dev that watches the live web for every company you follow and turns breaking global news into verified investment decisions in seconds."
 
@@ -135,7 +135,7 @@ Active public-market investors lose hours every day stitching together fragmente
 - **Cloud Persistence & Fast Caching**: Caches repeat searches for low latency and persists user watchlists and saved research bookmarks securely per user.
 
 #### Challenges We Ran Into
-- Balancing cross-company fairness when synthesizing a multi-stock morning briefing so one mega-cap ticker doesn't crowd out the rest of an investor's watchlist.
+- Balancing cross-company fairness when synthesizing a multi-stock daily briefing so one mega-cap ticker doesn't crowd out the rest of an investor's watchlist.
 - Designing concise, verifiable rationales and multi-role ecosystem classifications that remain strictly grounded in live web coverage rather than generic boilerplate.
 - Handling mixed public tickers, company names, and non-English articles smoothly in a single unified search bar.
 
@@ -153,7 +153,7 @@ Active public-market investors lose hours every day stitching together fragmente
 
 | Judging Criterion (Weight) | How **Contextual Investing** Delivers | Live Demo Proof Point |
 | :--- | :--- | :--- |
-| **Real-world impact (20%)** | Eliminates tab-fatigue and international blind spots for active public-equity investors by uniting portfolio news triage, valuation context, and supply-chain contagion in one workspace. | Watchlist Morning Pulse immediately answers *"What matters in my portfolio today, and why?"* |
+| **Real-world impact (20%)** | Eliminates tab-fatigue and international blind spots for active public-equity investors by uniting portfolio news triage, valuation context, and supply-chain contagion in one workspace. | Watchlist Daily Brief immediately answers *"What matters in my portfolio today, and why?"* |
 | **Creative use of live web data (20%)** | Fuses four live web dimensions—global multi-language news wires, real-time stock price/valuation metrics, structured Bull/Bear reasoning, and dynamic supply-chain relationship graphs. | Clicking a supplier or customer inside Related Companies pivots charts, metrics, and live news together. |
 | **Completeness of demo (20%)** | Production-ready full-stack web terminal with live search, timeframe switching, facet/sentiment filters, pagination, custom watchlist following, and personal article bookmarking. | End-to-end interactive walkthrough with zero mock placeholders or dead buttons. |
 | **Technical execution (20%)** | Parallel multi-company aggregation, structured conviction scoring (`1–100%`), automatic language detection/translation, responsive interactive charts, and fast repeat-query caching. | Sub-second chart timeframe switches, instant sentiment filtering, and structured multi-company synthesis. |

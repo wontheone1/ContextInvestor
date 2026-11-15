@@ -7,7 +7,7 @@
  *
  * USE CASES:
  * 1. Rendering the crisp white-on-dark Fox emblem (`/fox-logo-white.png`) in
- *    the Top Navigation Bar wordmark lockup, Workspace Footer, Morning Brief
+ *    the Top Navigation Bar wordmark lockup, Workspace Footer, Daily Brief
  *    header, Contextual Research Assistant drawer, Saved Library, and the
  *    10-Slide Hackathon Pitch Deck.
  * 2. Supporting both unframed inline silhouettes (for navigation/footer brand

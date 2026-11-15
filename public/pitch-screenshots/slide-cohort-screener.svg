@@ -10,7 +10,7 @@
           <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
           <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
         
-          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Daily Brief</text>
           
         
           <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>

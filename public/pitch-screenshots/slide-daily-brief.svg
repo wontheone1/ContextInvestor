@@ -10,8 +10,8 @@
           <text x="430" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Research &amp; Compare</text>
           
         
-          <text x="595" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Morning Brief</text>
-          <line x1="595" y1="48" x2="693.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+          <text x="595" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Daily Brief</text>
+          <line x1="595" y1="48" x2="678.6" y2="48" stroke="#09a4ff" stroke-width="2.5" />
         
           <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
           
@@ -26,7 +26,7 @@
     <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
   
 
-    <text x="44" y="114" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">Morning Brief Across Your Watchlist (6 Companies)</text>
+    <text x="44" y="114" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">Daily Brief Across Your Watchlist (6 Companies)</text>
     <text x="44" y="140" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="14">Synthesizes live news across every company you follow into one plain-English briefing with ranked upside &amp; downside movers.</text>
 
     <!-- Main Brief Container -->

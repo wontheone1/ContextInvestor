@@ -11,7 +11,7 @@
  *    with clean inline metadata (`Company · Publisher · Article Type`) and
  *    1-click company deep-dive pivoting.
  * 2. Guiding signed-out or empty-library users step-by-step on where to find
- *    and bookmark high-conviction stories (`Morning Brief` or `Research & Compare`).
+ *    and bookmark high-conviction stories (`Daily Brief` or `Research & Compare`).
  * ============================================================================
  */
 
@@ -29,7 +29,7 @@ export interface SdkCacheInspectorProps {
   onRemoveSavedArticle: (docId: string) => void;
   userEmail: string | null;
   onSignIn: () => void;
-  onGoToMorningBrief?: () => void;
+  onGoToDailyBrief?: () => void;
   onGoToResearch?: () => void;
   onSelectSavedCompany?: (companyTag: string) => void;
 }
@@ -42,7 +42,7 @@ export function SdkCacheInspector({
   onRemoveSavedArticle,
   userEmail,
   onSignIn,
-  onGoToMorningBrief,
+  onGoToDailyBrief,
   onGoToResearch,
   onSelectSavedCompany,
 }: SdkCacheInspectorProps) {
@@ -76,7 +76,7 @@ export function SdkCacheInspector({
             Sign in to Save High-Conviction Articles
           </p>
           <p className="text-xs text-slate-400 max-w-md mx-auto mb-5 leading-relaxed">
-            Connect with Google to bookmark articles from your Morning Brief or Company News feed and keep a permanent research log across sessions.
+            Connect with Google to bookmark articles from your Daily Brief or Company News feed and keep a permanent research log across sessions.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
@@ -89,13 +89,13 @@ export function SdkCacheInspector({
             >
               Sign In with Google
             </button>
-            {onGoToMorningBrief && (
+            {onGoToDailyBrief && (
               <button
                 type="button"
-                onClick={onGoToMorningBrief}
+                onClick={onGoToDailyBrief}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-200 bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <span>Browse Morning Brief</span>
+                <span>Browse Daily Brief</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
@@ -108,16 +108,16 @@ export function SdkCacheInspector({
             Your Saved Library Is Empty
           </p>
           <p className="text-xs text-slate-400 max-w-md mx-auto mb-5 leading-relaxed">
-            Click &ldquo;Save&rdquo; on any catalyst in your Morning Brief or any article in the Research news feed to build your reading list.
+            Click &ldquo;Save&rdquo; on any catalyst in your Daily Brief or any article in the Research news feed to build your reading list.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {onGoToMorningBrief && (
+            {onGoToDailyBrief && (
               <button
                 type="button"
-                onClick={onGoToMorningBrief}
+                onClick={onGoToDailyBrief}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                <span>Review Morning Brief</span>
+                <span>Review Daily Brief</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}

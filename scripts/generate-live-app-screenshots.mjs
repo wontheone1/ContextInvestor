@@ -52,7 +52,7 @@ const FOX_LOGO_B64 = (() => {
 })();
 
 function buildTopChrome(activeTab = 'Research & Compare') {
-  const tabs = ['Research & Compare', 'Morning Brief', 'Watchlist', 'Saved Library', 'Pitch Deck'];
+  const tabs = ['Research & Compare', 'Daily Brief', 'Watchlist', 'Saved Library', 'Pitch Deck'];
   return `
     <!-- Top App Chrome -->
     <rect x="0" y="0" width="1600" height="64" fill="#091326" />
@@ -354,7 +354,7 @@ async function main() {
   await fs.writeFile(path.join(OUT_DIR, 'slide-ecosystem-ripple.svg'), svg2, 'utf8');
 
   // -------------------------------------------------------------------------
-  // SCREENSHOT 3: Morning Brief Across Watchlist (Bullish vs Bearish Movers)
+  // SCREENSHOT 3: Daily Brief Across Watchlist (Bullish vs Bearish Movers)
   // -------------------------------------------------------------------------
   const digest = digestRes?.digest;
   const execSummary =
@@ -379,9 +379,9 @@ async function main() {
 
   const svg3 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
     <rect width="1600" height="900" fill="#091326" />
-    ${buildTopChrome('Morning Brief')}
+    ${buildTopChrome('Daily Brief')}
 
-    <text x="44" y="114" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">Morning Brief Across Your Watchlist (6 Companies)</text>
+    <text x="44" y="114" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">Daily Brief Across Your Watchlist (6 Companies)</text>
     <text x="44" y="140" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="14">Synthesizes live news across every company you follow into one plain-English briefing with ranked upside &amp; downside movers.</text>
 
     <!-- Main Brief Container -->
@@ -431,7 +431,7 @@ async function main() {
     <text x="880" y="708" fill="#fda4af" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bearish: High forward revenue multiple increases sensitivity to procurement timing.</text>
     <text x="880" y="772" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Source: Bloomberg · Click to verify primary article ↗</text>
   </svg>`;
-  await fs.writeFile(path.join(OUT_DIR, 'slide-morning-brief.svg'), svg3, 'utf8');
+  await fs.writeFile(path.join(OUT_DIR, 'slide-daily-brief.svg'), svg3, 'utf8');
 
   // -------------------------------------------------------------------------
   // SCREENSHOT 4: Natural-Language Cohort Screen ("AI chip companies > $200B")
@@ -589,7 +589,7 @@ async function main() {
     <text x="96" y="506" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">What the Assistant Automatically Sees on Your Screen:</text>
     <text x="96" y="538" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Active Company Price, Valuation Multiples (${esc(nvdaMktCap)} Mkt Cap, ${esc(nvdaPe)} P/E), &amp; 52-Week Range</text>
     <text x="96" y="566" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Mapped Supply Chain (TSMC, Micron, Microsoft, AMD) &amp; Context.dev Firmographics</text>
-    <text x="96" y="594" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Loaded News Headlines + Your Full Watchlist Morning Brief + Live Google Search Grounding</text>
+    <text x="96" y="594" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Loaded News Headlines + Your Full Watchlist Daily Brief + Live Google Search Grounding</text>
 
     <!-- Right 480px: Collapsible Contextual Research Assistant Drawer -->
     <rect x="1100" y="64" width="500" height="836" fill="#0b172d" stroke="#212c42" stroke-width="1.5" />

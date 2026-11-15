@@ -42,7 +42,7 @@ import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
 
 export type PitchDemoAction =
-  | 'open_morning_brief'
+  | 'open_daily_brief'
   | 'open_nvda_overview'
   | 'open_nvda_ecosystem'
   | 'run_ai_chip_cohort'
@@ -123,7 +123,7 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       },
     ],
     speakerScript:
-      'Hi everyone! Even if you never trade stocks, you know that companies like NVIDIA, Apple, and OpenAI shape the economy. But figuring out WHY a company is soaring or dropping on any given morning is shockingly fragmented. We built Contextual Investing—a real-time web intelligence workspace that connects breaking global news, supply chains, and live company data into plain-English answers.',
+      'Hi everyone! Even if you never trade stocks, you know that companies like NVIDIA, Apple, and OpenAI shape the economy. But figuring out WHY a company is soaring or dropping on any given day is shockingly fragmented. We built Contextual Investing—a real-time web intelligence workspace that connects breaking global news, supply chains, and live company data into plain-English answers.',
     demoActionLabel: 'Inspect Live NVIDIA Workspace',
     demoAction: 'open_nvda_overview',
   },
@@ -182,16 +182,16 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
     sectionKicker: '03. Our Solution · How Contextual Investing Works',
     title: 'One Workspace That Watches the Web and Connects the Dots',
     subtitle:
-      'Four connected workflows that take you from a 30-second morning summary to deep ecosystem discovery without leaving the page.',
-    screenshotUrl: '/pitch-screenshots/slide-morning-brief.svg',
+      'Four connected workflows that take you from a 30-second daily summary to deep ecosystem discovery without leaving the page.',
+    screenshotUrl: '/pitch-screenshots/slide-daily-brief.svg',
     screenshotCaption:
-      'From cross-watchlist Morning Briefs to 1-click supply-chain pivots and natural-language screening.',
+      'From cross-watchlist Daily Briefs to 1-click supply-chain pivots and natural-language screening.',
     analogyTitle: 'How a New User Experiences the App',
     analogyText:
-      'You don’t need to know financial ratios to start: (1) Follow companies you recognize, (2) Read your plain-English Morning Brief, (3) Explore their suppliers & rivals in 1 click, or (4) Ask questions in normal sentences.',
+      'You don’t need to know financial ratios to start: (1) Follow companies you recognize, (2) Read your plain-English Daily Brief, (3) Explore their suppliers & rivals in 1 click, or (4) Ask questions in normal sentences.',
     keyPoints: [
       {
-        heading: '01. Morning Brief Across Your Watchlist',
+        heading: '01. Daily Brief Across Your Watchlist',
         detail:
           'Greets you with a unified summary of what is moving your followed companies today, ranked by Good News vs. Watch-Outs.',
       },
@@ -219,24 +219,24 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       },
     ],
     speakerScript:
-      'Contextual Investing solves this by uniting four workflows in one clean screen: a Morning Brief that watches your whole portfolio, a live Ecosystem Map that reveals suppliers and customers, a Plain-English Search bar for people who don’t memorize stock tickers, and a source-verified AI Analyst drawer.',
-    demoActionLabel: 'Open Live Morning Brief',
-    demoAction: 'open_morning_brief',
+      'Contextual Investing solves this by uniting four workflows in one clean screen: a Daily Brief that watches your whole portfolio, a live Ecosystem Map that reveals suppliers and customers, a Plain-English Search bar for people who don’t memorize stock tickers, and a source-verified AI Analyst drawer.',
+    demoActionLabel: 'Open Live Daily Brief',
+    demoAction: 'open_daily_brief',
   },
   {
     index: 3,
     numberLabel: '04 / 10',
     timeWindow: '0:55 – 1:15',
-    sectionKicker: '04. Act 1 · The Web, Watched (Morning Brief)',
-    title: 'Wake Up to "What Happened & Why It Matters"',
+    sectionKicker: '04. Act 1 · The Web, Watched (Daily Brief)',
+    title: 'Get Instant Answers to "What Happened & Why It Matters"',
     subtitle:
       'Instead of scrolling through 50 unranked articles, see the highest-conviction upside catalysts and downside risks across all your companies.',
-    screenshotUrl: '/pitch-screenshots/slide-morning-brief.svg',
+    screenshotUrl: '/pitch-screenshots/slide-daily-brief.svg',
     screenshotCaption:
-      'Live Watchlist Morning Brief: Executive cross-company narrative + ranked Top Bullish Catalysts vs. Top Bearish Risks.',
+      'Live Watchlist Daily Brief: Executive cross-company narrative + ranked Top Bullish Catalysts vs. Top Bearish Risks.',
     analogyTitle: 'Why Non-Experts Love This View',
     analogyText:
-      'Most news feeds just dump headlines on you. Our Morning Brief scores each story from 1–100% on how much it actually matters and writes a 1-sentence "Why Bullish" or "Why Bearish" explanation in plain English.',
+      'Most news feeds just dump headlines on you. Our Daily Brief scores each story from 1–100% on how much it actually matters and writes a 1-sentence "Why Bullish" or "Why Bearish" explanation in plain English.',
     keyPoints: [
       {
         heading: 'Cross-Watchlist Executive Summary',
@@ -251,7 +251,7 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       {
         heading: 'Instant Reactivity When You Follow New Companies',
         detail:
-          'Add any real public stock or private unicorn (like OpenAI or Stripe) and the Morning Brief dynamically updates.',
+          'Add any real public stock or private unicorn (like OpenAI or Stripe) and the Daily Brief dynamically updates.',
       },
     ],
     jargonTranslator: [
@@ -267,9 +267,9 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       },
     ],
     speakerScript:
-      'Let’s look at Act 1: The Web, Watched. When you open our Morning Brief, we query Context.dev across every company you follow at once. At the top is a plain-English summary of how those companies connect today. Below that, we rank the top positive catalysts next to the top risks—each with an importance score and a one-sentence explanation of why it matters.',
-    demoActionLabel: 'Launch Morning Brief Live',
-    demoAction: 'open_morning_brief',
+      'Let’s look at Act 1: The Web, Watched. When you open our Daily Brief, we query Context.dev across every company you follow at once. At the top is a plain-English summary of how those companies connect today. Below that, we rank the top positive catalysts next to the top risks—each with an importance score and a one-sentence explanation of why it matters.',
+    demoActionLabel: 'Launch Daily Brief Live',
+    demoAction: 'open_daily_brief',
   },
   {
     index: 4,
@@ -524,7 +524,7 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       'Click any workflow button below to jump directly into the live application during Q&A.',
     analogyTitle: 'Summary Across All 5 Judging Pillars',
     analogyText:
-      'Contextual Investing turns the live open web into an approachable decision engine—combining multi-company morning briefings, supply-chain ripple discovery, plain-English screening, and source-verified AI.',
+      'Contextual Investing turns the live open web into an approachable decision engine—combining multi-company daily briefings, supply-chain ripple discovery, plain-English screening, and source-verified AI.',
     keyPoints: [
       {
         heading: 'Real-World Impact & Creative Live Web Fusion',
@@ -539,7 +539,7 @@ export const HACKATHON_SLIDES: PitchSlideDefinition[] = [
       {
         heading: 'Real-Timeness You Can Test Right Now',
         detail:
-          'Follow any new company from search results or supply-chain panels and watch your watchlist and Morning Brief react on the spot.',
+          'Follow any new company from search results or supply-chain panels and watch your watchlist and Daily Brief react on the spot.',
       },
     ],
     jargonTranslator: [
@@ -856,7 +856,7 @@ export function HackathonPitchDeck({
                         : s.index === 2
                           ? 'Our Solution'
                           : s.index === 3
-                            ? 'Morning Brief'
+                            ? 'Daily Brief'
                             : s.index === 4
                               ? 'NVIDIA Ripple'
                               : s.index === 5

@@ -10,7 +10,7 @@
           <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
           <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
         
-          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Daily Brief</text>
           
         
           <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
@@ -36,7 +36,7 @@
     <text x="96" y="506" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">What the Assistant Automatically Sees on Your Screen:</text>
     <text x="96" y="538" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Active Company Price, Valuation Multiples (3.93T Mkt Cap, 20.59 P/E), &amp; 52-Week Range</text>
     <text x="96" y="566" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Mapped Supply Chain (TSMC, Micron, Microsoft, AMD) &amp; Context.dev Firmographics</text>
-    <text x="96" y="594" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Loaded News Headlines + Your Full Watchlist Morning Brief + Live Google Search Grounding</text>
+    <text x="96" y="594" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="14">• Loaded News Headlines + Your Full Watchlist Daily Brief + Live Google Search Grounding</text>
 
     <!-- Right 480px: Collapsible Contextual Research Assistant Drawer -->
     <rect x="1100" y="64" width="500" height="836" fill="#0b172d" stroke="#212c42" stroke-width="1.5" />
