@@ -40,8 +40,11 @@ import { logFunctionCall } from '@/lib/logger';
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as Partial<CompanyNewsQueryInput>;
-    logFunctionCall('POST /api/news/search', { ...body });
+    const body = (await req.json()) as Partial<CompanyNewsQueryInput> & {
+      locale?: 'en' | 'ko';
+    };
+    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    logFunctionCall('POST /api/news/search', { ...body, locale });
 
     const queryInput: CompanyNewsQueryInput = {
       entityType:
@@ -105,7 +108,7 @@ export async function POST(req: NextRequest) {
           response.data || []
         );
         const { articles: sentimentData, sentimentError } =
-          await analyzeHeadlineSentiments(translatedData);
+          await analyzeHeadlineSentiments(translatedData, locale);
         return NextResponse.json({
           ok: true,
           mode: 'live_sdk',
@@ -134,7 +137,7 @@ export async function POST(req: NextRequest) {
           fallbackResponse.data || []
         );
         const { articles: sentimentFallback, sentimentError } =
-          await analyzeHeadlineSentiments(translatedFallback);
+          await analyzeHeadlineSentiments(translatedFallback, locale);
         return NextResponse.json({
           ok: true,
           mode: 'fallback_after_api_error',
@@ -163,7 +166,7 @@ export async function POST(req: NextRequest) {
       fallbackResponse.data || []
     );
     const { articles: sentimentFallback, sentimentError } =
-      await analyzeHeadlineSentiments(translatedFallback);
+      await analyzeHeadlineSentiments(translatedFallback, locale);
     return NextResponse.json({
       ok: true,
       mode: 'demo_awaiting_key',

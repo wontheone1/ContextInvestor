@@ -202,8 +202,10 @@ async function fetchRecentArticlesForCompany(
  */
 export async function generateWatchlistDigest(
   rawCompanies: WatchlistTargetCompany[],
-  forceRefresh = false
+  forceRefresh = false,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<WatchlistDigestResponse> {
+  const isKo = locale === 'ko';
   const seenKeys = new Set<string>();
   const companies: WatchlistTargetCompany[] = [];
 
@@ -228,12 +230,14 @@ export async function generateWatchlistDigest(
     companyCount: companies.length,
     companies: companies.map((c) => c.value),
     forceRefresh,
+    locale,
   });
 
   if (companies.length === 0) {
     return {
-      executiveSummary:
-        'Follow one or more companies to generate your personalized cross-watchlist news briefing and top bullish/bearish movers.',
+      executiveSummary: isKo
+        ? '맞춤형 관심종목 일일 브리핑과 핵심 강세·약세 모멘텀을 생성하려면 최소 1개 이상의 기업을 팔로우하세요.'
+        : 'Follow one or more companies to generate your personalized cross-watchlist news briefing and top bullish/bearish movers.',
       keyThemes: [],
       companyDigests: [],
       topBullish: [],
@@ -248,9 +252,9 @@ export async function generateWatchlistDigest(
     };
   }
 
-  const digestCacheKey = companies
+  const digestCacheKey = `${locale}::${companies
     .map((c) => `${c.entityType}:${c.value.toLowerCase()}`)
-    .join('|');
+    .join('|')}`;
 
   if (!forceRefresh) {
     const cached = digestCache.get(digestCacheKey);
@@ -340,28 +344,39 @@ export async function generateWatchlistDigest(
       : '',
   }));
 
+  const targetLangInstruction = isKo
+    ? `Target Output Language: KOREAN (한국어).
+- Write "executiveSummary", "keyThemes", every "companySummaries[].summary", and every "articleEvaluations[].rationale" in crisp, natural institutional Korean (한국어).
+- For every article whose original title/excerpt is NOT already in Korean, provide a natural Korean translation in "englishTitle" and "englishDescription" so Korean users can read all mover cards cleanly in Korean!
+- CRITICAL: Keep "stance" ("Bullish", "Bearish", "Mixed", "Neutral") and "sentiment" ("Bullish", "Bearish", "Neutral") strictly in English enum strings.`
+    : `Target Output Language: ENGLISH.
+- Write "executiveSummary", "keyThemes", every "companySummaries[].summary", and every "articleEvaluations[].rationale" in crisp institutional English.
+- If "needsTranslation" is true (or title/excerpt is non-English), provide a natural English translation in "englishTitle" and "englishDescription"; otherwise return "".`;
+
   const prompt = `You are preparing the opening landing briefing for an institutional investor tracking these followed companies:
 ${JSON.stringify(companiesInput, null, 2)}
 
 Recent News Articles Across Followed Companies:
 ${JSON.stringify(articlesInput, null, 2)}
 
+${targetLangInstruction}
+
 Instructions:
-1. "executiveSummary": Write a sharp, cohesive 2 to 3 sentence cross-watchlist summary covering both the key positive catalysts and key risks across ALL followed companies. Write in English.
-2. "keyThemes": Return 3 to 4 concise cross-watchlist themes (3 to 6 words each, e.g. "Hyperscaler AI Capex Momentum", "Regulatory & Margin Scrutiny").
+1. "executiveSummary": Write a sharp, cohesive 2 to 3 sentence cross-watchlist summary covering both the key positive catalysts and key risks across ALL followed companies.
+2. "keyThemes": Return 3 to 4 concise cross-watchlist themes (3 to 6 words each).
 3. "companySummaries": Return one entry for EVERY followed company in the list above (matching "companyValue" exactly):
    - "stance": "Bullish", "Bearish", "Mixed", or "Neutral" based on its recent coverage.
-   - "summary": 1 crisp English sentence (max 22 words) summarizing the latest news for that company.
+   - "summary": 1 crisp sentence summarizing the latest news for that company.
 4. "articleEvaluations": Return one entry for EVERY article in Recent News Articles (matching "index"):
    - "sentiment": Strictly "Bullish", "Bearish", or "Neutral" for the tagged company ("companyLabel" / "companyValue").
      * Classify as "Bullish" whenever the article highlights product launches, new features, AI/cloud expansion, partnerships, customer wins, valuation/price upside, analyst upgrades, institutional buying, or strategic growth initiatives for that company.
      * Classify as "Bearish" whenever the article highlights regulatory scrutiny, lawsuits, export controls, security vulnerabilities, competitive threats, executive departures, or valuation/margin headwinds for that company.
      * Ensure you identify at least 3 to 5 "Bullish" articles and at least 3 to 5 "Bearish" articles across the pool so the investor can compare the strongest upside catalysts and strongest downside risks across their watchlist.
    - "convictionScore": Integer from 1 to 100 measuring how strongly bullish or strongly bearish this specific news is for the company (85-98 = major catalyst or risk; 65-84 = moderate catalyst or risk; 1-64 = minor).
-   - "rationale": 1 crisp English sentence (max 18 words) explaining WHY this article is bullish, bearish, or neutral for the company.
-   - "englishTitle": If "needsTranslation" is true (or title is non-English), provide a natural English translation of "title"; otherwise return "".
-   - "englishDescription": If "needsTranslation" is true (or excerpt is non-English), provide a natural English translation of "excerpt"; otherwise return "".
-   - "sourceLanguageLabel": If translated from non-English, return the clean English language name only (e.g. "Korean", "Japanese", "German"); otherwise return "".`;
+   - "rationale": 1 crisp sentence explaining WHY this article is bullish, bearish, or neutral for the company.
+   - "englishTitle": Translated headline in the Target Output Language if the source headline is in a different language (otherwise "").
+   - "englishDescription": Translated excerpt in the Target Output Language if the source excerpt is in a different language (otherwise "").
+   - "sourceLanguageLabel": If translated from another language, return the clean English language name only (e.g. "English", "Korean", "Japanese", "German"); otherwise return "".`;
 
   const config = {
     thinkingConfig: {

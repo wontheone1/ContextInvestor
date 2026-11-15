@@ -73,7 +73,10 @@ import {
   HackathonPitchDeck,
   type PitchDemoAction,
 } from '@/components/HackathonPitchDeck';
+import { useLanguage } from '@/components/LanguageProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
+import { translatePresetMetadata } from '@/lib/i18n';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
   ChartRange,
@@ -211,6 +214,13 @@ function resolveDateBounds(state: NewsSearchControlState): {
  * Main Investor Dashboard Page Component.
  */
 export default function InvestorDashboardPage() {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+
   // Focused Workspace View & Single-Company Sub-Tab Navigation State
   const [activeStage, setActiveStage] = useState<WorkspaceStageId>('research');
   const [researchSubTab, setResearchSubTab] =
@@ -390,7 +400,11 @@ export default function InvestorDashboardPage() {
    * for the user's followed companies.
    */
   const fetchWatchlistDigest = useCallback(
-    async (companiesToTrack: CompanyPreset[], forceRefresh = false) => {
+    async (
+      companiesToTrack: CompanyPreset[],
+      forceRefresh = false,
+      targetLocale?: 'en' | 'ko'
+    ) => {
       const seq = ++watchlistDigestReqSeqRef.current;
       if (companiesToTrack.length === 0) {
         setWatchlistDigest(null);
@@ -398,6 +412,7 @@ export default function InvestorDashboardPage() {
         setIsLoadingWatchlistDigest(false);
         return;
       }
+      const activeLocale = targetLocale ?? localeRef.current;
       setIsLoadingWatchlistDigest(true);
       setWatchlistDigestError(null);
 
@@ -413,6 +428,7 @@ export default function InvestorDashboardPage() {
               sector: c.sector,
             })),
             forceRefresh,
+            locale: activeLocale,
           }),
         });
         const data = await res.json();
@@ -978,15 +994,20 @@ export default function InvestorDashboardPage() {
    * Hydrates missing headline sentiments and reasons on cached articles via POST /api/ai/sentiment.
    */
   const enrichMissingSentiments = useCallback(
-    async (loadedArticles: EnrichedNewsArticle[]) => {
-      const missing = loadedArticles.filter(
-        (a) => !a.sentiment || !a.sentimentReason
-      );
-      if (missing.length === 0) {
+    async (
+      loadedArticles: EnrichedNewsArticle[],
+      forceAll = false,
+      targetLocale?: 'en' | 'ko'
+    ) => {
+      const targetItems = forceAll
+        ? loadedArticles
+        : loadedArticles.filter((a) => !a.sentiment || !a.sentimentReason);
+      if (targetItems.length === 0) {
         setSentimentError(null);
         return;
       }
 
+      const activeLocale = targetLocale ?? localeRef.current;
       setIsAnalyzingSentiment(true);
       setSentimentError(null);
       try {
@@ -994,11 +1015,12 @@ export default function InvestorDashboardPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            articles: missing.map((a) => ({
+            articles: targetItems.map((a) => ({
               id: a.id,
               title: a.title,
               description: a.description,
             })),
+            locale: activeLocale,
           }),
         });
         const data = await res.json();
@@ -1014,8 +1036,12 @@ export default function InvestorDashboardPage() {
         setArticles((prev) =>
           prev.map((a) => ({
             ...a,
-            sentiment: a.sentiment || sentimentsMap[a.id] || 'Neutral',
-            sentimentReason: a.sentimentReason || reasonsMap[a.id] || null,
+            sentiment: forceAll
+              ? sentimentsMap[a.id] || a.sentiment || 'Neutral'
+              : a.sentiment || sentimentsMap[a.id] || 'Neutral',
+            sentimentReason: forceAll
+              ? reasonsMap[a.id] || a.sentimentReason || null
+              : a.sentimentReason || reasonsMap[a.id] || null,
           }))
         );
       } catch (err) {
@@ -1039,14 +1065,18 @@ export default function InvestorDashboardPage() {
     async (
       companyQuery: string,
       targetArticles: EnrichedNewsArticle[],
-      forceRegenerate = false
+      forceRegenerate = false,
+      targetLocale?: 'en' | 'ko'
     ) => {
       if (targetArticles.length === 0) {
         setAiBrief(null);
         return;
       }
 
-      const cacheKey = `${companyQuery.trim().toLowerCase()}::${targetArticles
+      const activeLocale = targetLocale ?? localeRef.current;
+      const cacheKey = `${activeLocale}::${companyQuery
+        .trim()
+        .toLowerCase()}::${targetArticles
         .slice(0, 4)
         .map((a) => a.id)
         .join(',')}`;
@@ -1077,6 +1107,7 @@ export default function InvestorDashboardPage() {
               publishedAt: a.published_at,
               type: a.type,
             })),
+            locale: activeLocale,
           }),
         });
         const data = await res.json();
@@ -1434,6 +1465,7 @@ export default function InvestorDashboardPage() {
             sortBy: stateSnapshot.sortBy,
             limit: stateSnapshot.limit,
             cursor: targetCursor,
+            locale: localeRef.current,
           }),
         });
 
@@ -2271,6 +2303,37 @@ export default function InvestorDashboardPage() {
     return () => window.removeEventListener('keydown', handleGlobalShortcut);
   }, []);
 
+  // Re-synthesize Daily Brief, Company AI Brief, and Headline Sentiment Rationales when language switches
+  const prevLocaleRef = useRef(locale);
+  const articlesRef = useRef<EnrichedNewsArticle[]>(articles);
+  useEffect(() => {
+    articlesRef.current = articles;
+  }, [articles]);
+  const entityValueRef = useRef<string>(searchState.entityValue);
+  useEffect(() => {
+    entityValueRef.current = searchState.entityValue;
+  }, [searchState.entityValue]);
+
+  useEffect(() => {
+    if (prevLocaleRef.current === locale) return;
+    prevLocaleRef.current = locale;
+    void fetchWatchlistDigest(followedCompaniesRef.current, false, locale);
+    if (articlesRef.current.length > 0 && entityValueRef.current.trim()) {
+      void generateBriefForArticles(
+        entityValueRef.current,
+        articlesRef.current,
+        false,
+        locale
+      );
+      void enrichMissingSentiments(articlesRef.current, true, locale);
+    }
+  }, [
+    locale,
+    fetchWatchlistDigest,
+    generateBriefForArticles,
+    enrichMissingSentiments,
+  ]);
+
   // Build fresh live workspace context snapshot for the Research Assistant Drawer
   const activeResearchContext = useMemo(
     () =>
@@ -2291,6 +2354,7 @@ export default function InvestorDashboardPage() {
         comparativeSummary,
         followedCompanies,
         watchlistDigest,
+        locale,
       }),
     [
       workspaceMode,
@@ -2309,6 +2373,7 @@ export default function InvestorDashboardPage() {
       comparativeSummary,
       followedCompanies,
       watchlistDigest,
+      locale,
     ]
   );
 
@@ -2327,6 +2392,7 @@ export default function InvestorDashboardPage() {
       workspaceMode,
       contextShortLabel: activeResearchContext.contextShortLabel,
       isRetry,
+      locale,
     });
 
     const userMsg: ResearchChatMessage = {
@@ -2359,6 +2425,7 @@ export default function InvestorDashboardPage() {
         body: JSON.stringify({
           messages: historyTurns,
           context: activeResearchContext,
+          locale,
         }),
       });
       const json = await res.json();
@@ -2506,7 +2573,7 @@ export default function InvestorDashboardPage() {
 
       {/* Main 1440px Quantitative Workspace Container */}
       <main className="flex-1 max-w-[1440px] w-full mx-auto px-6 py-6">
-        {/* Compact Workspace Navigation & Contextual Research Assistant Toolbar */}
+        {/* Compact Workspace Navigation, Language Switcher & Contextual Research Assistant Toolbar */}
         <div className="mb-6 pb-4 border-b border-[#212c42] flex flex-wrap items-center justify-between gap-3">
           <div
             role="tablist"
@@ -2525,7 +2592,7 @@ export default function InvestorDashboardPage() {
               }`}
             >
               <BarChart3 className="w-3.5 h-3.5" />
-              <span>Research &amp; Compare</span>
+              <span>{t.toolbar.researchTitle}</span>
             </button>
 
             <button
@@ -2541,7 +2608,7 @@ export default function InvestorDashboardPage() {
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>
-                Daily Brief
+                {t.toolbar.dailyBriefTitle}
                 {totalSignalCount > 0 ? ` (${totalSignalCount})` : ''}
               </span>
             </button>
@@ -2558,7 +2625,9 @@ export default function InvestorDashboardPage() {
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
-              <span>Watchlist ({followedCompanies.length})</span>
+              <span>
+                {t.toolbar.watchlistTitle} ({followedCompanies.length})
+              </span>
             </button>
 
             <button
@@ -2573,7 +2642,9 @@ export default function InvestorDashboardPage() {
               }`}
             >
               <Bookmark className="w-3.5 h-3.5" />
-              <span>Saved Library ({savedArticles.length})</span>
+              <span>
+                {t.toolbar.savedTitle} ({savedArticles.length})
+              </span>
             </button>
 
             <button
@@ -2588,27 +2659,35 @@ export default function InvestorDashboardPage() {
               }`}
             >
               <Presentation className="w-3.5 h-3.5" />
-              <span>Pitch Deck (10 Slides)</span>
+              <span>{t.toolbar.pitchDeckTitle}</span>
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsChatOpen((prev) => !prev)}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              isChatOpen
-                ? 'bg-[#09a4ff] border-[#09a4ff] text-white'
-                : 'bg-[#0d1b33] border-[#212c42] text-slate-200 hover:text-white hover:border-[#09a4ff]/60'
-            }`}
-          >
-            <BrandFoxLogo size={16} alt="" />
-            <span>
-              {isChatOpen ? 'Hide Research Assistant' : 'Ask Research Assistant'}
-            </span>
-            <span className="text-[11px] font-mono-tabular text-slate-400">
-              ⌘K
-            </span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <LanguageSwitcher />
+
+            <button
+              type="button"
+              onClick={() => setIsChatOpen((prev) => !prev)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                isChatOpen
+                  ? 'bg-[#09a4ff] border-[#09a4ff] text-white'
+                  : 'bg-[#0d1b33] border-[#212c42] text-slate-200 hover:text-white hover:border-[#09a4ff]/60'
+              }`}
+            >
+              <BrandFoxLogo size={16} alt="" />
+              <span>
+                {isChatOpen
+                  ? isKo
+                    ? '리서치 어시스턴트 닫기'
+                    : 'Hide Research Assistant'
+                  : t.toolbar.askResearchAssistant}
+              </span>
+              <span className="text-[11px] font-mono-tabular text-slate-400">
+                ⌘K
+              </span>
+            </button>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -2627,17 +2706,20 @@ export default function InvestorDashboardPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs text-slate-400 font-mono-tabular mr-1">
-                    Following ({followedCompanies.length}):
+                    {t.followingBar.followingPrefix} ({followedCompanies.length}
+                    ):
                   </span>
                   {followedCompanies.length === 0 ? (
                     <div className="inline-flex items-center gap-2 text-xs text-slate-400">
-                      <span>None selected</span>
+                      <span>
+                        {isKo ? '팔로우 중인 기업 없음' : 'None selected'}
+                      </span>
                       <button
                         type="button"
                         onClick={handleResetDefaultWatchlist}
                         className="text-[#49afe9] hover:text-white font-medium underline underline-offset-2 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
-                        Restore Defaults
+                        {t.watchlist.resetDefaults}
                       </button>
                     </div>
                   ) : (
@@ -2648,7 +2730,7 @@ export default function InvestorDashboardPage() {
                         onClick={() =>
                           void handleRemoveFollowedCompany(c.value, c.label)
                         }
-                        title={`Unfollow ${c.label}`}
+                        title={`${t.followingBar.unfollowTooltipPrefix} ${c.label}`}
                         className="group px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50"
                       >
                         <span className="inline-grid items-center justify-items-center">
@@ -2665,7 +2747,7 @@ export default function InvestorDashboardPage() {
                             )}
                           </span>
                           <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                            Unfollow
+                            {t.common.unfollow}
                           </span>
                         </span>
                       </button>
@@ -2678,7 +2760,7 @@ export default function InvestorDashboardPage() {
                   onClick={() => setActiveStage('watchlist')}
                   className="inline-flex items-center gap-1 text-xs font-medium text-[#49afe9] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <span>Manage Watchlist</span>
+                  <span>{t.followingBar.manageWatchlist}</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
@@ -2799,9 +2881,15 @@ export default function InvestorDashboardPage() {
                         )}
                         {marketData?.kind === 'private' && (
                           <span className="text-xs text-slate-400 font-mono-tabular">
-                            {marketData.listingNote || 'Privately Held'}
+                            {translatePresetMetadata(
+                              marketData.listingNote || 'Privately Held',
+                              locale
+                            )}
                             {marketData.latestValuation
-                              ? ` · ${marketData.latestValuation}`
+                              ? ` · ${translatePresetMetadata(
+                                  marketData.latestValuation,
+                                  locale
+                                )}`
                               : ''}
                           </span>
                         )}
@@ -2816,8 +2904,14 @@ export default function InvestorDashboardPage() {
                           onClick={handleToggleCurrentSearchedCompanyFollow}
                           title={
                             isCurrentCompanyFollowed
-                              ? `Unfollow ${marketData?.companyName || activeCanonicalSymbol}`
-                              : `Follow ${marketData?.companyName || activeCanonicalSymbol}`
+                              ? `${t.followingBar.unfollowTooltipPrefix} ${
+                                  marketData?.companyName ||
+                                  activeCanonicalSymbol
+                                }`
+                              : `${t.singleResearch.followTickerPrefix} ${
+                                  marketData?.companyName ||
+                                  activeCanonicalSymbol
+                                }`
                           }
                           className={`group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
                             isCurrentCompanyFollowed
@@ -2828,22 +2922,25 @@ export default function InvestorDashboardPage() {
                           {isCurrentCompanyFollowPending ? (
                             <>
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Verifying...</span>
+                              <span>{t.watchlist.verifyingButton}</span>
                             </>
                           ) : isCurrentCompanyFollowed ? (
                             <span className="inline-grid items-center justify-items-center">
                               <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
                                 <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                <span>Following in Watchlist</span>
+                                <span>{t.common.following}</span>
                               </span>
                               <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                Unfollow
+                                {t.common.unfollow}
                               </span>
                             </span>
                           ) : (
                             <>
                               <Plus className="w-3.5 h-3.5" />
-                              <span>Follow {activeDisplaySymbol}</span>
+                              <span>
+                                {t.singleResearch.followTickerPrefix}{' '}
+                                {activeDisplaySymbol}
+                              </span>
                             </>
                           )}
                         </button>
@@ -2885,7 +2982,7 @@ export default function InvestorDashboardPage() {
                       }`}
                     >
                       <BarChart3 className="w-3.5 h-3.5" />
-                      <span>01. Price &amp; Fundamentals</span>
+                      <span>01. {t.singleResearch.subTabOverview}</span>
                     </button>
 
                     <button
@@ -2901,7 +2998,8 @@ export default function InvestorDashboardPage() {
                     >
                       <Newspaper className="w-3.5 h-3.5" />
                       <span>
-                        02. Bull vs. Bear &amp; News ({articles.length})
+                        02. {t.singleResearch.subTabBullBearNews} (
+                        {articles.length})
                       </span>
                     </button>
 
@@ -2918,7 +3016,7 @@ export default function InvestorDashboardPage() {
                     >
                       <Network className="w-3.5 h-3.5" />
                       <span>
-                        03. Supply Chain &amp; Peers
+                        03. {t.singleResearch.subTabEcosystem}
                         {totalEcosystemCount > 0
                           ? ` (${totalEcosystemCount})`
                           : ''}
@@ -3074,10 +3172,10 @@ export default function InvestorDashboardPage() {
               <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight text-white text-balance">
-                    Daily Brief Across Your Watchlist
+                    {t.dailyBrief.pageTitle}
                   </h1>
                   <p className="text-sm text-slate-300 mt-1 max-w-3xl">
-                    Cross-company executive synthesis and highest-conviction bullish catalysts vs. bearish risks across your {followedCompanies.length} followed companies.
+                    {t.dailyBrief.pageSubtitle}
                   </p>
                 </div>
 
@@ -3086,7 +3184,7 @@ export default function InvestorDashboardPage() {
                   onClick={() => setActiveStage('watchlist')}
                   className="self-start md:self-auto px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-[#0d1b33] hover:bg-[#102344] border border-[#212c42] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  Edit Watchlist ({followedCompanies.length})
+                  {t.dailyBrief.manageWatchlistBtn} ({followedCompanies.length})
                 </button>
               </div>
 
@@ -3116,13 +3214,23 @@ export default function InvestorDashboardPage() {
               exit={{ opacity: 0, transform: 'translateY(-6px)' }}
               transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight text-white text-balance">
-                  Companies You Are Following
-                </h1>
-                <p className="text-sm text-slate-300 mt-1 max-w-3xl">
-                  Track verified US public equities with real historical sparklines and private unicorns with disclosed valuations. Click any card to jump directly into its research view.
-                </p>
+              <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight text-white text-balance">
+                    {t.watchlist.pageTitle}
+                  </h1>
+                  <p className="text-sm text-slate-300 mt-1 max-w-3xl">
+                    {t.watchlist.pageSubtitle}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveStage('pulse')}
+                  className="self-start md:self-auto px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-[#0d1b33] hover:bg-[#102344] border border-[#212c42] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {t.watchlist.openDailyBriefBtn}
+                </button>
               </div>
 
               <WatchlistCarousel
@@ -3151,10 +3259,10 @@ export default function InvestorDashboardPage() {
               >
                 <div className="mb-5">
                   <h2 className="text-base font-bold text-white">
-                    Quick-Add Verified Companies by Theme
+                    {t.watchlist.starterThemesTitle}
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    One-click toggle for popular public leaders and private unicorns (up to {APP_CONFIG.watchlist.maxFollowedCompanies} companies)
+                    {t.watchlist.starterThemesSubtitle}
                   </p>
                 </div>
 
@@ -3163,10 +3271,10 @@ export default function InvestorDashboardPage() {
                     <div key={group.id}>
                       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2.5">
                         <h3 className="text-xs font-semibold text-[#49afe9]">
-                          {group.title}
+                          {translatePresetMetadata(group.title, locale)}
                         </h3>
                         <span className="text-xs text-slate-400">
-                          {group.description}
+                          {translatePresetMetadata(group.description, locale)}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -3200,8 +3308,8 @@ export default function InvestorDashboardPage() {
                               }
                               title={
                                 isFollowed
-                                  ? `Unfollow ${starter.label}`
-                                  : `Follow ${starter.label}`
+                                  ? `${t.followingBar.unfollowTooltipPrefix} ${starter.label}`
+                                  : `${t.common.follow} ${starter.label}`
                               }
                               className={`group p-3.5 rounded-lg border text-left transition-colors flex items-start justify-between gap-2 cursor-pointer disabled:opacity-60 ${
                                 isFollowed
@@ -3224,10 +3332,16 @@ export default function InvestorDashboardPage() {
                                   )}
                                 </div>
                                 <div className="text-xs text-slate-400 truncate mt-0.5">
-                                  {starter.sector}
+                                  {translatePresetMetadata(
+                                    starter.sector,
+                                    locale
+                                  )}
                                 </div>
                                 <div className="text-[11px] text-slate-500 font-mono-tabular mt-0.5">
-                                  {starter.hint}
+                                  {translatePresetMetadata(
+                                    starter.hint,
+                                    locale
+                                  )}
                                 </div>
                               </div>
 
@@ -3239,16 +3353,16 @@ export default function InvestorDashboardPage() {
                                 <span className="inline-grid items-center justify-items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 group-hover:bg-rose-500/20 group-hover:text-rose-200 group-hover:border-rose-500/50 transition-colors whitespace-nowrap shrink-0">
                                   <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
                                     <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                    <span>Following</span>
+                                    <span>{t.common.following}</span>
                                   </span>
                                   <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                    Unfollow
+                                    {t.common.unfollow}
                                   </span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#0d1b33] text-slate-300 border border-[#212c42] group-hover:border-[#09a4ff] group-hover:text-white transition-colors whitespace-nowrap shrink-0">
                                   <Plus className="w-3 h-3 text-[#49afe9]" />
-                                  <span>Follow</span>
+                                  <span>{t.common.follow}</span>
                                 </span>
                               )}
                             </button>
@@ -3275,10 +3389,10 @@ export default function InvestorDashboardPage() {
             >
               <div className="mb-6">
                 <h1 className="text-2xl font-bold tracking-tight text-white text-balance">
-                  Your Saved Research Library
+                  {t.savedLibrary.pageTitle}
                 </h1>
                 <p className="text-sm text-slate-300 mt-1 max-w-3xl">
-                  Review catalysts and filings you bookmarked from your Daily Brief or Company News feeds. Click any company tag to reopen its full research view.
+                  {t.savedLibrary.pageSubtitle}
                 </p>
               </div>
 
@@ -3331,11 +3445,17 @@ export default function InvestorDashboardPage() {
       {/* Quiet Institutional Footer */}
       <footer className="border-t border-[#212c42] py-6 px-6 mt-12">
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-          <div className="inline-flex items-center gap-2 text-slate-200 font-semibold">
+          <div className="inline-flex flex-wrap items-center gap-2 text-slate-200 font-semibold">
             <BrandFoxLogo size={20} alt="" />
             <span>Contextual Investing</span>
+            <span className="font-normal text-slate-400 hidden sm:inline">
+              · {t.footer.tagline}
+            </span>
           </div>
-          <span>US Equities &amp; Private Company Research Desk</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span>{t.footer.poweredBy}</span>
+            <LanguageSwitcher compact />
+          </div>
         </div>
       </footer>
 

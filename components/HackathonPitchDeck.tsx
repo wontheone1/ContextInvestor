@@ -21,7 +21,7 @@
 
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -39,6 +39,9 @@ import {
   Printer,
 } from 'lucide-react';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { useLanguage } from '@/components/LanguageProvider';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { getLocalizedPitchSlides } from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export type PitchDemoAction =
@@ -605,6 +608,9 @@ async function rasterizeImageUrlToPngDataUri(
 export function HackathonPitchDeck({
   onTriggerDemoAction,
 }: HackathonPitchDeckProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
+
   const [activeIdx, setActiveIdx] = useState<number>(0);
   const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [showSpeakerNotes, setShowSpeakerNotes] = useState<boolean>(true);
@@ -615,7 +621,12 @@ export function HackathonPitchDeck({
     string | null
   >(null);
 
-  const currentSlide = HACKATHON_SLIDES[activeIdx] || HACKATHON_SLIDES[0];
+  const localizedSlides = useMemo(
+    () => getLocalizedPitchSlides(locale, HACKATHON_SLIDES),
+    [locale]
+  );
+
+  const currentSlide = localizedSlides[activeIdx] || localizedSlides[0];
 
   const handlePrevSlide = useCallback(() => {
     setActiveIdx((prev) => (prev > 0 ? prev - 1 : prev));
@@ -623,9 +634,9 @@ export function HackathonPitchDeck({
 
   const handleNextSlide = useCallback(() => {
     setActiveIdx((prev) =>
-      prev < HACKATHON_SLIDES.length - 1 ? prev + 1 : prev
+      prev < localizedSlides.length - 1 ? prev + 1 : prev
     );
-  }, []);
+  }, [localizedSlides.length]);
 
   // Keyboard navigation (Left/Right arrows, Escape to exit full-screen)
   useEffect(() => {
@@ -656,7 +667,8 @@ export function HackathonPitchDeck({
   const handleDownloadPptx = async () => {
     if (isExportingPptx) return;
     logFunctionCall('HackathonPitchDeck.handleDownloadPptx', {
-      slideCount: HACKATHON_SLIDES.length,
+      slideCount: localizedSlides.length,
+      locale,
     });
 
     setIsExportingPptx(true);
@@ -665,7 +677,7 @@ export function HackathonPitchDeck({
     try {
       // Pre-rasterize all unique screenshot SVGs to PNG Data URIs in the browser
       const uniqueUrls = Array.from(
-        new Set(HACKATHON_SLIDES.map((s) => s.screenshotUrl))
+        new Set(localizedSlides.map((s) => s.screenshotUrl))
       );
       const pngByUrl: Record<string, string> = {};
       await Promise.all(
@@ -681,7 +693,7 @@ export function HackathonPitchDeck({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slides: HACKATHON_SLIDES,
+          slides: localizedSlides,
           pngByUrl,
         }),
       });
@@ -694,19 +706,25 @@ export function HackathonPitchDeck({
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = 'Contextual-Investing-Hackathon-Pitch.pptx';
+      link.download = isKo
+        ? 'Contextual-Investing-Hackathon-Pitch-KO.pptx'
+        : 'Contextual-Investing-Hackathon-Pitch.pptx';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(downloadUrl);
 
       setExportSuccessMessage(
-        'Downloaded Contextual-Investing-Hackathon-Pitch.pptx (10 widescreen slides with embedded screenshots & speaker notes).'
+        isKo
+          ? 'Contextual-Investing-Hackathon-Pitch-KO.pptx 파일(10장 와이드스크린 슬라이드 및 발표 대본 포함)을 다운로드했습니다.'
+          : 'Downloaded Contextual-Investing-Hackathon-Pitch.pptx (10 widescreen slides with embedded screenshots & speaker notes).'
       );
     } catch (err) {
       console.error('Failed to export PPTX:', err);
       setExportSuccessMessage(
-        'Unable to generate .pptx file in this browser session. Try "Print / Save All Slides as PDF".'
+        isKo
+          ? '현재 브라우저 세션에서 .pptx 파일을 생성할 수 없습니다. "PDF 인쇄 / 저장"을 이용해 주세요.'
+          : 'Unable to generate .pptx file in this browser session. Try "Print / Save All Slides as PDF".'
       );
     } finally {
       setIsExportingPptx(false);
@@ -740,19 +758,17 @@ export function HackathonPitchDeck({
           <BrandFoxLogo size={28} framed alt="" />
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-[#49afe9] font-mono-tabular">
-              <span>Hackathon Submission Deck</span>
-              <span aria-hidden="true">·</span>
-              <span>10 Slides (3-Minute Pacing)</span>
-              <span aria-hidden="true">·</span>
-              <span>Non-Finance Judge Friendly</span>
+              <span>{t.pitchDeck.kicker}</span>
             </div>
             <h1 className="text-lg sm:text-xl font-bold text-white mt-0.5">
-              Contextual Investing — Interactive Pitch &amp; Live App Screenshots
+              {t.pitchDeck.deckTitle}
             </h1>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <LanguageSwitcher compact />
+
           <button
             type="button"
             disabled={isExportingPptx}
@@ -762,12 +778,12 @@ export function HackathonPitchDeck({
             {isExportingPptx ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Building .PPTX...</span>
+                <span>{t.pitchDeck.exportingPptx}</span>
               </>
             ) : (
               <>
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Download PowerPoint (.pptx)</span>
+                <span>{t.pitchDeck.downloadPptx}</span>
               </>
             )}
           </button>
@@ -778,7 +794,7 @@ export function HackathonPitchDeck({
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-[#49afe9]" />
-            <span>Print / Save PDF</span>
+            <span>{t.pitchDeck.printPdf}</span>
           </button>
 
           <button
@@ -789,8 +805,12 @@ export function HackathonPitchDeck({
             <Download className="w-3.5 h-3.5" />
             <span>
               {showAllSlidesPrintView
-                ? 'Single-Slide Interactive View'
-                : 'View All 10 Slides Stacked'}
+                ? isKo
+                  ? '단일 슬라이드 보기'
+                  : 'Single-Slide Interactive View'
+                : isKo
+                  ? '10장 전체 펼쳐보기'
+                  : 'View All 10 Slides Stacked'}
             </span>
           </button>
 
@@ -802,12 +822,12 @@ export function HackathonPitchDeck({
             {isFullScreen ? (
               <>
                 <Minimize2 className="w-3.5 h-3.5" />
-                <span>Exit Full Screen</span>
+                <span>{t.pitchDeck.exitFullScreen}</span>
               </>
             ) : (
               <>
                 <Maximize2 className="w-3.5 h-3.5" />
-                <span>Full-Screen Present</span>
+                <span>{t.pitchDeck.fullScreen}</span>
               </>
             )}
           </button>
@@ -825,7 +845,7 @@ export function HackathonPitchDeck({
             onClick={() => setExportSuccessMessage(null)}
             className="text-emerald-300 hover:text-white font-semibold cursor-pointer whitespace-nowrap shrink-0"
           >
-            Dismiss
+            {t.common.close}
           </button>
         </div>
       )}
@@ -834,8 +854,48 @@ export function HackathonPitchDeck({
       {!showAllSlidesPrintView && (
         <div className="flex items-center justify-between gap-2 overflow-x-auto py-1">
           <div className="flex items-center gap-1.5">
-            {HACKATHON_SLIDES.map((s) => {
+            {localizedSlides.map((s) => {
               const isAct = s.index === activeIdx;
+              const shortTabLabel = isKo
+                ? s.index === 0
+                  ? '표지 및 도입'
+                  : s.index === 1
+                    ? '문제 정의'
+                    : s.index === 2
+                      ? '해결책'
+                      : s.index === 3
+                        ? '데일리 브리핑'
+                        : s.index === 4
+                          ? 'NVIDIA 생태계'
+                          : s.index === 5
+                            ? '자연어 스크리닝'
+                            : s.index === 6
+                              ? '강세·약세 및 번역'
+                              : s.index === 7
+                                ? 'AI 애널리스트 (⌘K)'
+                                : s.index === 8
+                                  ? '아키텍처'
+                                  : '비즈니스 임팩트'
+                : s.index === 0
+                  ? 'Title & Hook'
+                  : s.index === 1
+                    ? 'The Problem'
+                    : s.index === 2
+                      ? 'Our Solution'
+                      : s.index === 3
+                        ? 'Daily Brief'
+                        : s.index === 4
+                          ? 'NVIDIA Ripple'
+                          : s.index === 5
+                            ? 'Plain-English Screen'
+                            : s.index === 6
+                              ? 'Bull/Bear & Translation'
+                              : s.index === 7
+                                ? 'AI Analyst (⌘K)'
+                                : s.index === 8
+                                  ? 'Architecture'
+                                  : 'Impact & Q&A';
+
               return (
                 <button
                   key={s.index}
@@ -848,27 +908,7 @@ export function HackathonPitchDeck({
                   }`}
                 >
                   <span>{String(s.index + 1).padStart(2, '0')}.</span>{' '}
-                  <span className="font-sans">
-                    {s.index === 0
-                      ? 'Title & Hook'
-                      : s.index === 1
-                        ? 'The Problem'
-                        : s.index === 2
-                          ? 'Our Solution'
-                          : s.index === 3
-                            ? 'Daily Brief'
-                            : s.index === 4
-                              ? 'NVIDIA Ripple'
-                              : s.index === 5
-                                ? 'Plain-English Screen'
-                                : s.index === 6
-                                  ? 'Bull/Bear & Translation'
-                                  : s.index === 7
-                                    ? 'AI Analyst (⌘K)'
-                                    : s.index === 8
-                                      ? 'Architecture'
-                                      : 'Impact & Q&A'}
-                  </span>
+                  <span className="font-sans">{shortTabLabel}</span>
                 </button>
               );
             })}
@@ -882,15 +922,15 @@ export function HackathonPitchDeck({
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 bg-[#0d1b33] hover:bg-[#102344] border border-[#212c42] disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Prev</span>
+              <span>{t.pitchDeck.prevSlide}</span>
             </button>
             <button
               type="button"
-              disabled={activeIdx === HACKATHON_SLIDES.length - 1}
+              disabled={activeIdx === localizedSlides.length - 1}
               onClick={handleNextSlide}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-40 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <span>Next Slide</span>
+              <span>{t.pitchDeck.nextSlide}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -911,11 +951,12 @@ export function HackathonPitchDeck({
                 </span>
                 <span aria-hidden="true">·</span>
                 <span className="text-emerald-400">
-                  Pitch Clock: {currentSlide.timeWindow}
+                  {isKo ? '발표 시간:' : 'Pitch Clock:'}{' '}
+                  {currentSlide.timeWindow}
                 </span>
                 <span aria-hidden="true">·</span>
                 <span className="text-slate-400">
-                  Slide {currentSlide.numberLabel}
+                  {t.pitchDeck.slideCounterPrefix} {currentSlide.numberLabel}
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white text-balance">
@@ -977,7 +1018,7 @@ export function HackathonPitchDeck({
               {/* Plain-English Jargon Translator for Non-Finance Judges */}
               <div className="p-4 rounded-xl bg-[#091326]/90 border border-[#212c42]">
                 <div className="text-xs font-semibold text-slate-300 mb-2">
-                  Plain-English Guide (Zero Finance Background Needed)
+                  {t.pitchDeck.plainEnglishGuideHeader}
                 </div>
                 <div className="space-y-2">
                   {currentSlide.jargonTranslator.map((item, i) => (
@@ -1000,7 +1041,7 @@ export function HackathonPitchDeck({
                 <div className="inline-flex items-center gap-2 min-w-0">
                   <BrandFoxLogo size={16} alt="" />
                   <span className="text-xs font-medium text-slate-300 truncate">
-                    Live Application Capture · Contextual Investing
+                    {t.pitchDeck.liveScreenshotBadge} · Contextual Investing
                   </span>
                 </div>
                 <span className="text-[11px] font-mono-tabular text-[#49afe9] shrink-0">
@@ -1028,7 +1069,7 @@ export function HackathonPitchDeck({
                   }}
                   className="text-xs font-semibold text-[#49afe9] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  Open Live View →
+                  {isKo ? '실시간 화면 열기 →' : 'Open Live View →'}
                 </button>
               </div>
             </div>
@@ -1040,7 +1081,7 @@ export function HackathonPitchDeck({
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 font-mono-tabular">
                 <Mic className="w-3.5 h-3.5" />
                 <span>
-                  3-Minute Spoken Pitch Script ({currentSlide.timeWindow})
+                  {t.pitchDeck.speakerNotesLabel} ({currentSlide.timeWindow})
                 </span>
               </div>
 
@@ -1050,7 +1091,9 @@ export function HackathonPitchDeck({
                 className="inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <span>
-                  {showSpeakerNotes ? 'Hide Script' : 'Show Spoken Script'}
+                  {showSpeakerNotes
+                    ? t.pitchDeck.hideSpeakerScript
+                    : t.pitchDeck.showSpeakerScript}
                 </span>
                 {showSpeakerNotes ? (
                   <ChevronUp className="w-3.5 h-3.5" />
@@ -1072,7 +1115,7 @@ export function HackathonPitchDeck({
            MODE B: ALL 10 SLIDES STACKED (FOR 1-CLICK PDF / PRINT EXPORT)
            ================================================================== */
         <div className="space-y-8">
-          {HACKATHON_SLIDES.map((slide) => (
+          {localizedSlides.map((slide) => (
             <div
               key={slide.index}
               className="rounded-xl bg-[#0d1b33] border border-[#212c42] overflow-hidden break-inside-avoid"
@@ -1082,8 +1125,8 @@ export function HackathonPitchDeck({
                   <BrandFoxLogo size={24} framed alt="" className="mt-0.5" />
                   <div>
                     <div className="text-xs font-mono-tabular text-[#49afe9] mb-1">
-                      {slide.sectionKicker} · {slide.timeWindow} · Slide{' '}
-                      {slide.numberLabel}
+                      {slide.sectionKicker} · {slide.timeWindow} ·{' '}
+                      {t.pitchDeck.slideCounterPrefix} {slide.numberLabel}
                     </div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white">
                       {slide.title}
@@ -1129,7 +1172,7 @@ export function HackathonPitchDeck({
 
                   <div className="p-3.5 rounded-lg bg-[#091326] border border-[#212c42] space-y-1.5">
                     <div className="text-xs font-semibold text-slate-300">
-                      Plain-English Jargon Guide:
+                      {t.pitchDeck.plainEnglishGuideHeader}
                     </div>
                     {slide.jargonTranslator.map((j, idx) => (
                       <div key={idx} className="text-xs">
@@ -1154,7 +1197,7 @@ export function HackathonPitchDeck({
                   />
                   <div className="mt-3 pt-2.5 border-t border-[#212c42] text-xs text-slate-300">
                     <span className="font-semibold text-emerald-400">
-                      Spoken Script ({slide.timeWindow}):
+                      {t.pitchDeck.speakerNotesLabel} ({slide.timeWindow}):
                     </span>{' '}
                     <span className="italic">
                       &ldquo;{slide.speakerScript}&rdquo;

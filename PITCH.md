@@ -36,8 +36,9 @@
 - **Instant Sentiment Filtering**: Filter the live news feed to isolate strictly `Bullish` catalysts or `Bearish` risk events in seconds.
 - **Side-by-Side Catalysts vs. Risks Verdict**: Summarizes the company's current news cycle into structured **Positive Catalysts (Bull Case)** next to **Risks & Headwinds (Bear Case)**, capped by an **Overall Investment Verdict**.
 
-### 6. Borderless Global Coverage with Source Verification
-- **Automatic Multi-Language Translation**: Detects non-English coverage from key semiconductor, manufacturing, and international financial markets (Korean, Japanese, German, French, Spanish, Chinese) and translates headlines and excerpts into crisp financial English automatically.
+### 6. Borderless Global Coverage & Bilingual English / Korean (`EN` | `한국어`) Experience
+- **Instant Bilingual UI & AI Synthesis (`EN` | `한국어`)**: One-click language switching in the workspace toolbar renders every view (`Research & Compare`, `Daily Brief`, `Watchlist`, `Saved Library`, `10-Slide Pitch Deck` + `.pptx` export, and `⌘K` Research Assistant) in either English or institutional Korean—including live Korean AI synthesis for Daily Briefs, Bull/Bear assessments, per-headline rationales, and grounded analyst Q&A.
+- **Automatic Multi-Language Article Translation**: Detects non-English coverage from key semiconductor, manufacturing, and international financial markets (Korean, Japanese, German, French, Spanish, Chinese) and translates headlines and excerpts automatically.
 - **Original-Source Inspection Toggle**: Preserves source language attribution and offers a one-click **View Original** toggle so investors can verify every translated claim against the primary headline and excerpt.
 
 ### 7. Persistent Personal Research Workspace

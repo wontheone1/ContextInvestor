@@ -33,6 +33,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { useLanguage } from '@/components/LanguageProvider';
 import {
   buildDynamicStarterPrompts,
   type ResearchChatMessage,
@@ -59,10 +60,10 @@ export interface ContextualResearchDrawerProps {
  * @param iso - ISO timestamp string
  * @returns Short formatted time string
  */
-function formatTurnTime(iso: string): string {
+function formatTurnTime(iso: string, locale: 'en' | 'ko'): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('en-US', {
+  return d.toLocaleTimeString(locale === 'ko' ? 'ko-KR' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -84,13 +85,15 @@ export function ContextualResearchDrawer({
   onRetryLastQuestion,
   onClearChat,
 }: ContextualResearchDrawerProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [draft, setDraft] = useState<string>('');
   const scrollEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const starterPrompts = useMemo(
-    () => buildDynamicStarterPrompts(context),
-    [context]
+    () => buildDynamicStarterPrompts(context, locale),
+    [context, locale]
   );
 
   // Scroll to newest message when conversation updates while open
@@ -156,12 +159,12 @@ export function ContextualResearchDrawer({
             logFunctionCall('ContextualResearchDrawer.openFromEdgeTab', {});
             onOpen();
           }}
-          aria-label="Open Research Assistant Drawer"
+          aria-label={t.researchDrawer.drawerTitle}
           className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 items-center gap-2 py-3 px-3 bg-[#0d1b33] hover:bg-[#102344] text-white border border-r-0 border-[#212c42] rounded-l-xl transition-colors cursor-pointer"
         >
           <BrandFoxLogo size={18} alt="" />
           <span className="text-xs font-semibold whitespace-nowrap">
-            Ask Research
+            {t.researchDrawer.edgeTabLabel}
           </span>
         </button>
       )}
@@ -177,7 +180,7 @@ export function ContextualResearchDrawer({
 
       {/* Right-Side Collapsible Research Drawer */}
       <aside
-        aria-label="Contextual Research Assistant"
+        aria-label={t.researchDrawer.drawerTitle}
         aria-hidden={!isOpen}
         className={`fixed top-0 right-0 bottom-0 z-40 w-full sm:w-[440px] bg-[#0d1b33] border-l border-[#212c42] flex flex-col transition-transform duration-200 ease-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
@@ -189,10 +192,10 @@ export function ContextualResearchDrawer({
             <BrandFoxLogo size={22} framed alt="" />
             <div className="min-w-0">
               <h3 className="text-base font-bold tracking-tight text-white truncate">
-                Research Assistant
+                {t.researchDrawer.drawerTitle}
               </h3>
               <p className="text-[11px] text-slate-400 truncate">
-                Grounded in live workspace metrics, news &amp; web search
+                {t.researchDrawer.drawerSubtitle}
               </p>
             </div>
           </div>
@@ -207,11 +210,11 @@ export function ContextualResearchDrawer({
                 onClearChat();
               }}
               disabled={messages.length === 0 && !error}
-              title="Clear conversation history"
+              title={t.researchDrawer.clearChat}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed bg-[#0d1b33] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear Chat</span>
+              <span>{t.researchDrawer.clearChat}</span>
             </button>
 
             <button
@@ -220,8 +223,8 @@ export function ContextualResearchDrawer({
                 logFunctionCall('ContextualResearchDrawer.onClose', {});
                 onClose();
               }}
-              title="Collapse drawer (Esc)"
-              aria-label="Collapse Research Assistant"
+              title={`${t.common.close} (Esc)`}
+              aria-label={t.common.close}
               className="p-2 text-slate-300 hover:text-white bg-[#0d1b33] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors shrink-0 cursor-pointer"
             >
               <PanelRightClose className="w-4 h-4" />
@@ -231,7 +234,9 @@ export function ContextualResearchDrawer({
 
         {/* 2. Quiet Unboxed Live Context Scope Line (Zero-Pill Discipline) */}
         <div className="px-5 py-2.5 border-b border-[#212c42] bg-[#0a162b] text-[11px] text-slate-300 font-mono-tabular truncate">
-          <span className="text-slate-400">Active context: </span>
+          <span className="text-slate-400">
+            {t.researchDrawer.activeContextLabel}{' '}
+          </span>
           <span className="text-[#49afe9]">{context.contextSummaryLine}</span>
         </div>
 
@@ -241,19 +246,20 @@ export function ContextualResearchDrawer({
             <div className="space-y-5">
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-white">
-                  Ask anything about {context.contextShortLabel}
+                  {isKo
+                    ? `${context.contextShortLabel} 관련 무엇이든 질문하세요`
+                    : `Ask anything about ${context.contextShortLabel}`}
                 </h4>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Every question automatically includes the financial metrics,
-                  price returns, company firmographics, and Context.dev news
-                  catalysts currently on screen—plus your followed watchlist
-                  briefing and live web search citations when needed.
+                  {isKo
+                    ? '모든 질문에는 현재 화면에 표시된 투자 지표, 주가 수익률, 기업 프로필, Context.dev 뉴스 모멘텀은 물론 내 관심종목 브리핑과 실시간 Google 검색 출처가 자동으로 반영됩니다.'
+                    : 'Every question automatically includes the financial metrics, price returns, company firmographics, and Context.dev news catalysts currently on screen—plus your followed watchlist briefing and live web search citations when needed.'}
                 </p>
               </div>
 
               <div className="space-y-2 pt-2 border-t border-[#212c42]">
                 <p className="text-xs font-medium text-slate-400">
-                  Suggested questions for current view
+                  {t.researchDrawer.starterPromptsLabel}
                 </p>
                 <div className="space-y-2">
                   {starterPrompts.map((promptText, idx) => (
@@ -287,7 +293,7 @@ export function ContextualResearchDrawer({
                         <span className="mx-1.5" aria-hidden="true">
                           ·
                         </span>
-                        <span>{formatTurnTime(msg.createdAt)}</span>
+                        <span>{formatTurnTime(msg.createdAt, locale)}</span>
                       </div>
                     </div>
                   );
@@ -297,12 +303,12 @@ export function ContextualResearchDrawer({
                   <div key={msg.id} className="py-4 first:pt-0 space-y-3">
                     <div className="flex items-center gap-1.5 text-[11px] text-[#49afe9] font-medium font-mono-tabular">
                       <BrandFoxLogo size={14} alt="" />
-                      <span>Analyst Synthesis</span>
+                      <span>{isKo ? 'AI 애널리스트 종합' : 'Analyst Synthesis'}</span>
                       <span className="text-slate-500" aria-hidden="true">
                         ·
                       </span>
                       <span className="text-slate-400">
-                        {formatTurnTime(msg.createdAt)}
+                        {formatTurnTime(msg.createdAt, locale)}
                       </span>
                     </div>
 
@@ -390,7 +396,7 @@ export function ContextualResearchDrawer({
                     {msg.citations && msg.citations.length > 0 && (
                       <div className="pt-2 space-y-1.5">
                         <div className="text-[11px] text-slate-400">
-                          Sources ({msg.citations.length})
+                          {t.researchDrawer.sourcesCitedLabel} ({msg.citations.length})
                         </div>
                         <div className="flex flex-col gap-1">
                           {msg.citations.map((cit, cIdx) => (
@@ -404,7 +410,9 @@ export function ContextualResearchDrawer({
                               <span className="truncate">
                                 <span className="text-slate-400 font-mono-tabular">
                                   {cit.sourceType === 'dashboard_news'
-                                    ? 'Terminal News'
+                                    ? isKo
+                                      ? '터미널 뉴스'
+                                      : 'Terminal News'
                                     : cit.domain}
                                 </span>
                                 <span className="mx-1.5" aria-hidden="true">
@@ -430,7 +438,7 @@ export function ContextualResearchDrawer({
           {isSending && (
             <div className="py-3 space-y-2 border-t border-[#212c42]">
               <div className="text-xs text-[#49afe9] font-medium">
-                Synthesizing workspace metrics &amp; live sources...
+                {t.researchDrawer.thinkingStatus}
               </div>
               <div className="space-y-1.5">
                 <div className="h-3 w-full bg-[#162849] rounded animate-pulse" />
@@ -450,7 +458,7 @@ export function ContextualResearchDrawer({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span>Retry Question</span>
+                <span>{t.common.retry}</span>
               </button>
             </div>
           )}
@@ -492,23 +500,25 @@ export function ContextualResearchDrawer({
                   void handleSubmit();
                 }
               }}
-              placeholder={`Ask about ${context.contextShortLabel} or your watchlist...`}
-              aria-label="Ask Research Assistant"
+              placeholder={t.researchDrawer.composerPlaceholder}
+              aria-label={t.researchDrawer.drawerTitle}
               className="flex-1 resize-none px-3 py-2 text-xs sm:text-sm text-white bg-[#0d1b33] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] leading-relaxed"
             />
             <button
               type="submit"
               disabled={isSending || !draft.trim()}
-              aria-label="Send question"
+              aria-label={t.researchDrawer.sendButton}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-45 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Send</span>
+              <span>{t.researchDrawer.sendButton}</span>
             </button>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400">
-            <span>Enter to send · Shift+Enter for new line</span>
-            <span className="font-mono-tabular">Cmd/Ctrl+K toggles</span>
+            <span>{t.researchDrawer.sendHint}</span>
+            <span className="font-mono-tabular">
+              {isKo ? 'Cmd/Ctrl+K 열기/닫기' : 'Cmd/Ctrl+K toggles'}
+            </span>
           </div>
         </form>
       </aside>

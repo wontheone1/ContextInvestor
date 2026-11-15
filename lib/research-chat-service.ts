@@ -184,7 +184,9 @@ function matchReferencedDashboardArticles(
 export async function generateContextualResearchReply(params: {
   messages: ResearchChatTurnInput[];
   context: WorkspaceResearchContextPayload;
+  locale?: 'en' | 'ko';
 }): Promise<ResearchChatReplyPayload> {
+  const isKo = params.locale === 'ko';
   const boundedMessages = params.messages
     .filter((m) => m && typeof m.content === 'string' && m.content.trim())
     .slice(-APP_CONFIG.researchChat.maxHistoryMessages);
@@ -196,11 +198,16 @@ export async function generateContextualResearchReply(params: {
     turnCount: boundedMessages.length,
     workspaceMode: params.context.workspaceMode,
     contextSummaryLine: params.context.contextSummaryLine,
+    locale: params.locale || 'en',
     latestQuestionPreview: latestUserMsg.slice(0, 120),
   });
 
   if (!latestUserMsg.trim()) {
-    throw new Error('Please enter a question for the Research Assistant.');
+    throw new Error(
+      isKo
+        ? '리서치 어시스턴트에게 질문할 내용을 입력해 주세요.'
+        : 'Please enter a question for the Research Assistant.'
+    );
   }
 
   const ai = getGenAIClient();
@@ -220,6 +227,12 @@ GROUNDING & DATA PRIORITY RULES:
    - Cite exact numbers, tickers, multiples, and publisher names where relevant.
    - Use compact Markdown bullet points or a clean Markdown table when comparing metrics across companies.
    - Keep total length focused (typically 120–260 words unless the user asks for an exhaustive deep dive).
+
+5. LANGUAGE REQUIREMENT: ${
+    isKo
+      ? 'You MUST write your entire response in natural, institutional Korean (한국어). Preserve official stock tickers (e.g. NVDA, ASML (ADR)), exact financial numbers, and proper publisher/company names accurately while explaining all analytical insights, headings, and tables in Korean.'
+      : 'Write your response in crisp institutional English.'
+  }
 
 LIVE WORKSPACE CONTEXT (JSON):
 ${JSON.stringify(params.context, null, 2)}`;
@@ -300,7 +313,9 @@ ${JSON.stringify(params.context, null, 2)}`;
     return {
       content:
         answerText ||
-        'Unable to generate an analysis for that question. Please try rephrasing.',
+        (isKo
+          ? '해당 질문에 대한 분석을 생성할 수 없습니다. 질문을 조금 바꾸어 다시 시도해 주세요.'
+          : 'Unable to generate an analysis for that question. Please try rephrasing.'),
       citations: mergedCitations,
       modelUsed: model,
       generatedAt: new Date().toISOString(),

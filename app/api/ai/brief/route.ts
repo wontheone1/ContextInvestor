@@ -31,14 +31,17 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       companyQuery?: string;
       articles?: MarketBriefArticleInput[];
+      locale?: 'en' | 'ko';
     };
 
     const companyQuery = (body.companyQuery ?? 'Company').trim();
     const articles = Array.isArray(body.articles) ? body.articles : [];
+    const locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('POST /api/ai/brief', {
       companyQuery,
       articleCount: articles.length,
+      locale,
     });
 
     if (articles.length === 0) {
@@ -51,7 +54,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const brief = await generateCompanyMarketBrief(companyQuery, articles);
+    const brief = await generateCompanyMarketBrief(
+      companyQuery,
+      articles,
+      locale
+    );
 
     return NextResponse.json({
       ok: true,

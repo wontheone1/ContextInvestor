@@ -43,6 +43,15 @@ export const APP_CONFIG = {
   appSubtitle: 'Quantitative News & AI Research Desk',
 
   /**
+   * Centralized Internationalization (i18n) Configuration
+   */
+  i18n: {
+    defaultLocale: 'en' as 'en' | 'ko',
+    supportedLocales: ['en', 'ko'] as const,
+    storageKey: 'contextual_investing_ui_locale_v1',
+  },
+
+  /**
    * Centralized Gemini AI Configuration
    */
   gemini: {

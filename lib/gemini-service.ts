@@ -76,11 +76,14 @@ function getGenAIClient(): GoogleGenAI {
  */
 export async function generateCompanyMarketBrief(
   companyQuery: string,
-  articles: MarketBriefArticleInput[]
+  articles: MarketBriefArticleInput[],
+  locale: 'en' | 'ko' = 'en'
 ): Promise<AIMarketBriefResponse> {
+  const isKo = locale === 'ko';
   logFunctionCall('generateCompanyMarketBrief', {
     companyQuery,
     articleCount: articles.length,
+    locale,
   });
 
   const ai = getGenAIClient();
@@ -94,7 +97,11 @@ export async function generateCompanyMarketBrief(
     )
     .join('\n\n');
 
-  const prompt = `Analyze the following recent news coverage for "${companyQuery}" and produce an institutional investor briefing with balanced positive catalysts (bullish drivers), negative risks/headwinds (bearish factors), and an overall assessment.\n\nNews Articles:\n${formattedDigest}`;
+  const languageDirective = isKo
+    ? '\n\nIMPORTANT LANGUAGE RULE: Write "executiveSummary", every item in "keyCatalysts", every item in "riskFactors", and "sectorImpact" in natural, concise institutional Korean (한국어). However, "sentiment" MUST remain strictly one of the English enum strings: "Bullish", "Neutral", or "Bearish".'
+    : '';
+
+  const prompt = `Analyze the following recent news coverage for "${companyQuery}" and produce an institutional investor briefing with balanced positive catalysts (bullish drivers), negative risks/headwinds (bearish factors), and an overall assessment.${languageDirective}\n\nNews Articles:\n${formattedDigest}`;
 
   const config = {
     thinkingConfig: {
@@ -175,7 +182,9 @@ export async function generateCompanyMarketBrief(
           : 75,
       executiveSummary:
         parsed.executiveSummary ||
-        `Recent news flow for ${companyQuery} reflects active institutional coverage across ${articles.length} articles.`,
+        (isKo
+          ? `${companyQuery} 관련 최신 기사 ${articles.length}건을 기반으로 한 종합 분석입니다.`
+          : `Recent news flow for ${companyQuery} reflects active institutional coverage across ${articles.length} articles.`),
       keyCatalysts: Array.isArray(parsed.keyCatalysts)
         ? parsed.keyCatalysts.slice(0, 3)
         : [],
@@ -184,7 +193,9 @@ export async function generateCompanyMarketBrief(
         : [],
       sectorImpact:
         parsed.sectorImpact ||
-        'Monitoring cross-sector read-through from primary coverage.',
+        (isKo
+          ? '주요 보도에 따른 섹터 및 밸류체인 파급 효과를 모니터링 중입니다.'
+          : 'Monitoring cross-sector read-through from primary coverage.'),
       modelUsed: model,
       generatedAt: new Date().toISOString(),
     };

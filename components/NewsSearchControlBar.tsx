@@ -23,6 +23,8 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, RotateCcw, Search, SlidersHorizontal } from 'lucide-react';
 import { APP_CONFIG } from '@/lib/config';
+import { useLanguage } from '@/components/LanguageProvider';
+import { translatePresetMetadata, type AppLocale } from '@/lib/i18n';
 import {
   detectSearchQueryIntent,
   type SearchWorkspaceMode,
@@ -69,24 +71,45 @@ export interface NewsSearchControlBarProps {
 /**
  * Formats a concise human-readable summary of active single-company news filters.
  */
-function buildActiveFilterSummary(state: NewsSearchControlState): string {
+function buildActiveFilterSummary(
+  state: NewsSearchControlState,
+  locale: AppLocale
+): string {
+  const isKo = locale === 'ko';
   const parts: string[] = [];
-  parts.push(state.sortBy === 'newest' ? 'Newest' : 'Relevance');
+  parts.push(
+    state.sortBy === 'newest'
+      ? isKo
+        ? '최신순'
+        : 'Newest'
+      : isKo
+        ? '관련도순'
+        : 'Relevance'
+  );
 
   if (state.datePreset !== 'all') {
-    const presetLabels: Record<DatePreset, string> = {
-      all: 'All Dates',
-      '24h': '24h',
-      '7d': '7d',
-      '30d': '30d',
-      '90d': '90d',
-      custom: 'Custom Dates',
-    };
+    const presetLabels: Record<DatePreset, string> = isKo
+      ? {
+          all: '전체 기간',
+          '24h': '24시간',
+          '7d': '7일',
+          '30d': '30일',
+          '90d': '90일',
+          custom: '직접 설정',
+        }
+      : {
+          all: 'All Dates',
+          '24h': '24h',
+          '7d': '7d',
+          '30d': '30d',
+          '90d': '90d',
+          custom: 'Custom Dates',
+        };
     parts.push(presetLabels[state.datePreset]);
   }
 
   if (state.filterCategory !== 'none') {
-    parts.push('Filtered');
+    parts.push(isKo ? '상세필터' : 'Filtered');
   }
 
   return parts.join(' · ');
@@ -106,6 +129,8 @@ export function NewsSearchControlBar({
   onRunSampleNaturalQuery,
   onForceWorkspaceMode,
 }: NewsSearchControlBarProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
   const detectedIntent = detectSearchQueryIntent(state.entityValue);
@@ -145,14 +170,14 @@ export function NewsSearchControlBar({
               htmlFor="company-entity-input"
               className="block text-xs font-medium text-slate-300"
             >
-              Search a Ticker, Private Company, or Natural-Language Market Screen
+              {t.searchBar.searchLabel}
             </label>
             <span className="text-xs text-slate-400 font-mono-tabular">
-              Mode:{' '}
+              {isKo ? '모드: ' : 'Mode: '}
               <span className="text-[#49afe9]">
                 {detectedIntent === 'cohort'
-                  ? 'Cohort Screen & Compare'
-                  : 'Single-Company Deep Dive'}
+                  ? t.searchBar.cohortModeBadge
+                  : t.searchBar.singleModeBadge}
               </span>
             </span>
           </div>
@@ -166,7 +191,7 @@ export function NewsSearchControlBar({
                 entityType: 'auto',
               })
             }
-            placeholder="Try NVDA, Stripe, or 'AI chip companies with over 200 bn USD market cap'..."
+            placeholder={t.searchBar.placeholder}
             className="w-full px-4 py-2.5 text-sm text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
           />
         </div>
@@ -180,12 +205,10 @@ export function NewsSearchControlBar({
             <Search className="w-4 h-4" />
             <span>
               {busy
-                ? detectedIntent === 'cohort'
-                  ? 'Screening...'
-                  : 'Searching...'
+                ? t.searchBar.searchingButton
                 : detectedIntent === 'cohort'
-                  ? 'Screen & Compare'
-                  : 'Search Company'}
+                  ? t.searchBar.switchToCohort
+                  : t.searchBar.searchButton}
             </span>
           </button>
 
@@ -205,7 +228,14 @@ export function NewsSearchControlBar({
               }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#49afe9]" />
-              <span>Filters ({buildActiveFilterSummary(state)})</span>
+              <span>
+                {isFiltersExpanded
+                  ? t.searchBar.hideFiltersButton
+                  : `${t.searchBar.filtersButton} (${buildActiveFilterSummary(
+                      state,
+                      locale
+                    )})`}
+              </span>
               {isFiltersExpanded ? (
                 <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
               ) : (
@@ -216,7 +246,7 @@ export function NewsSearchControlBar({
 
           <button
             type="button"
-            title="Refresh live data"
+            title={t.common.refresh}
             onClick={() => onSubmitSearch(true)}
             disabled={busy}
             className="p-2.5 text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors shrink-0 cursor-pointer"
@@ -230,7 +260,7 @@ export function NewsSearchControlBar({
       <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-slate-400 mr-1">
-            Try a natural screen:
+            {t.searchBar.trySamplePrompts}
           </span>
           {APP_CONFIG.cohortScreener.sampleQueries.map((item) => (
             <button
@@ -245,7 +275,7 @@ export function NewsSearchControlBar({
               }}
               className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              {item.label}
+              {translatePresetMetadata(item.label, locale)}
             </button>
           ))}
         </div>
@@ -253,11 +283,11 @@ export function NewsSearchControlBar({
         {onForceWorkspaceMode && state.entityValue.trim().length > 0 && (
           <div className="flex items-center gap-2 text-xs text-slate-400">
             <span>
-              Viewing:{' '}
+              {isKo ? '현재 화면: ' : 'Viewing: '}
               <span className="text-slate-200 font-medium">
                 {workspaceMode === 'cohort'
-                  ? 'Cohort Comparison'
-                  : 'Single Company'}
+                  ? t.searchBar.cohortModeBadge
+                  : t.searchBar.singleModeBadge}
               </span>
             </span>
             <span aria-hidden="true">·</span>
@@ -271,8 +301,8 @@ export function NewsSearchControlBar({
               className="text-[#49afe9] hover:text-white font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               {workspaceMode === 'cohort'
-                ? 'Switch to Single Company'
-                : 'Run as Cohort Screen'}
+                ? t.searchBar.switchToSingle
+                : t.searchBar.switchToCohort}
             </button>
           </div>
         )}
@@ -285,17 +315,17 @@ export function NewsSearchControlBar({
             {/* Publication Date Range */}
             <div className="lg:col-span-6">
               <label className="block text-xs font-medium text-slate-300 mb-2">
-                Publication Date Range
+                {t.searchBar.dateWindowLabel}
               </label>
               <div className="flex flex-wrap items-center gap-1.5">
                 {(
                   [
-                    { id: 'all', label: 'All Dates' },
-                    { id: '24h', label: 'Last 24h' },
-                    { id: '7d', label: 'Last 7d' },
-                    { id: '30d', label: 'Last 30d' },
-                    { id: '90d', label: 'Last 90d' },
-                    { id: 'custom', label: 'Custom' },
+                    { id: 'all', label: t.searchBar.dateAll },
+                    { id: '24h', label: t.searchBar.date24h },
+                    { id: '7d', label: t.searchBar.date7d },
+                    { id: '30d', label: t.searchBar.date30d },
+                    { id: '90d', label: t.searchBar.date90d },
+                    { id: 'custom', label: t.searchBar.dateCustom },
                   ] as const
                 ).map((preset) => (
                   <button
@@ -320,7 +350,7 @@ export function NewsSearchControlBar({
                       htmlFor="date-from-input"
                       className="block text-xs text-slate-400 mb-1"
                     >
-                      From Date
+                      {t.searchBar.fromDateLabel}
                     </label>
                     <input
                       id="date-from-input"
@@ -337,7 +367,7 @@ export function NewsSearchControlBar({
                       htmlFor="date-to-input"
                       className="block text-xs text-slate-400 mb-1"
                     >
-                      To Date
+                      {t.searchBar.toDateLabel}
                     </label>
                     <input
                       id="date-to-input"
@@ -356,7 +386,7 @@ export function NewsSearchControlBar({
             {/* Sort Order & Rows Per Page */}
             <div className="lg:col-span-3">
               <label className="block text-xs font-medium text-slate-300 mb-2">
-                Sort Order
+                {t.searchBar.sortByLabel}
               </label>
               <div className="grid grid-cols-2 gap-1 p-1 bg-[#091326] rounded-lg border border-[#212c42]">
                 <button
@@ -368,7 +398,7 @@ export function NewsSearchControlBar({
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  Newest
+                  {t.searchBar.sortNewest}
                 </button>
                 <button
                   type="button"
@@ -379,7 +409,7 @@ export function NewsSearchControlBar({
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  Relevance
+                  {t.searchBar.sortRelevance}
                 </button>
               </div>
             </div>
@@ -389,7 +419,7 @@ export function NewsSearchControlBar({
                 htmlFor="page-limit-select"
                 className="block text-xs font-medium text-slate-300 mb-2"
               >
-                Articles Per Page
+                {isKo ? '페이지당 기사 수' : 'Articles Per Page'}
               </label>
               <select
                 id="page-limit-select"
@@ -399,10 +429,11 @@ export function NewsSearchControlBar({
                 }
                 className="w-full px-3 py-2 text-xs text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
               >
-                <option value={4}>4 articles per page</option>
-                <option value={8}>8 articles per page</option>
-                <option value={10}>10 articles per page</option>
-                <option value={15}>15 articles per page</option>
+                {[4, 8, 10, 15].map((num) => (
+                  <option key={num} value={num}>
+                    {isKo ? `페이지당 ${num}건` : `${num} articles per page`}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -414,7 +445,7 @@ export function NewsSearchControlBar({
                 htmlFor="filter-category-select"
                 className="block text-xs font-medium text-slate-300 mb-1.5"
               >
-                Source / Language / Type Facet
+                {isKo ? '언론사 / 언어 / 기사 유형 필터' : 'Source / Language / Type Facet'}
               </label>
               <select
                 id="filter-category-select"
@@ -428,12 +459,22 @@ export function NewsSearchControlBar({
                 className="w-full px-3 py-2 text-xs text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff]"
               >
                 <option value="none">
-                  All Types, Languages, Countries &amp; Domains Included
+                  {isKo
+                    ? '모든 기사 유형 · 언어 · 국가 · 도메인 포함'
+                    : 'All Types, Languages, Countries & Domains Included'}
                 </option>
-                <option value="articleType">Filter by Article Type</option>
-                <option value="articleLanguage">Filter by Article Language</option>
-                <option value="sourceCountry">Filter by Publisher Country</option>
-                <option value="sourceDomain">Filter by Publisher Domain</option>
+                <option value="articleType">
+                  {isKo ? '기사 유형으로 필터링' : 'Filter by Article Type'}
+                </option>
+                <option value="articleLanguage">
+                  {isKo ? '원문 언어로 필터링' : 'Filter by Article Language'}
+                </option>
+                <option value="sourceCountry">
+                  {isKo ? '발행 국가로 필터링' : 'Filter by Publisher Country'}
+                </option>
+                <option value="sourceDomain">
+                  {isKo ? '언론사 도메인으로 필터링' : 'Filter by Publisher Domain'}
+                </option>
               </select>
             </div>
 
@@ -443,7 +484,7 @@ export function NewsSearchControlBar({
                   htmlFor="article-type-select"
                   className="block text-xs font-medium text-slate-300 mb-1.5"
                 >
-                  Article Type
+                  {t.searchBar.articleTypeLabel}
                 </label>
                 <select
                   id="article-type-select"
@@ -456,9 +497,9 @@ export function NewsSearchControlBar({
                   }
                   className="w-full px-3 py-2 text-xs text-white bg-[#091326] border border-[#212c42] rounded-lg"
                 >
-                  {APP_CONFIG.filters.articleTypes.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
+                  {APP_CONFIG.filters.articleTypes.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {translatePresetMetadata(item.label, locale)}
                     </option>
                   ))}
                 </select>
@@ -471,7 +512,7 @@ export function NewsSearchControlBar({
                   htmlFor="article-lang-select"
                   className="block text-xs font-medium text-slate-300 mb-1.5"
                 >
-                  Language
+                  {t.searchBar.languageFilterLabel}
                 </label>
                 <select
                   id="article-lang-select"
@@ -483,7 +524,7 @@ export function NewsSearchControlBar({
                 >
                   {APP_CONFIG.filters.languages.map((l) => (
                     <option key={l.value} value={l.value}>
-                      {l.label}
+                      {translatePresetMetadata(l.label, locale)}
                     </option>
                   ))}
                 </select>
@@ -496,7 +537,7 @@ export function NewsSearchControlBar({
                   htmlFor="source-country-select"
                   className="block text-xs font-medium text-slate-300 mb-1.5"
                 >
-                  Publisher Country
+                  {t.searchBar.countryFilterLabel}
                 </label>
                 <select
                   id="source-country-select"
@@ -508,7 +549,7 @@ export function NewsSearchControlBar({
                 >
                   {APP_CONFIG.filters.countries.map((c) => (
                     <option key={c.value} value={c.value}>
-                      {c.label}
+                      {translatePresetMetadata(c.label, locale)}
                     </option>
                   ))}
                 </select>
@@ -521,7 +562,7 @@ export function NewsSearchControlBar({
                   htmlFor="source-domain-input"
                   className="block text-xs font-medium text-slate-300 mb-1.5"
                 >
-                  Publisher Domain
+                  {t.searchBar.publisherDomainLabel}
                 </label>
                 <input
                   id="source-domain-input"
@@ -530,7 +571,7 @@ export function NewsSearchControlBar({
                   onChange={(e) =>
                     onChange({ sourceDomainInput: e.target.value })
                   }
-                  placeholder="reuters.com"
+                  placeholder={t.searchBar.publisherDomainPlaceholder}
                   className="w-full px-3 py-2 text-xs text-white bg-[#091326] border border-[#212c42] rounded-lg font-mono-tabular"
                 />
               </div>
@@ -549,7 +590,7 @@ export function NewsSearchControlBar({
                 }
                 className="px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-[#091326] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
-                Reset Filters
+                {t.searchBar.resetFilters}
               </button>
             )}
           </div>

@@ -26,6 +26,11 @@ import {
 } from 'lucide-react';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  translateSentimentLabel,
+  translateSentimentTooltip,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface AIMarketBriefPanelProps {
@@ -47,10 +52,12 @@ export function AIMarketBriefPanel({
   error,
   onGenerate,
 }: AIMarketBriefPanelProps) {
+  const { locale, t } = useLanguage();
+
   return (
     <section
       id="briefing"
-      aria-label="AI Catalysts, Risks and Overall Assessment"
+      aria-label={t.aiBrief.headerTitle}
       className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-[#212c42]">
@@ -58,10 +65,10 @@ export function AIMarketBriefPanel({
           <BrandFoxLogo size={22} framed alt="" />
           <div>
             <h2 className="text-base font-bold text-white">
-              AI Investment Assessment: {companyLabel}
+              {t.aiBrief.headerTitle}: {companyLabel}
             </h2>
             <p className="text-xs text-slate-400">
-              Positive catalysts, downside risks, and overall synthesis from recent coverage
+              {t.aiBrief.headerSubtitle}
             </p>
           </div>
         </div>
@@ -78,7 +85,9 @@ export function AIMarketBriefPanel({
           <RefreshCw
             className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
           />
-          <span>{isLoading ? 'Analyzing...' : 'Refresh Analysis'}</span>
+          <span>
+            {isLoading ? t.aiBrief.synthesizing : t.aiBrief.refreshAnalysis}
+          </span>
         </button>
       </div>
 
@@ -110,18 +119,17 @@ export function AIMarketBriefPanel({
             <BrandFoxLogo size={26} framed alt="" />
           </div>
           <p className="text-sm font-medium text-white mb-1">
-            Generate Catalysts, Headwinds &amp; Overall Assessment
+            {t.aiBrief.headerTitle}
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            Synthesize the loaded news articles for {companyLabel} into
-            side-by-side bullish drivers, risk vectors, and an overall verdict.
+            {t.aiBrief.emptyStatePrompt}
           </p>
           <button
             type="button"
             onClick={onGenerate}
-            className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            Analyze {companyLabel} Coverage
+            {t.aiBrief.generateBriefCta}
           </button>
         </div>
       ) : (
@@ -131,9 +139,10 @@ export function AIMarketBriefPanel({
             <div className="lg:col-span-3 flex items-center justify-between lg:flex-col lg:items-start gap-2 py-3 px-4 rounded-lg bg-[#091326] border border-[#212c42] font-mono-tabular">
               <div>
                 <div className="text-xs text-slate-400 mb-0.5">
-                  Overall Verdict
+                  {t.aiBrief.overallVerdict}
                 </div>
                 <div
+                  title={translateSentimentTooltip(brief.sentiment, locale)}
                   className={`inline-flex items-center gap-1.5 text-base font-bold ${
                     brief.sentiment === 'Bullish'
                       ? 'text-emerald-400'
@@ -149,12 +158,14 @@ export function AIMarketBriefPanel({
                   ) : (
                     <Minus className="w-4 h-4" aria-hidden="true" />
                   )}
-                  <span>{brief.sentiment}</span>
+                  <span>{translateSentimentLabel(brief.sentiment, locale)}</span>
                 </div>
               </div>
 
               <div className="text-right lg:text-left">
-                <div className="text-xs text-slate-400">Signal Conviction</div>
+                <div className="text-xs text-slate-400">
+                  {t.aiBrief.signalConviction}
+                </div>
                 <div className="text-sm font-bold text-white">
                   {brief.confidenceScore}%
                 </div>
@@ -163,14 +174,14 @@ export function AIMarketBriefPanel({
 
             <div className="lg:col-span-9 space-y-2">
               <h3 className="text-xs font-semibold text-[#49afe9]">
-                Overall Assessment
+                {t.aiBrief.overallVerdict}
               </h3>
               <p className="text-sm text-slate-200 leading-relaxed">
                 {brief.executiveSummary}
               </p>
               <p className="text-xs text-slate-400 leading-relaxed">
                 <span className="text-slate-300 font-medium">
-                  Sector Read-Through:{' '}
+                  {t.aiBrief.sectorAndPeerImpact}:{' '}
                 </span>
                 {brief.sectorImpact}
               </p>
@@ -183,7 +194,9 @@ export function AIMarketBriefPanel({
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400 mb-3">
                 <TrendingUp className="w-4 h-4" aria-hidden="true" />
-                <span>Positive Catalysts (Tailwinds)</span>
+                <span>
+                  {t.aiBrief.positiveCatalysts} ({t.aiBrief.bullCaseTag})
+                </span>
               </div>
 
               {brief.keyCatalysts.length > 0 ? (
@@ -202,7 +215,9 @@ export function AIMarketBriefPanel({
                 </ul>
               ) : (
                 <p className="text-xs text-slate-400">
-                  No major upside catalysts highlighted in the current article batch.
+                  {locale === 'ko'
+                    ? '현재 기사 묶음에서 주요 상승 모멘텀이 포착되지 않았습니다.'
+                    : 'No major upside catalysts highlighted in the current article batch.'}
                 </p>
               )}
             </div>
@@ -211,7 +226,9 @@ export function AIMarketBriefPanel({
             <div>
               <div className="flex items-center gap-2 text-xs font-semibold text-rose-400 mb-3">
                 <AlertTriangle className="w-4 h-4" aria-hidden="true" />
-                <span>Risks &amp; Headwinds (Bearish Factors)</span>
+                <span>
+                  {t.aiBrief.risksAndHeadwinds} ({t.aiBrief.bearCaseTag})
+                </span>
               </div>
 
               {brief.riskFactors.length > 0 ? (
@@ -230,7 +247,9 @@ export function AIMarketBriefPanel({
                 </ul>
               ) : (
                 <p className="text-xs text-slate-400">
-                  No material downside risks highlighted in the current article batch.
+                  {locale === 'ko'
+                    ? '현재 기사 묶음에서 중대한 하방 리스크 요인이 포착되지 않았습니다.'
+                    : 'No material downside risks highlighted in the current article batch.'}
                 </p>
               )}
             </div>

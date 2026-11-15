@@ -28,6 +28,11 @@ import type {
   RelatedCompanyItem,
   RelationshipCategory,
 } from '@/lib/related-companies-service';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  translateRelationshipCategory,
+  translateRelationshipDescription,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface RelatedCompaniesPanelProps {
@@ -125,6 +130,8 @@ export function RelatedCompaniesPanel({
   onToggleFollowCompany,
   onBatchFollowCompanies,
 }: RelatedCompaniesPanelProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [selectedGroup, setSelectedGroup] = useState<GroupFilter>('all');
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
@@ -169,7 +176,7 @@ export function RelatedCompaniesPanel({
   return (
     <section
       id="ecosystem"
-      aria-label="Related Companies by Relationship"
+      aria-label={t.relatedCompanies.headerTitle}
       className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6"
     >
       {/* Panel Header & Relationship Filter Controls */}
@@ -177,22 +184,39 @@ export function RelatedCompaniesPanel({
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h2 className="text-base font-bold text-white">
-              Related Companies to Explore:{' '}
+              {t.relatedCompanies.headerTitle}:{' '}
               {data?.resolvedCompanyName || searchedQuery}
             </h2>
             {!isLoading && data && (
               <span className="text-xs text-slate-400 font-mono-tabular">
-                · {data.companies.length} Unique Companies
+                ·{' '}
+                {isKo
+                  ? `${data.companies.length}개 고유 기업`
+                  : `${data.companies.length} Unique Companies`}
                 {multiRelCount > 0
-                  ? ` · ${multiRelCount} Multi-Relationship`
+                  ? isKo
+                    ? ` · ${multiRelCount}개 복합 관계`
+                    : ` · ${multiRelCount} Multi-Relationship`
                   : ''}
               </span>
             )}
           </div>
           <p className="text-xs text-slate-400">
-            Click <span className="text-slate-200 font-medium">+ Follow</span>{' '}
-            to add suppliers, customers, or peers to your watchlist in place, or
-            click a company name to open its full deep dive.
+            {isKo ? (
+              <>
+                <span className="text-slate-200 font-medium">
+                  {t.common.plusFollow}
+                </span>{' '}
+                버튼을 눌러 현재 화면을 유지한 채 공급사·고객사·경쟁사를 관심종목에 추가하거나, 기업명을 클릭해 심층 분석으로 이동하세요.
+              </>
+            ) : (
+              <>
+                Click{' '}
+                <span className="text-slate-200 font-medium">+ Follow</span> to
+                add suppliers, customers, or peers to your watchlist in place,
+                or click a company name to open its full deep dive.
+              </>
+            )}
           </p>
         </div>
 
@@ -208,7 +232,7 @@ export function RelatedCompaniesPanel({
                     : 'text-slate-300 hover:text-white'
                 }`}
               >
-                All Groups
+                {t.relatedCompanies.allGroups}
               </button>
               {groups.map((g) => {
                 const isActive = activeFilter === g.category;
@@ -223,7 +247,9 @@ export function RelatedCompaniesPanel({
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
-                    <span>{g.category}</span>
+                    <span>
+                      {translateRelationshipCategory(g.category, locale)}
+                    </span>
                     <span className="ml-1 opacity-80 font-mono-tabular">
                       ({g.companies.length})
                     </span>
@@ -250,22 +276,29 @@ export function RelatedCompaniesPanel({
                   );
                   onBatchFollowCompanies(batchSlice);
                 }}
-                title="Verify and add unfollowed companies in this view to your watchlist"
+                title={
+                  isKo
+                    ? '현재 그룹의 미팔로우 기업을 검증 후 관심종목에 일괄 추가'
+                    : 'Verify and add unfollowed companies in this view to your watchlist'
+                }
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#49afe9] hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#09a4ff]/40 disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
               >
                 {anyBatchPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Following...</span>
+                    <span>{t.watchlist.verifyingButton}</span>
                   </>
                 ) : (
                   <>
                     <Plus className="w-3.5 h-3.5" />
                     <span>
-                      Follow{' '}
                       {activeFilter === 'all'
-                        ? `Top ${Math.min(4, visibleUnfollowed.length)}`
-                        : `${activeFilter} (${Math.min(4, visibleUnfollowed.length)})`}
+                        ? isKo
+                          ? `상위 ${Math.min(4, visibleUnfollowed.length)}개 팔로우`
+                          : `${t.relatedCompanies.followTopPrefix} ${Math.min(4, visibleUnfollowed.length)}`
+                        : isKo
+                          ? `${translateRelationshipCategory(activeFilter, locale)} (${Math.min(4, visibleUnfollowed.length)}) 팔로우`
+                          : `${t.relatedCompanies.followGroupPrefix} ${activeFilter} (${Math.min(4, visibleUnfollowed.length)})`}
                     </span>
                   </>
                 )}
@@ -281,13 +314,13 @@ export function RelatedCompaniesPanel({
               onRefresh();
             }}
             disabled={isLoading}
-            title="Refresh related company suggestions"
+            title={t.common.refresh}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-200 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
             />
-            <span>Refresh</span>
+            <span>{t.common.refresh}</span>
           </button>
         </div>
       </div>
@@ -301,7 +334,7 @@ export function RelatedCompaniesPanel({
             onClick={onRefresh}
             className="px-3 py-1.5 font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
           >
-            Retry
+            {t.common.retry}
           </button>
         </div>
       )}
@@ -320,7 +353,7 @@ export function RelatedCompaniesPanel({
         </div>
       ) : !error && visibleGroups.length === 0 ? (
         <div className="py-6 text-center text-xs text-slate-400">
-          No related company suggestions available for {searchedQuery}.
+          {t.relatedCompanies.emptyGroup} ({searchedQuery})
         </div>
       ) : (
         /* Grouped Multi-Relationship Columns (Clean Hairline Dividers, Zero Nested Cards) */
@@ -348,9 +381,13 @@ export function RelatedCompaniesPanel({
             return (
               <div key={group.category} className={colPadding}>
                 <GroupHeadingWithTooltip
-                  title={group.category}
+                  title={translateRelationshipCategory(group.category, locale)}
                   count={group.companies.length}
-                  tooltip={group.description}
+                  tooltip={translateRelationshipDescription(
+                    group.category,
+                    group.description,
+                    locale
+                  )}
                 />
 
                 <div
@@ -403,6 +440,7 @@ export function RelatedCompaniesPanel({
                             );
                             onSelectCompany(company);
                           }}
+                          title={`${t.relatedCompanies.pivotTooltipPrefix} ${company.name}`}
                           className="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[#09a4ff] rounded"
                         >
                           <div className="flex items-baseline gap-1.5 mb-0.5 min-w-0">
@@ -434,7 +472,12 @@ export function RelatedCompaniesPanel({
 
                           {otherRelationships.length > 0 && (
                             <div className="mt-1 text-[11px] text-amber-300/90 font-mono-tabular truncate">
-                              Also in: {otherRelationships.join(' · ')}
+                              {t.relatedCompanies.alsoInPrefix}{' '}
+                              {otherRelationships
+                                .map((rel) =>
+                                  translateRelationshipCategory(rel, locale)
+                                )
+                                .join(' · ')}
                             </div>
                           )}
                         </button>
@@ -460,8 +503,8 @@ export function RelatedCompaniesPanel({
                             }}
                             title={
                               isFollowed
-                                ? `Unfollow ${company.name}`
-                                : `Add ${company.name} to your Watchlist without leaving ${searchedQuery}`
+                                ? `${t.common.unfollow} ${company.name}`
+                                : `${t.common.follow} ${company.name}`
                             }
                             className={`group mt-0.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                               isFollowed
@@ -475,16 +518,16 @@ export function RelatedCompaniesPanel({
                               <span className="inline-grid items-center justify-items-center">
                                 <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
                                   <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                  <span>Following</span>
+                                  <span>{t.common.following}</span>
                                 </span>
                                 <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                  Unfollow
+                                  {t.common.unfollow}
                                 </span>
                               </span>
                             ) : (
                               <>
                                 <Plus className="w-3 h-3 text-[#49afe9]" />
-                                <span>Follow</span>
+                                <span>{t.common.follow}</span>
                               </>
                             )}
                           </button>

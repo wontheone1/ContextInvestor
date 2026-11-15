@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { useLanguage } from '@/components/LanguageProvider';
 import { logFunctionCall } from '@/lib/logger';
 
 export type WorkspaceStageId =
@@ -45,6 +46,8 @@ export function TopNavbar({
   userEmail,
   onAuthAction,
 }: TopNavbarProps) {
+  const { t } = useLanguage();
+
   /**
    * Switches the active workspace stage and scrolls cleanly to the top of the workspace.
    */
@@ -80,7 +83,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Research &amp; Compare
+          {t.nav.research}
         </button>
         <button
           type="button"
@@ -91,7 +94,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Daily Brief
+          {t.nav.dailyBrief}
         </button>
         <button
           type="button"
@@ -102,7 +105,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Watchlist
+          {t.nav.watchlist}
         </button>
         <button
           type="button"
@@ -113,7 +116,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Saved Library
+          {t.nav.saved}
         </button>
         <button
           type="button"
@@ -124,7 +127,7 @@ export function TopNavbar({
               : 'hover:text-white'
           }`}
         >
-          Pitch Deck
+          {t.nav.pitchDeck}
         </button>
       </nav>
 
@@ -140,7 +143,9 @@ export function TopNavbar({
           }}
           className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
         >
-          {userEmail ? `Sign Out (${userEmail.split('@')[0]})` : 'Sign In with Google'}
+          {userEmail
+            ? `${t.nav.signOutPrefix} (${userEmail.split('@')[0]})`
+            : t.nav.signInWithGoogle}
         </button>
       </div>
     </header>

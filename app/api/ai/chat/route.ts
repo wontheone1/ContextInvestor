@@ -35,15 +35,18 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       messages?: ResearchChatTurnInput[];
       context?: WorkspaceResearchContextPayload;
+      locale?: 'en' | 'ko';
     };
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const context = body.context;
+    const locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/ai/chat', {
       messageCount: messages.length,
       workspaceMode: context?.workspaceMode ?? 'unknown',
       contextSummaryLine: context?.contextSummaryLine ?? '',
+      locale,
     });
 
     if (messages.length === 0 || !context) {
@@ -59,6 +62,7 @@ export async function POST(req: NextRequest) {
     const reply = await generateContextualResearchReply({
       messages,
       context,
+      locale,
     });
 
     return NextResponse.json({

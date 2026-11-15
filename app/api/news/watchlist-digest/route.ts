@@ -45,7 +45,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         sector?: string;
       }>;
       forceRefresh?: boolean;
+      locale?: 'en' | 'ko';
     };
+
+    const locale = body.locale === 'ko' ? 'ko' : 'en';
 
     const rawCompanies: WatchlistTargetCompany[] =
       Array.isArray(body.companies) && body.companies.length > 0
@@ -66,11 +69,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       companyCount: rawCompanies.length,
       companies: rawCompanies.map((c) => c.value),
       forceRefresh: Boolean(body.forceRefresh),
+      locale,
     });
 
     const digest = await generateWatchlistDigest(
       rawCompanies,
-      Boolean(body.forceRefresh)
+      Boolean(body.forceRefresh),
+      locale
     );
 
     return NextResponse.json({

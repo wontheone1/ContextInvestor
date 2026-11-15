@@ -41,6 +41,15 @@ import type {
   EnrichedNewsArticle,
 } from '@/lib/translation-service';
 import { formatLanguageName } from '@/lib/translation-service';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  formatLocalizedDateTime,
+  translateArticleType,
+  translateLanguageLabel,
+  translateSentimentLabel,
+  translateSentimentTooltip,
+  type AppLocale,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export type SentimentFilterOption = 'all' | ArticleSentiment;
@@ -82,34 +91,64 @@ function formatPublishedTime(iso: string | null): string {
 }
 
 /**
- * Maps article type values to readable institutional labels and concise English tooltips.
+ * Maps article type values to localized institutional labels and concise tooltips.
  */
-function getArticleTypeInfo(type: EnrichedNewsArticle['type']): {
+function getArticleTypeInfo(
+  type: EnrichedNewsArticle['type'],
+  locale: AppLocale
+): {
   label: string;
   tooltip: string;
 } {
+  const label = translateArticleType(type, locale);
+  if (locale === 'ko') {
+    switch (type) {
+      case 'press_release':
+        return {
+          label,
+          tooltip: '기업에서 직접 배포한 공식 보도자료입니다.',
+        };
+      case 'regulatory_filing':
+        return {
+          label,
+          tooltip: '감독기관 및 거래소에 제출된 공식 공시 자료입니다.',
+        };
+      case 'advisory':
+        return {
+          label,
+          tooltip: '투자자 및 이용자를 위해 발행된 기술·보안·운영 공지입니다.',
+        };
+      case 'editorial':
+      default:
+        return {
+          label,
+          tooltip: '언론사의 독립적인 취재 보도 및 시장 분석 기사입니다.',
+        };
+    }
+  }
+
   switch (type) {
     case 'press_release':
       return {
-        label: 'Press Release',
+        label,
         tooltip: 'Official announcement issued directly by the company.',
       };
     case 'regulatory_filing':
       return {
-        label: 'Regulatory Filing',
+        label,
         tooltip:
           'Official financial or compliance disclosure filed with market regulators.',
       };
     case 'advisory':
       return {
-        label: 'Advisory',
+        label,
         tooltip:
           'Technical, security, or operational notice published for users or investors.',
       };
     case 'editorial':
     default:
       return {
-        label: 'Editorial',
+        label,
         tooltip:
           'Independent news reporting and market analysis from media publications.',
       };
@@ -146,45 +185,36 @@ function TagWithTooltip({
   );
 }
 
-function getSentimentTooltip(sentiment: ArticleSentiment): string {
-  switch (sentiment) {
-    case 'Bullish':
-      return 'Headline indicates positive momentum, growth, or favorable catalysts.';
-    case 'Bearish':
-      return 'Headline indicates downside risk, headwinds, or negative catalysts.';
-    case 'Neutral':
-    default:
-      return 'Headline is informational or balanced with no strong directional bias.';
-  }
-}
-
 function renderSentimentBadge(
   sentiment: ArticleSentiment | null | undefined,
+  locale: AppLocale,
   isAnalyzingSentiment?: boolean
 ) {
+  const isKo = locale === 'ko';
   if (!sentiment) {
     if (isAnalyzingSentiment) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-md border border-[#212c42] bg-[#091326] text-slate-400 shrink-0 animate-pulse">
-          Analyzing...
+          {isKo ? '분석 중...' : 'Analyzing...'}
         </span>
       );
     }
     return null;
   }
 
-  const tooltip = getSentimentTooltip(sentiment);
+  const label = translateSentimentLabel(sentiment, locale);
+  const tooltip = translateSentimentTooltip(sentiment, locale);
 
   if (sentiment === 'Bullish') {
     return (
       <span
         tabIndex={0}
         title={tooltip}
-        aria-label={`Bullish: ${tooltip}`}
+        aria-label={`${label}: ${tooltip}`}
         className="group relative inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md border border-emerald-500/35 bg-emerald-500/15 text-emerald-300 shrink-0 cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
       >
         <TrendingUp className="w-3 h-3" aria-hidden="true" />
-        <span>Bullish</span>
+        <span>{label}</span>
         <span
           role="tooltip"
           className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-2 z-40 w-52 px-2.5 py-2 rounded-lg bg-[#060d1b] border border-[#2b3b5a] text-[11px] font-sans font-normal leading-snug text-slate-200 shadow-xl whitespace-normal text-left"
@@ -200,11 +230,11 @@ function renderSentimentBadge(
       <span
         tabIndex={0}
         title={tooltip}
-        aria-label={`Bearish: ${tooltip}`}
+        aria-label={`${label}: ${tooltip}`}
         className="group relative inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md border border-rose-500/35 bg-rose-500/15 text-rose-300 shrink-0 cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-400"
       >
         <TrendingDown className="w-3 h-3" aria-hidden="true" />
-        <span>Bearish</span>
+        <span>{label}</span>
         <span
           role="tooltip"
           className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-2 z-40 w-52 px-2.5 py-2 rounded-lg bg-[#060d1b] border border-[#2b3b5a] text-[11px] font-sans font-normal leading-snug text-slate-200 shadow-xl whitespace-normal text-left"
@@ -219,11 +249,11 @@ function renderSentimentBadge(
     <span
       tabIndex={0}
       title={tooltip}
-      aria-label={`Neutral: ${tooltip}`}
+      aria-label={`${label}: ${tooltip}`}
       className="group relative inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-md border border-slate-500/35 bg-slate-500/15 text-slate-300 shrink-0 cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-slate-400"
     >
       <Minus className="w-3 h-3" aria-hidden="true" />
-      <span>Neutral</span>
+      <span>{label}</span>
       <span
         role="tooltip"
         className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 transition-opacity duration-150 absolute right-0 top-full mt-2 z-40 w-52 px-2.5 py-2 rounded-lg bg-[#060d1b] border border-[#2b3b5a] text-[11px] font-sans font-normal leading-snug text-slate-200 shadow-xl whitespace-normal text-left"
@@ -255,6 +285,9 @@ export function NewsFeedTable({
   isAnalyzingSentiment = false,
   sentimentError = null,
 }: NewsFeedTableProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
+
   // Tracks which translated article IDs have their original source text toggled open
   const [expandedOriginalIds, setExpandedOriginalIds] = useState<Set<string>>(
     new Set()
@@ -294,15 +327,21 @@ export function NewsFeedTable({
       <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-[#212c42] rounded-t-xl">
         <div>
           <h2 className="text-base font-bold text-white">
-            News Coverage: {companyLabel}
+            {t.newsFeed.headerTitle}: {companyLabel}
           </h2>
-          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono-tabular">
-            <span>Page {currentPageIndex + 1}</span>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono-tabular">
+            <span>
+              {t.newsFeed.pageLabel} {currentPageIndex + 1}
+            </span>
             <span aria-hidden="true">·</span>
-            <span>{articles.length} Articles Loaded</span>
+            <span>
+              {articles.length} {t.newsFeed.articlesLoadedSuffix}
+            </span>
             <span aria-hidden="true">·</span>
             <span className="text-[#49afe9]">
-              Global Coverage · Auto-Translated to English
+              {isKo
+                ? '글로벌 뉴스 커버리지 · 자동 번역 지원'
+                : 'Global Coverage · Auto-Translated to English'}
             </span>
           </div>
         </div>
@@ -323,8 +362,8 @@ export function NewsFeedTable({
             <Sparkles className="w-3.5 h-3.5 text-[#49afe9]" />
             <span>
               {isGeneratingBrief
-                ? 'Synthesizing Brief...'
-                : 'Synthesize AI Brief'}
+                ? t.newsFeed.synthesizingBrief
+                : t.newsFeed.synthesizeAiBrief}
             </span>
           </button>
 
@@ -342,7 +381,7 @@ export function NewsFeedTable({
               className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] disabled:opacity-40 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
-              <span>Previous</span>
+              <span>{t.newsFeed.previousPage}</span>
             </button>
             <button
               type="button"
@@ -355,7 +394,7 @@ export function NewsFeedTable({
               disabled={!hasNextPage || isLoading}
               className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-40 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <span>Next</span>
+              <span>{t.newsFeed.nextPage}</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -366,14 +405,23 @@ export function NewsFeedTable({
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3 bg-[#091326]/50 border-b border-[#212c42]">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-slate-400 mr-1.5">
-            Headline Sentiment:
+            {t.newsFeed.sentimentFilterLabel}
           </span>
           {(
             [
-              { id: 'all', label: 'All' },
-              { id: 'Bullish', label: 'Bullish' },
-              { id: 'Bearish', label: 'Bearish' },
-              { id: 'Neutral', label: 'Neutral' },
+              { id: 'all', label: t.newsFeed.allHeadlines },
+              {
+                id: 'Bullish',
+                label: translateSentimentLabel('Bullish', locale),
+              },
+              {
+                id: 'Bearish',
+                label: translateSentimentLabel('Bearish', locale),
+              },
+              {
+                id: 'Neutral',
+                label: translateSentimentLabel('Neutral', locale),
+              },
             ] as const
           ).map((option) => {
             const isActive = sentimentFilter === option.id;
@@ -429,25 +477,26 @@ export function NewsFeedTable({
         /* Empty State */
         <div className="p-12 text-center">
           <p className="text-sm font-medium text-slate-300 mb-1">
-            No articles matched your current filter criteria.
+            {t.newsFeed.emptyFeedTitle}
           </p>
           <p className="text-xs text-slate-400">
-            Try expanding the publication date range to &ldquo;All Dates Included&rdquo; or
-            searching with another ticker or company name.
+            {t.newsFeed.emptyFeedSubtitle}
           </p>
         </div>
       ) : filteredArticles.length === 0 ? (
         /* Filtered Sentiment Empty State */
         <div className="p-12 text-center">
           <p className="text-sm font-medium text-slate-300 mb-2">
-            No {sentimentFilter} headlines found on this page.
+            {isKo
+              ? `현재 페이지에 '${translateSentimentLabel(sentimentFilter, locale)}' 분류 기사가 없습니다.`
+              : `No ${sentimentFilter} headlines found on this page.`}
           </p>
           <button
             type="button"
             onClick={() => onSentimentFilterChange('all')}
             className="px-3.5 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors cursor-pointer"
           >
-            Show All Sentiments ({articles.length})
+            {t.newsFeed.allHeadlines} ({articles.length})
           </button>
         </div>
       ) : (
@@ -458,7 +507,9 @@ export function NewsFeedTable({
             const confidencePct =
               article.match?.confidence !== null &&
               article.match?.confidence !== undefined
-                ? `${Math.round(article.match.confidence * 100)}% Match`
+                ? isKo
+                  ? `연관도 ${Math.round(article.match.confidence * 100)}%`
+                  : `${Math.round(article.match.confidence * 100)}% Match`
                 : null;
 
             const isAutoTranslated =
@@ -468,14 +519,18 @@ export function NewsFeedTable({
                 article.language && article.language.toLowerCase() !== 'en'
               );
 
-            const sourceLangLabel = article.translatedFromLanguage
+            const rawSourceLang = article.translatedFromLanguage
               ? formatLanguageName(article.translatedFromLanguage)
               : article.language && article.language.toLowerCase() !== 'en'
                 ? formatLanguageName(article.language)
                 : null;
 
+            const sourceLangLabel = rawSourceLang
+              ? translateLanguageLabel(rawSourceLang, locale)
+              : null;
+
             const showOriginal = expandedOriginalIds.has(article.id);
-            const articleTypeInfo = getArticleTypeInfo(article.type);
+            const articleTypeInfo = getArticleTypeInfo(article.type, locale);
 
             return (
               <article
@@ -488,29 +543,45 @@ export function NewsFeedTable({
                     <span className="text-[#49afe9] font-medium">
                       {article.source?.name ||
                         article.source?.domain ||
-                        'News Wire'}
+                        (isKo ? '뉴스 와이어' : 'News Wire')}
                     </span>
                     <span aria-hidden="true">·</span>
                     <TagWithTooltip tooltip={articleTypeInfo.tooltip}>
                       {articleTypeInfo.label}
                     </TagWithTooltip>
                     <span aria-hidden="true">·</span>
-                    <span>{formatPublishedTime(article.published_at)}</span>
+                    <span>
+                      {article.published_at
+                        ? formatLocalizedDateTime(
+                            article.published_at,
+                            locale,
+                            'datetime'
+                          )
+                        : formatPublishedTime(article.published_at)}
+                    </span>
                     {isAutoTranslated && sourceLangLabel ? (
                       <>
                         <span aria-hidden="true">·</span>
                         <TagWithTooltip
                           className="text-amber-300 font-medium border-amber-400/50"
-                          tooltip={`Automatically translated into English from ${sourceLangLabel}.`}
+                          tooltip={
+                            isKo
+                              ? `${sourceLangLabel} 원문에서 자동 번역되었습니다.`
+                              : `Automatically translated into English from ${sourceLangLabel}.`
+                          }
                         >
-                          Auto-translated from {sourceLangLabel}
+                          {isKo
+                            ? `${sourceLangLabel} 원문 자동 번역`
+                            : `${t.newsFeed.autoTranslatedFromPrefix} ${sourceLangLabel}`}
                         </TagWithTooltip>
                       </>
                     ) : (
                       article.language && (
                         <>
                           <span aria-hidden="true">·</span>
-                          <span>English</span>
+                          <span>
+                            {translateLanguageLabel('English', locale)}
+                          </span>
                         </>
                       )
                     )}
@@ -519,7 +590,11 @@ export function NewsFeedTable({
                         <span aria-hidden="true">·</span>
                         <TagWithTooltip
                           className="text-emerald-400 border-emerald-500/50"
-                          tooltip="Relevance confidence score linking this article to the company."
+                          tooltip={
+                            isKo
+                              ? '기사와 해당 기업 간의 엔티티 매칭 신뢰도 점수입니다.'
+                              : 'Relevance confidence score linking this article to the company.'
+                          }
                         >
                           {confidencePct}
                         </TagWithTooltip>
@@ -531,13 +606,21 @@ export function NewsFeedTable({
                         <TagWithTooltip
                           tooltip={
                             article.match.level === 'primary'
-                              ? 'This company is the main subject of the article.'
-                              : 'This company is mentioned alongside other topics or peers.'
+                              ? isKo
+                                ? '해당 기업이 이 기사의 핵심 주제입니다.'
+                                : 'This company is the main subject of the article.'
+                              : isKo
+                                ? '다른 주제 또는 경쟁사와 함께 언급된 기사입니다.'
+                                : 'This company is mentioned alongside other topics or peers.'
                           }
                         >
                           {article.match.level === 'primary'
-                            ? 'Primary Subject'
-                            : 'Secondary Mention'}
+                            ? isKo
+                              ? '핵심 주제'
+                              : 'Primary Subject'
+                            : isKo
+                              ? '부수 언급'
+                              : 'Secondary Mention'}
                         </TagWithTooltip>
                       </>
                     )}
@@ -555,8 +638,8 @@ export function NewsFeedTable({
                           <Languages className="w-3.5 h-3.5" />
                           <span>
                             {showOriginal
-                              ? 'Hide Original'
-                              : `View Original (${sourceLangLabel})`}
+                              ? t.newsFeed.hideOriginal
+                              : `${t.newsFeed.viewOriginal} (${sourceLangLabel})`}
                           </span>
                         </button>
                       )}
@@ -571,7 +654,9 @@ export function NewsFeedTable({
                       }`}
                     >
                       <Bookmark className="w-3.5 h-3.5" />
-                      <span>{isBookmarked ? 'Saved' : 'Save'}</span>
+                      <span>
+                        {isBookmarked ? t.common.saved : t.common.save}
+                      </span>
                     </button>
 
                     <a
@@ -580,13 +665,13 @@ export function NewsFeedTable({
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-[#49afe9] transition-colors"
                     >
-                      <span>Read Source</span>
+                      <span>{t.newsFeed.readSource}</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </div>
 
-                {/* English Headline + Small Gemini Sentiment Badge */}
+                {/* Headline + Small Gemini Sentiment Badge */}
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <h3 className="text-base font-semibold text-white leading-snug">
                     <a
@@ -600,11 +685,12 @@ export function NewsFeedTable({
                   </h3>
                   {renderSentimentBadge(
                     article.sentiment,
+                    locale,
                     isAnalyzingSentiment
                   )}
                 </div>
 
-                {/* English Summary Excerpt */}
+                {/* Summary Excerpt */}
                 {article.description && (
                   <p className="text-sm text-slate-300 leading-relaxed max-w-4xl">
                     {article.description}
@@ -623,14 +709,21 @@ export function NewsFeedTable({
                             : 'text-slate-200'
                       }`}
                     >
-                      AI Sentiment Rationale ({article.sentiment || 'Neutral'}):
+                      {t.newsFeed.aiSentimentRationale} (
+                      {translateSentimentLabel(
+                        article.sentiment || 'Neutral',
+                        locale
+                      )}
+                      ):
                     </span>{' '}
                     <span>{article.sentimentReason}</span>
                   </p>
                 ) : (
                   isAnalyzingSentiment && (
                     <p className="mt-2.5 text-xs text-slate-500 animate-pulse">
-                      Generating AI sentiment rationale...
+                      {isKo
+                        ? 'AI 감성 분석 근거 생성 중...'
+                        : 'Generating AI sentiment rationale...'}
                     </p>
                   )
                 )}
@@ -641,7 +734,9 @@ export function NewsFeedTable({
                   (article.originalTitle || article.originalDescription) && (
                     <div className="mt-3 p-3.5 rounded-lg bg-[#091326] border border-[#212c42] text-xs text-slate-300">
                       <div className="text-slate-400 font-mono-tabular mb-1">
-                        Original Source Text ({sourceLangLabel}):
+                        {isKo
+                          ? `원문 기사 (${sourceLangLabel}):`
+                          : `Original Source Text (${sourceLangLabel}):`}
                       </div>
                       {article.originalTitle && (
                         <div className="font-semibold text-white mb-1">
@@ -664,7 +759,9 @@ export function NewsFeedTable({
       {/* Bottom Pagination Bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-[#091326]/60 border-t border-[#212c42] rounded-b-xl">
         <div className="text-xs text-slate-400">
-          Hover or focus article tags for definitions
+          {isKo
+            ? '태그에 마우스를 올리면 상세 설명을 확인할 수 있습니다'
+            : 'Hover or focus article tags for definitions'}
         </div>
 
         <div className="flex items-center gap-2">
@@ -675,10 +772,10 @@ export function NewsFeedTable({
             className="flex items-center gap-1 px-3.5 py-2 text-xs font-semibold text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] disabled:opacity-40 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Previous Page</span>
+            <span>{t.newsFeed.previousPage}</span>
           </button>
           <span className="text-xs text-slate-300 font-mono-tabular px-2">
-            Page {currentPageIndex + 1}
+            {t.newsFeed.pageLabel} {currentPageIndex + 1}
           </span>
           <button
             type="button"
@@ -686,7 +783,7 @@ export function NewsFeedTable({
             disabled={!hasNextPage || isLoading}
             className="flex items-center gap-1 px-3.5 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-40 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <span>Next Page</span>
+            <span>{t.newsFeed.nextPage}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>

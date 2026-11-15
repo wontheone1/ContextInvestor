@@ -26,10 +26,12 @@ export async function POST(req: NextRequest) {
         title: string;
         description?: string | null;
       }>;
+      locale?: 'en' | 'ko';
     };
 
     const items = Array.isArray(body.articles) ? body.articles : [];
-    logFunctionCall('POST /api/ai/sentiment', { count: items.length });
+    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    logFunctionCall('POST /api/ai/sentiment', { count: items.length, locale });
 
     if (items.length === 0) {
       return NextResponse.json({ ok: true, sentiments: {}, reasons: {} });
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     }));
 
     const { articles: analyzed, sentimentError } =
-      await analyzeHeadlineSentiments(pseudoArticles);
+      await analyzeHeadlineSentiments(pseudoArticles, locale);
 
     if (sentimentError) {
       return NextResponse.json(

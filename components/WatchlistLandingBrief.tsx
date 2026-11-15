@@ -38,6 +38,14 @@ import type {
 } from '@/lib/watchlist-digest-service';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  formatLocalizedRelativeAge,
+  translateLanguageLabel,
+  translatePresetMetadata,
+  translateSentimentLabel,
+  type AppLocale,
+} from '@/lib/i18n';
 import { logInfo } from '@/lib/logger';
 
 interface WatchlistLandingBriefProps {
@@ -80,13 +88,15 @@ function formatRelativeAge(isoTimestamp: string): string {
  * (adhering strictly to Zero-Pill metadata discipline).
  */
 function renderInlineStance(
-  sentiment: 'Bullish' | 'Bearish' | 'Mixed' | 'Neutral'
+  sentiment: 'Bullish' | 'Bearish' | 'Mixed' | 'Neutral',
+  locale: AppLocale
 ) {
+  const label = translateSentimentLabel(sentiment, locale);
   if (sentiment === 'Bullish') {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 whitespace-nowrap shrink-0">
         <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
-        <span>Bullish</span>
+        <span>{label}</span>
       </span>
     );
   }
@@ -94,20 +104,20 @@ function renderInlineStance(
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-400 whitespace-nowrap shrink-0">
         <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />
-        <span>Bearish</span>
+        <span>{label}</span>
       </span>
     );
   }
   if (sentiment === 'Mixed') {
     return (
       <span className="text-xs font-semibold text-amber-300 whitespace-nowrap shrink-0">
-        Mixed
+        {label}
       </span>
     );
   }
   return (
     <span className="text-xs font-medium text-slate-400 whitespace-nowrap shrink-0">
-      Neutral
+      {label}
     </span>
   );
 }
@@ -125,6 +135,8 @@ export function WatchlistLandingBrief({
   onBookmarkArticle,
   savedArticleIds,
 }: WatchlistLandingBriefProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [signalFilter, setSignalFilter] = useState<SignalFilterMode>('ALL');
   const [showAllCompanyCards, setShowAllCompanyCards] = useState<boolean>(true);
 
@@ -174,7 +186,7 @@ export function WatchlistLandingBrief({
                     article.companyEntityType
                   )
                 }
-                title={`Open Step 3 deep-dive research for ${article.companyLabel}`}
+                title={`${t.dailyBrief.inspectCompany} ${article.companyLabel}`}
                 className="inline-flex items-baseline gap-1.5 font-sans font-semibold text-white hover:text-[#49afe9] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <span>{article.companyLabel}</span>
@@ -190,20 +202,29 @@ export function WatchlistLandingBrief({
               <span className="text-slate-500" aria-hidden="true">
                 ·
               </span>
-              {renderInlineStance(article.sentiment)}
+              {renderInlineStance(article.sentiment, locale)}
             </div>
 
             <div className="flex items-center gap-2 text-slate-400 shrink-0">
               <span
-                title="Conviction & Materiality Score (1-100): Estimates how strongly this news impacts near-term fundamentals or valuation."
+                title={
+                  isKo
+                    ? '확신도 및 중요도 점수 (1-100): 단기 펀더멘털 및 기업가치에 미치는 영향력 추정치'
+                    : 'Conviction & Materiality Score (1-100): Estimates how strongly this news impacts near-term fundamentals or valuation.'
+                }
                 className={`cursor-help ${
                   isBullish ? 'text-emerald-300' : 'text-rose-300'
                 }`}
               >
-                {article.convictionScore}% conviction
+                {isKo
+                  ? `${t.dailyBrief.convictionSuffix} ${article.convictionScore}%`
+                  : `${article.convictionScore}% ${t.dailyBrief.convictionSuffix}`}
               </span>
               <span aria-hidden="true">·</span>
-              <span>{formatRelativeAge(article.publishedAt)}</span>
+              <span>
+                {formatLocalizedRelativeAge(article.publishedAt, locale) ||
+                  formatRelativeAge(article.publishedAt)}
+              </span>
             </div>
           </div>
 
@@ -220,7 +241,9 @@ export function WatchlistLandingBrief({
             </a>
             {article.isTranslated && article.translatedFromLanguage && (
               <p className="mt-1 text-xs text-slate-400 line-clamp-1">
-                Auto-translated from {article.translatedFromLanguage} to English
+                {isKo
+                  ? `${translateLanguageLabel(article.translatedFromLanguage, locale)} 원문 자동 번역`
+                  : `Auto-translated from ${article.translatedFromLanguage} to English`}
               </p>
             )}
           </div>
@@ -232,7 +255,7 @@ export function WatchlistLandingBrief({
                 isBullish ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
-              Why {article.sentiment}:
+              {isBullish ? t.dailyBrief.whyBullish : t.dailyBrief.whyBearish}:
             </span>
             <span>{article.rationale}</span>
           </div>
@@ -253,7 +276,11 @@ export function WatchlistLandingBrief({
               }
               className="inline-flex items-center gap-1 text-[#49afe9] hover:text-white font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
-              <span>Inspect {article.companyLabel}</span>
+              <span>
+                {isKo
+                  ? `${article.companyLabel} ${t.dailyBrief.inspectCompany}`
+                  : `${t.dailyBrief.inspectCompany} ${article.companyLabel}`}
+              </span>
               <ArrowRight className="w-3 h-3" />
             </button>
           </div>
@@ -270,12 +297,12 @@ export function WatchlistLandingBrief({
             {isSaved ? (
               <>
                 <BookmarkCheck className="w-3.5 h-3.5 text-[#49afe9]" />
-                <span>Saved</span>
+                <span>{t.common.saved}</span>
               </>
             ) : (
               <>
                 <Bookmark className="w-3.5 h-3.5" />
-                <span>Save</span>
+                <span>{t.common.save}</span>
               </>
             )}
           </button>
@@ -296,29 +323,39 @@ export function WatchlistLandingBrief({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-mono-tabular">
               <span className="text-[#49afe9] font-medium">
-                Daily Watchlist Synthesis
+                {t.dailyBrief.sectionKicker}
               </span>
               <span aria-hidden="true">·</span>
               <span>
-                {followedCount} {followedCount === 1 ? 'company' : 'companies'} tracked
+                {isKo
+                  ? `${followedCount}${t.dailyBrief.companiesTrackedSuffix}`
+                  : `${followedCount} ${followedCount === 1 ? 'company tracked' : t.dailyBrief.companiesTrackedSuffix}`}
               </span>
               {digest && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span>{digest.sentimentCounts.totalArticles} articles scanned</span>
+                  <span>
+                    {isKo
+                      ? `기사 ${digest.sentimentCounts.totalArticles}건 스캔`
+                      : `${digest.sentimentCounts.totalArticles} articles scanned`}
+                  </span>
                   <span aria-hidden="true">·</span>
                   <span className="text-emerald-400">
-                    {digest.sentimentCounts.bullish} bullish
+                    {isKo
+                      ? `강세 ${digest.sentimentCounts.bullish}`
+                      : `${digest.sentimentCounts.bullish} bullish`}
                   </span>
                   <span aria-hidden="true">·</span>
                   <span className="text-rose-400">
-                    {digest.sentimentCounts.bearish} bearish
+                    {isKo
+                      ? `약세 ${digest.sentimentCounts.bearish}`
+                      : `${digest.sentimentCounts.bearish} bearish`}
                   </span>
                 </>
               )}
             </div>
             <h2 className="text-xl font-bold tracking-tight text-white text-balance">
-              Your Personalized Daily Brief
+              {t.dailyBrief.headerTitle}
             </h2>
           </div>
         </div>
@@ -335,7 +372,11 @@ export function WatchlistLandingBrief({
                 isLoading ? 'animate-spin' : ''
               }`}
             />
-            <span>{isLoading ? 'Synthesizing...' : 'Refresh Brief'}</span>
+            <span>
+              {isLoading
+                ? t.dailyBrief.synthesizingBrief
+                : t.dailyBrief.refreshBrief}
+            </span>
           </button>
         </div>
       </div>
@@ -372,7 +413,7 @@ export function WatchlistLandingBrief({
             onClick={onRefresh}
             className="px-3.5 py-2 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs font-semibold text-rose-200 hover:bg-rose-950/60 cursor-pointer whitespace-nowrap shrink-0"
           >
-            Retry Daily Brief
+            {t.common.retry}
           </button>
         </div>
       )}
@@ -380,7 +421,7 @@ export function WatchlistLandingBrief({
       {/* Empty Watchlist State */}
       {!isLoading && !error && !digest && followedCount === 0 && (
         <div className="p-6 text-sm text-slate-300">
-          Follow at least one public equity or private company to generate your cross-watchlist Daily Brief.
+          {t.dailyBrief.emptyWatchlistPrompt}
         </div>
       )}
 
@@ -392,11 +433,13 @@ export function WatchlistLandingBrief({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold text-[#49afe9]">
-                  Executive Takeaway Across Your Watchlist
+                  {t.dailyBrief.executiveTakeaway}
                 </h3>
                 {digest.keyThemes.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-                    <span className="text-slate-500">Key themes:</span>
+                    <span className="text-slate-500">
+                      {t.dailyBrief.keyCrossThemes}:
+                    </span>
                     <span>{digest.keyThemes.join(' · ')}</span>
                   </div>
                 )}
@@ -411,7 +454,7 @@ export function WatchlistLandingBrief({
             <div className="pt-2">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div className="text-xs font-medium text-slate-300">
-                  Company-by-Company Posture — Click any company to open full research
+                  {t.dailyBrief.companyPostureHeader}
                 </div>
                 <button
                   type="button"
@@ -420,8 +463,8 @@ export function WatchlistLandingBrief({
                 >
                   <span>
                     {showAllCompanyCards
-                      ? 'Hide Company Breakdown'
-                      : `Show All ${digest.companyDigests.length} Companies`}
+                      ? t.dailyBrief.hidePostureStrip
+                      : `${t.dailyBrief.showPostureStrip} (${digest.companyDigests.length})`}
                   </span>
                   {showAllCompanyCards ? (
                     <ChevronUp className="w-3.5 h-3.5" />
@@ -459,11 +502,11 @@ export function WatchlistLandingBrief({
                               </span>
                             ) : (
                               <span className="text-xs text-slate-400 shrink-0">
-                                Private
+                                {t.common.privateCompany}
                               </span>
                             )}
                           </div>
-                          {renderInlineStance(company.stance)}
+                          {renderInlineStance(company.stance, locale)}
                         </div>
 
                         <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
@@ -472,10 +515,14 @@ export function WatchlistLandingBrief({
 
                         <div className="flex items-center justify-between text-xs text-slate-400 font-mono-tabular pt-0.5">
                           <span className="truncate">
-                            {company.sector || 'Tracked Company'}
+                            {translatePresetMetadata(
+                              company.sector ||
+                                (isKo ? '관심 기업' : 'Tracked Company'),
+                              locale
+                            )}
                           </span>
                           <span className="text-[#49afe9] group-hover:text-white transition-colors whitespace-nowrap shrink-0">
-                            Inspect ({company.articleCount}) →
+                            {t.dailyBrief.inspectCompany} ({company.articleCount}) →
                           </span>
                         </div>
                       </button>
@@ -491,10 +538,14 @@ export function WatchlistLandingBrief({
             <div className="px-6 py-4 border-b border-[#212c42] bg-[#091326]/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-white">
-                  Highest-Conviction Catalysts &amp; Risks
+                  {isKo
+                    ? '핵심 강세 모멘텀 및 약세 리스크 랭킹'
+                    : 'Highest-Conviction Catalysts & Risks'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Ranked by materiality across your followed companies
+                  {isKo
+                    ? '관심종목 전반의 중요도(Materiality) 기준으로 정렬'
+                    : 'Ranked by materiality across your followed companies'}
                 </p>
               </div>
 
@@ -509,7 +560,7 @@ export function WatchlistLandingBrief({
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  Both Sides
+                  {t.dailyBrief.filterBothSides}
                 </button>
                 <button
                   type="button"
@@ -521,7 +572,9 @@ export function WatchlistLandingBrief({
                   }`}
                 >
                   <TrendingUp className="w-3.5 h-3.5" />
-                  <span>Upside ({digest.topBullish.length})</span>
+                  <span>
+                    {t.dailyBrief.filterUpside} ({digest.topBullish.length})
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -533,7 +586,9 @@ export function WatchlistLandingBrief({
                   }`}
                 >
                   <TrendingDown className="w-3.5 h-3.5" />
-                  <span>Risks ({digest.topBearish.length})</span>
+                  <span>
+                    {t.dailyBrief.filterRisks} ({digest.topBearish.length})
+                  </span>
                 </button>
               </div>
             </div>
@@ -551,11 +606,13 @@ export function WatchlistLandingBrief({
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-emerald-400" />
                       <span className="text-xs font-semibold text-emerald-400">
-                        Top Bullish Catalysts
+                        {t.dailyBrief.topBullishCatalysts}
                       </span>
                     </div>
                     <span className="text-xs font-mono-tabular text-slate-400">
-                      {digest.topBullish.length} signals
+                      {isKo
+                        ? `${digest.topBullish.length}건`
+                        : `${digest.topBullish.length} signals`}
                     </span>
                   </div>
 
@@ -567,7 +624,7 @@ export function WatchlistLandingBrief({
                     </div>
                   ) : (
                     <div className="p-8 text-center text-xs text-slate-400">
-                      No strongly bullish catalysts detected across your followed companies right now.
+                      {t.dailyBrief.noBullishItems}
                     </div>
                   )}
                 </div>
@@ -579,11 +636,13 @@ export function WatchlistLandingBrief({
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="w-4 h-4 text-rose-400" />
                       <span className="text-xs font-semibold text-rose-400">
-                        Top Bearish Risks &amp; Headwinds
+                        {t.dailyBrief.topBearishRisks}
                       </span>
                     </div>
                     <span className="text-xs font-mono-tabular text-slate-400">
-                      {digest.topBearish.length} signals
+                      {isKo
+                        ? `${digest.topBearish.length}건`
+                        : `${digest.topBearish.length} signals`}
                     </span>
                   </div>
 
@@ -595,7 +654,7 @@ export function WatchlistLandingBrief({
                     </div>
                   ) : (
                     <div className="p-8 text-center text-xs text-slate-400">
-                      No material bearish risk events detected across your followed companies right now.
+                      {t.dailyBrief.noBearishItems}
                     </div>
                   )}
                 </div>

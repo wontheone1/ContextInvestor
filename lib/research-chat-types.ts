@@ -205,11 +205,14 @@ export function buildWorkspaceResearchContext(params: {
   comparativeSummary: string | null;
   followedCompanies: CompanyPreset[];
   watchlistDigest: WatchlistDigestResponse | null;
+  locale?: 'en' | 'ko';
 }): WorkspaceResearchContextPayload {
+  const isKo = params.locale === 'ko';
   logFunctionCall('buildWorkspaceResearchContext', {
     workspaceMode: params.workspaceMode,
     searchedQuery: params.searchedQuery,
     selectedCohortCount: params.selectedCohortIds.length,
+    locale: params.locale || 'en',
   });
 
   // 1. Build Watchlist Context (always included per user preference)
@@ -336,13 +339,15 @@ export function buildWorkspaceResearchContext(params: {
     const selectedNames = selectedCompanies.map((c) => c.ticker || c.name);
     const shortLabel =
       selectedNames.length > 0
-        ? `Cohort: ${selectedNames.join(', ')}`
-        : `Cohort: ${screen.interpretedTheme}`;
+        ? `${isKo ? '코호트' : 'Cohort'}: ${selectedNames.join(', ')}`
+        : `${isKo ? '코호트' : 'Cohort'}: ${screen.interpretedTheme}`;
 
     const summaryLine = [
       shortLabel,
-      `${params.cohortRange} Chart`,
-      `Watchlist (${params.followedCompanies.length})`,
+      isKo ? `${params.cohortRange} 차트` : `${params.cohortRange} Chart`,
+      isKo
+        ? `관심종목 (${params.followedCompanies.length})`
+        : `Watchlist (${params.followedCompanies.length})`,
     ].join(' · ');
 
     return {
@@ -482,10 +487,14 @@ export function buildWorkspaceResearchContext(params: {
   const summaryParts = [
     primaryTag,
     ...(priceSnippet ? [priceSnippet] : []),
-    `${singleCompany.articles.length} News ${
-      singleCompany.articles.length === 1 ? 'Article' : 'Articles'
-    }`,
-    `Watchlist (${params.followedCompanies.length})`,
+    isKo
+      ? `뉴스 ${singleCompany.articles.length}건`
+      : `${singleCompany.articles.length} News ${
+          singleCompany.articles.length === 1 ? 'Article' : 'Articles'
+        }`,
+    isKo
+      ? `관심종목 (${params.followedCompanies.length})`
+      : `Watchlist (${params.followedCompanies.length})`,
   ];
 
   return {
@@ -502,19 +511,35 @@ export function buildWorkspaceResearchContext(params: {
 
 /**
  * Generates 3 concise, context-aware starter prompts tailored to the active
- * Single-Company or Cohort Comparison view.
+ * Single-Company or Cohort Comparison view in English ('en') or Korean ('ko').
  *
  * @param context - Active `WorkspaceResearchContextPayload`
+ * @param locale - Optional UI locale ('en' | 'ko')
  * @returns Array of 3 starter prompt strings
  */
 export function buildDynamicStarterPrompts(
-  context: WorkspaceResearchContextPayload
+  context: WorkspaceResearchContextPayload,
+  locale: 'en' | 'ko' = 'en'
 ): string[] {
+  const isKo = locale === 'ko';
+
   if (context.workspaceMode === 'cohort' && context.cohortComparison) {
     const names = context.cohortComparison.selectedCompanies.map(
       (c) => c.ticker || c.name
     );
-    const label = names.length >= 2 ? names.join(', ') : 'these companies';
+    const label =
+      names.length >= 2
+        ? names.join(', ')
+        : isKo
+          ? '선택된 기업들'
+          : 'these companies';
+    if (isKo) {
+      return [
+        `${label}의 밸류에이션 배수와 최근 ${context.cohortComparison.activeChartRange} 수익률을 비교해 줘`,
+        `${label} 중 현재 가장 강력한 강세 모멘텀을 가진 기업과 하방 리스크가 낮은 곳은 어디야?`,
+        `이 ${context.cohortComparison.interpretedTheme} 기업군이 내 관심종목에 미치는 파급 효과를 분석해 줘`,
+      ];
+    }
     return [
       `Compare valuation multiples vs. recent ${context.cohortComparison.activeChartRange} return across ${label}`,
       `Which company in ${label} has the strongest bullish catalyst and lowest downside risk right now?`,
@@ -523,12 +548,28 @@ export function buildDynamicStarterPrompts(
   }
 
   const sc = context.singleCompany;
-  const target = sc?.symbol || sc?.companyName || 'this company';
+  const target =
+    sc?.symbol || sc?.companyName || (isKo ? '이 기업' : 'this company');
   if (sc?.kind === 'private') {
+    if (isKo) {
+      return [
+        `${target}의 최근 기업가치 및 투자 유치 규모를 상장 경쟁사들과 비교해 줘`,
+        `${target}의 최신 뉴스에서 핵심 강세 모멘텀과 리스크 요인을 요약해 줘`,
+        `${target}의 최근 행보가 내 관심종목 기업들에 주는 시사점은 무엇이야?`,
+      ];
+    }
     return [
       `How does ${target}'s latest valuation and funding scale compare to public peers?`,
       `Summarize the key bullish catalysts and risks in ${target}'s recent news`,
       `What read-through does ${target} have for the rest of my watchlist?`,
+    ];
+  }
+
+  if (isKo) {
+    return [
+      `${target}의 현재 PER 및 밸류에이션이 최근 뉴스 모멘텀으로 정당화될 수 있을까?`,
+      `지금 시점에서 ${target}의 가장 큰 약세 리스크(Bear Case)는 무엇이야?`,
+      `${target}의 최신 이슈가 주요 공급망, 경쟁사 및 내 관심종목에 어떤 영향을 미치나?`,
     ];
   }
 

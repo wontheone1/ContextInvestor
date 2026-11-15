@@ -46,6 +46,12 @@ import type {
   ComparedCompanyDossier,
   ScreenedCandidateItem,
 } from '@/lib/query-intent';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  translatePresetMetadata,
+  translateSentimentLabel,
+  type AppLocale,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 const CHART_RANGES: ChartRange[] = ['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y'];
@@ -101,19 +107,24 @@ interface NormalizedSeriesItem {
  * @param range - Active chart timeframe
  * @returns Formatted date/time string
  */
-function formatChartTimestamp(rawTs: number, range: ChartRange): string {
+function formatChartTimestamp(
+  rawTs: number,
+  range: ChartRange,
+  locale: AppLocale
+): string {
   const ms = rawTs < 1e12 ? rawTs * 1000 : rawTs;
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return '';
+  const intlLocale = locale === 'ko' ? 'ko-KR' : 'en-US';
   if (range === '1D' || range === '5D') {
-    return d.toLocaleString('en-US', {
+    return d.toLocaleString(intlLocale, {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
     });
   }
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(intlLocale, {
     month: 'short',
     day: 'numeric',
     year: range === '5Y' || range === '1Y' ? 'numeric' : undefined,
@@ -198,6 +209,8 @@ export function CohortComparisonWorkspace({
   onBatchFollowCompanies,
   onRunSampleQuery,
 }: CohortComparisonWorkspaceProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [customTickerInput, setCustomTickerInput] = useState<string>('');
   const [hoverNormX, setHoverNormX] = useState<number | null>(null);
 
@@ -315,14 +328,20 @@ export function CohortComparisonWorkspace({
     });
 
     const refPts = publicSeries[0].points;
-    const startLabel = formatChartTimestamp(refPts[0].timestamp, activeRange);
+    const startLabel = formatChartTimestamp(
+      refPts[0].timestamp,
+      activeRange,
+      locale
+    );
     const midLabel = formatChartTimestamp(
       refPts[Math.floor(refPts.length / 2)].timestamp,
-      activeRange
+      activeRange,
+      locale
     );
     const endLabel = formatChartTimestamp(
       refPts[refPts.length - 1].timestamp,
-      activeRange
+      activeRange,
+      locale
     );
 
     const paths = publicSeries.map((s) => {
@@ -361,7 +380,7 @@ export function CohortComparisonWorkspace({
       toX,
       toY,
     };
-  }, [publicSeries, activeRange]);
+  }, [publicSeries, activeRange, locale]);
 
   // Interactive hover snapshot across all plotted series
   const hoverDetails = useMemo(() => {
@@ -392,7 +411,7 @@ export function CohortComparisonWorkspace({
       .sort((a, b) => b.pct - a.pct);
 
     const dateLabel = items[0]
-      ? formatChartTimestamp(items[0].timestamp, activeRange)
+      ? formatChartTimestamp(items[0].timestamp, activeRange, locale)
       : '';
 
     return {
@@ -400,7 +419,7 @@ export function CohortComparisonWorkspace({
       dateLabel,
       items,
     };
-  }, [hoverNormX, chartGeometry, publicSeries, activeRange]);
+  }, [hoverNormX, chartGeometry, publicSeries, activeRange, locale]);
 
   /**
    * Handles submitting the inline `+ Add ticker or company` form.
@@ -460,7 +479,7 @@ export function CohortComparisonWorkspace({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-white">
-              Unable to complete natural-language cohort screen
+              {t.cohortWorkspace.errorTitle}
             </h3>
             <p className="text-sm text-rose-300">{screenError}</p>
           </div>
@@ -470,14 +489,14 @@ export function CohortComparisonWorkspace({
               onClick={onRefreshScreen}
               className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Retry Screen
+              {t.common.retry}
             </button>
             <button
               type="button"
               onClick={onSwitchToSingleMode}
               className="px-4 py-2 text-xs font-semibold text-slate-200 bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              Single-Company Mode
+              {t.searchBar.singleModeBadge}
             </button>
           </div>
         </div>
@@ -492,10 +511,10 @@ export function CohortComparisonWorkspace({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-semibold text-white">
-              No verified companies matched &ldquo;{screenResult.query}&rdquo;
+              {t.cohortWorkspace.emptyTitle} (&ldquo;{screenResult.query}&rdquo;)
             </h3>
             <p className="text-sm text-slate-300 mt-1">
-              Try relaxing the valuation threshold, broadening the sector phrase, or switching to Single-Company mode.
+              {t.cohortWorkspace.emptySubtitle}
             </p>
           </div>
           <button
@@ -503,12 +522,14 @@ export function CohortComparisonWorkspace({
             onClick={onSwitchToSingleMode}
             className="px-4 py-2 text-xs font-semibold text-slate-200 bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            Treat as Single Company
+            {t.searchBar.singleModeBadge}
           </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#212c42]">
-          <span className="text-xs text-slate-400">Try a verified cohort screen:</span>
+          <span className="text-xs text-slate-400">
+            {t.searchBar.trySamplePrompts}
+          </span>
           {APP_CONFIG.cohortScreener.sampleQueries.map((sq) => (
             <button
               key={sq.label}
@@ -516,7 +537,7 @@ export function CohortComparisonWorkspace({
               onClick={() => onRunSampleQuery(sq.query)}
               className="px-3 py-1.5 text-xs font-medium text-[#49afe9] bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              {sq.label}
+              {translatePresetMetadata(sq.label, locale)}
             </button>
           ))}
         </div>
@@ -533,7 +554,7 @@ export function CohortComparisonWorkspace({
 
   return (
     <section
-      aria-label="Cohort Screening and Multi-Company Comparison"
+      aria-label={t.cohortWorkspace.interpretedQueryKicker}
       className="space-y-6 mb-10"
     >
       {/* SECTION 1: Interpreted Query Banner + Candidate Selection Checklist */}
@@ -543,26 +564,28 @@ export function CohortComparisonWorkspace({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
               <span className="text-[#49afe9] font-medium">
-                Cohort Screen &amp; Side-by-Side Comparison
+                {t.cohortWorkspace.interpretedQueryKicker}
               </span>
               <span aria-hidden="true">·</span>
-              <span>Theme: {screenResult.interpretedTheme}</span>
+              <span>
+                {isKo ? '테마' : 'Theme'}: {screenResult.interpretedTheme}
+              </span>
               {screenResult.constraintSummary && (
                 <>
                   <span aria-hidden="true">·</span>
                   <span className="font-mono-tabular text-emerald-300">
-                    Filter: {screenResult.constraintSummary}
+                    {isKo ? '조건' : 'Filter'}: {screenResult.constraintSummary}
                   </span>
                 </>
               )}
               <span aria-hidden="true">·</span>
               <span className="font-mono-tabular">
-                {screenResult.strictMatchCount} verified{' '}
-                {screenResult.strictMatchCount === 1 ? 'match' : 'matches'}
+                {screenResult.strictMatchCount}{' '}
+                {t.cohortWorkspace.verifiedMatchesSuffix}
               </span>
             </div>
             <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white text-balance">
-              Suggested Matches for &ldquo;{query}&rdquo;
+              {t.cohortWorkspace.matchedCandidatesHeader}: &ldquo;{query}&rdquo;
             </h3>
           </div>
 
@@ -574,7 +597,9 @@ export function CohortComparisonWorkspace({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-200 bg-[#091326] hover:bg-[#102344] disabled:opacity-50 border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>{isScreening ? 'Screening...' : 'Refresh Screen'}</span>
+              <span>
+                {isScreening ? t.common.loading : t.common.refresh}
+              </span>
             </button>
 
             <button
@@ -582,7 +607,7 @@ export function CohortComparisonWorkspace({
               onClick={onSwitchToSingleMode}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <span>Single-Company View</span>
+              <span>{t.searchBar.singleModeBadge}</span>
             </button>
           </div>
         </div>
@@ -592,14 +617,14 @@ export function CohortComparisonWorkspace({
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-xs text-slate-300 font-mono-tabular">
               <span>
-                Comparing {selectedIds.length} of{' '}
-                {APP_CONFIG.cohortScreener.maxCompareColumns} max companies
+                {t.cohortWorkspace.comparingCountPrefix} {selectedIds.length}{' '}
+                {t.cohortWorkspace.ofFourSelected}
               </span>
               <span className="mx-2 text-slate-500" aria-hidden="true">
                 ·
               </span>
               <span className="text-slate-400">
-                Follow individual matches or batch-follow checked peers
+                {t.cohortWorkspace.clickToToggleCompare}
               </span>
             </div>
 
@@ -644,13 +669,14 @@ export function CohortComparisonWorkspace({
                   {isBatchPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Following...</span>
+                      <span>{t.watchlist.verifyingButton}</span>
                     </>
                   ) : (
                     <>
                       <Plus className="w-3.5 h-3.5" />
                       <span>
-                        Follow Selected ({unfollowedSelected.length})
+                        {t.cohortWorkspace.followSelected} (
+                        {unfollowedSelected.length})
                       </span>
                     </>
                   )}
@@ -667,8 +693,8 @@ export function CohortComparisonWorkspace({
               type="text"
               value={customTickerInput}
               onChange={(e) => setCustomTickerInput(e.target.value)}
-              placeholder="Add ticker or unicorn (e.g. AMD, OpenAI)..."
-              aria-label="Add custom ticker or company to comparison"
+              placeholder={t.cohortWorkspace.addPeerPlaceholder}
+              aria-label={t.cohortWorkspace.addPeerPlaceholder}
               className="w-56 sm:w-64 px-3 py-1.5 text-xs text-white bg-[#091326] border border-[#212c42] rounded-lg focus:outline-none focus:border-[#09a4ff] font-mono-tabular"
             />
             <button
@@ -677,7 +703,11 @@ export function CohortComparisonWorkspace({
               className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{isAddingCustom ? 'Adding...' : 'Add to Compare'}</span>
+              <span>
+                {isAddingCustom
+                  ? t.cohortWorkspace.addingPeerButton
+                  : t.cohortWorkspace.addPeerButton}
+              </span>
             </button>
           </form>
         </div>
@@ -755,14 +785,16 @@ export function CohortComparisonWorkspace({
                                 cand.isAdr
                               )
                             : cand.canFollow === false
-                              ? 'Non-US Exchange'
-                              : 'Private'}
+                              ? isKo
+                                ? '해외 거래소 상장'
+                                : 'Non-US Exchange'
+                              : t.common.privateCompany}
                         </span>
                       </div>
                     </button>
 
                     <span className="text-xs font-semibold text-white font-mono-tabular whitespace-nowrap shrink-0">
-                      {cand.valuationDisplay || 'Unlisted'}
+                      {cand.valuationDisplay || t.common.unlisted}
                     </span>
                   </div>
 
@@ -774,17 +806,22 @@ export function CohortComparisonWorkspace({
                 <div className="flex items-center justify-between gap-2 pt-1.5 text-[11px] text-slate-400">
                   <div className="truncate min-w-0">
                     <span>
-                      {cand.sector ||
-                        (cand.kind === 'private'
-                          ? 'Private Growth'
-                          : 'Public Equity')}
+                      {translatePresetMetadata(
+                        cand.sector ||
+                          (cand.kind === 'private'
+                            ? t.common.privateCompany
+                            : t.common.publicEquity),
+                        locale
+                      )}
                     </span>
                     {!cand.passesThreshold && (
                       <>
                         <span className="mx-1.5" aria-hidden="true">
                           ·
                         </span>
-                        <span className="text-amber-300">Below threshold</span>
+                        <span className="text-amber-300">
+                          {isKo ? '기준치 미만' : 'Below threshold'}
+                        </span>
                       </>
                     )}
                   </div>
@@ -811,8 +848,8 @@ export function CohortComparisonWorkspace({
                         }}
                         title={
                           isCandFollowed
-                            ? `Unfollow ${cand.name}`
-                            : `Follow ${cand.name}`
+                            ? `${t.common.unfollow} ${cand.name}`
+                            : `${t.common.follow} ${cand.name}`
                         }
                         className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                           isCandFollowed
@@ -826,16 +863,16 @@ export function CohortComparisonWorkspace({
                           <span className="inline-grid items-center justify-items-center">
                             <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
                               <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                              <span>Following</span>
+                              <span>{t.common.following}</span>
                             </span>
                             <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                              Unfollow
+                              {t.common.unfollow}
                             </span>
                           </span>
                         ) : (
                           <>
                             <Plus className="w-3 h-3 text-[#49afe9]" />
-                            <span>Follow</span>
+                            <span>{t.common.follow}</span>
                           </>
                         )}
                       </button>
@@ -848,7 +885,7 @@ export function CohortComparisonWorkspace({
                       }
                       className="inline-flex items-center gap-1 text-xs font-medium text-[#49afe9] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                     >
-                      <span>Deep Dive</span>
+                      <span>{t.cohortWorkspace.deepDiveAction}</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
@@ -865,7 +902,7 @@ export function CohortComparisonWorkspace({
           <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
               <h4 className="text-base font-semibold text-white">
-                Normalized Relative Price Performance (% Return Indexed to 0.00%)
+                {t.cohortWorkspace.relativeChartHeader}
               </h4>
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono-tabular">
                 {publicSeries.map((s) => (
@@ -888,7 +925,7 @@ export function CohortComparisonWorkspace({
                 ))}
                 {privateSelected.map((priv) => (
                   <span key={priv.id} className="text-slate-400">
-                    {priv.name} · Privately Held (valuation &amp; news compared below)
+                    {priv.name} · {t.cohortWorkspace.privateChartFootnote}
                   </span>
                 ))}
               </div>
@@ -961,7 +998,7 @@ export function CohortComparisonWorkspace({
                     </>
                   ) : (
                     <span className="text-slate-400">
-                      Hover across the chart to inspect synchronized relative % returns and share prices ({activeRange} window)
+                      {t.cohortWorkspace.relativeChartHoverHint} ({activeRange})
                     </span>
                   )}
                 </div>
@@ -1098,7 +1135,7 @@ export function CohortComparisonWorkspace({
               </div>
             ) : (
               <div className="py-8 text-center text-sm text-slate-300">
-                Selected cohort consists exclusively of privately held companies — compare private valuations, funding scale, firmographics, and live news catalysts in the matrix below.
+                {t.cohortWorkspace.privateChartFootnote}
               </div>
             )}
           </div>
@@ -1112,12 +1149,14 @@ export function CohortComparisonWorkspace({
           <div className="p-6 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
             <div className="space-y-1.5 max-w-4xl">
               <div className="flex items-center gap-2 text-xs text-[#49afe9] font-medium">
-                <span>Side-by-Side Quantitative &amp; Fundamental Matrix</span>
+                <span>{t.cohortWorkspace.matrixHeader}</span>
                 {isHydratingComparison && (
                   <>
                     <span aria-hidden="true">·</span>
                     <span className="text-slate-400">
-                      Updating company profiles &amp; news catalysts...
+                      {isKo
+                        ? '기업 프로필 및 실시간 뉴스 모멘텀 동기화 중...'
+                        : 'Updating company profiles & news catalysts...'}
                     </span>
                   </>
                 )}
@@ -1133,7 +1172,9 @@ export function CohortComparisonWorkspace({
                 </div>
               ) : (
                 <p className="text-sm text-slate-300">
-                  Comparing valuation multiples, historical return momentum, corporate scale, and live news sentiment across your selected cohort.
+                  {isKo
+                    ? '선택한 코호트 기업들의 밸류에이션 멀티플, 기간 수익률, 기업 규모 및 실시간 뉴스 감성을 나란히 비교합니다.'
+                    : 'Comparing valuation multiples, historical return momentum, corporate scale, and live news sentiment across your selected cohort.'}
                 </p>
               )}
             </div>
@@ -1145,7 +1186,7 @@ export function CohortComparisonWorkspace({
               <thead>
                 <tr className="border-b border-[#212c42] bg-[#0a162b]">
                   <th className="w-52 min-w-[190px] py-4 px-5 text-xs font-semibold text-slate-300 align-top">
-                    Metric / Dimension
+                    {t.cohortWorkspace.dimensionColumn}
                   </th>
                   {selectedCandidates.map((cand) => {
                     const color = colorBySelectedId.get(cand.id) || '#09a4ff';
@@ -1184,12 +1225,14 @@ export function CohortComparisonWorkspace({
                                     )} · ${
                                       cand.isAdr ||
                                       isAdrTicker(cand.ticker, cand.name)
-                                        ? 'US ADR Equity'
-                                        : 'Public Equity'
+                                        ? isKo
+                                          ? '미국 ADR 주식'
+                                          : 'US ADR Equity'
+                                        : t.common.publicEquity
                                     }`
                                   : cand.canFollow === false
-                                    ? 'Foreign-Listed Equity · No US ADR'
-                                    : 'Privately Held'}
+                                    ? t.common.foreignNoAdr
+                                    : t.watchlist.privateUnlistedSubtext}
                               </div>
                             </div>
                           </div>
@@ -1208,8 +1251,8 @@ export function CohortComparisonWorkspace({
                                 }
                                 title={
                                   isFollowed
-                                    ? `Unfollow ${cand.name}`
-                                    : `Follow ${cand.name}`
+                                    ? `${t.common.unfollow} ${cand.name}`
+                                    : `${t.common.follow} ${cand.name}`
                                 }
                                 className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                                   isFollowed
@@ -1223,16 +1266,16 @@ export function CohortComparisonWorkspace({
                                   <span className="inline-grid items-center justify-items-center">
                                     <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
                                       <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                      <span>Following</span>
+                                      <span>{t.common.following}</span>
                                     </span>
                                     <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                      Unfollow
+                                      {t.common.unfollow}
                                     </span>
                                   </span>
                                 ) : (
                                   <>
                                     <Plus className="w-3 h-3" />
-                                    <span>Follow</span>
+                                    <span>{t.common.follow}</span>
                                   </>
                                 )}
                               </button>
@@ -1248,7 +1291,7 @@ export function CohortComparisonWorkspace({
                               }
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#49afe9] hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                             >
-                              <span>Deep Dive</span>
+                              <span>{t.cohortWorkspace.deepDiveAction}</span>
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>
@@ -1266,14 +1309,14 @@ export function CohortComparisonWorkspace({
                     colSpan={selectedCandidates.length + 1}
                     className="py-2.5 px-5 text-xs font-semibold text-[#49afe9]"
                   >
-                    01. Valuation &amp; Market Action
+                    01. {t.cohortWorkspace.dimValuationMarket}
                   </td>
                 </tr>
 
                 {/* Market Cap / Private Valuation */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Market Cap / Valuation
+                    {t.cohortWorkspace.rowMarketCapVal}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1300,7 +1343,7 @@ export function CohortComparisonWorkspace({
                 {/* Share Price / Status */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Share Price / Status
+                    {t.cohortWorkspace.rowCurrentPriceVal}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1314,7 +1357,7 @@ export function CohortComparisonWorkspace({
                       >
                         {m?.kind === 'public'
                           ? `$${m.price.toFixed(2)} ${m.currency || 'USD'}`
-                          : 'Privately Held'}
+                          : t.watchlist.privateUnlistedSubtext}
                       </td>
                     );
                   })}
@@ -1323,7 +1366,7 @@ export function CohortComparisonWorkspace({
                 {/* Period Return (%) */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    {activeRange} Price Return
+                    {activeRange} {t.cohortWorkspace.rowPeriodReturn}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const seriesMatch = publicSeries.find(
@@ -1351,7 +1394,9 @@ export function CohortComparisonWorkspace({
                           </span>
                         ) : m?.kind === 'private' && m.lastRound ? (
                           <span className="text-slate-300 font-normal">
-                            Last round: {m.lastRound}
+                            {isKo
+                              ? `최근 라운드: ${m.lastRound}`
+                              : `Last round: ${m.lastRound}`}
                           </span>
                         ) : (
                           <span className="text-slate-500">—</span>
@@ -1364,7 +1409,7 @@ export function CohortComparisonWorkspace({
                 {/* Trailing P/E */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Trailing P/E (TTM)
+                    {t.marketOverview.peRatioTtm}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1378,7 +1423,9 @@ export function CohortComparisonWorkspace({
                       >
                         {m?.kind === 'public'
                           ? m.metrics.trailingPE || '—'
-                          : 'N/A (Private)'}
+                          : isKo
+                            ? '해당없음 (비상장)'
+                            : 'N/A (Private)'}
                       </td>
                     );
                   })}
@@ -1387,7 +1434,7 @@ export function CohortComparisonWorkspace({
                 {/* Forward P/E */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Forward P/E
+                    {t.marketOverview.forwardPe}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1401,7 +1448,9 @@ export function CohortComparisonWorkspace({
                       >
                         {m?.kind === 'public'
                           ? m.metrics.forwardPE || '—'
-                          : 'N/A (Private)'}
+                          : isKo
+                            ? '해당없음 (비상장)'
+                            : 'N/A (Private)'}
                       </td>
                     );
                   })}
@@ -1410,7 +1459,7 @@ export function CohortComparisonWorkspace({
                 {/* EPS (TTM) */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Diluted EPS (TTM)
+                    {t.marketOverview.epsTtm}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1424,7 +1473,9 @@ export function CohortComparisonWorkspace({
                       >
                         {m?.kind === 'public'
                           ? m.metrics.trailingEps || '—'
-                          : 'N/A (Private)'}
+                          : isKo
+                            ? '해당없음 (비상장)'
+                            : 'N/A (Private)'}
                       </td>
                     );
                   })}
@@ -1433,7 +1484,7 @@ export function CohortComparisonWorkspace({
                 {/* 52-Week Range */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    52-Week Price Range
+                    {t.marketOverview.week52Range}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const m =
@@ -1453,7 +1504,7 @@ export function CohortComparisonWorkspace({
                           />
                         ) : (
                           <span className="text-slate-500 font-mono-tabular">
-                            Unlisted
+                            {t.common.unlisted}
                           </span>
                         )}
                       </td>
@@ -1464,7 +1515,7 @@ export function CohortComparisonWorkspace({
                 {/* Volume / Total Funding */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Trading Volume / Funding
+                    {isKo ? '거래량 / 누적 투자유치' : 'Trading Volume / Funding'}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
@@ -1475,7 +1526,9 @@ export function CohortComparisonWorkspace({
                     const val =
                       m?.kind === 'public'
                         ? m.metrics.volume
-                          ? `${m.metrics.volume} shs`
+                          ? isKo
+                            ? `${m.metrics.volume}주`
+                            : `${m.metrics.volume} shs`
                           : '—'
                         : m?.kind === 'private'
                           ? m.totalFunding ||
@@ -1499,14 +1552,14 @@ export function CohortComparisonWorkspace({
                     colSpan={selectedCandidates.length + 1}
                     className="py-2.5 px-5 text-xs font-semibold text-[#49afe9]"
                   >
-                    02. Company Profile &amp; Operating Scale
+                    02. {t.cohortWorkspace.dimProfileScale}
                   </td>
                 </tr>
 
                 {/* Annual Revenue */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Annual Revenue / Est. Scale
+                    {t.cohortWorkspace.rowRevenueFunding}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
@@ -1539,7 +1592,7 @@ export function CohortComparisonWorkspace({
                 {/* Employee Headcount */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Employee Headcount
+                    {t.companyProfile.employees}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
@@ -1563,7 +1616,7 @@ export function CohortComparisonWorkspace({
                 {/* Headquarters */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Headquarters
+                    {t.cohortWorkspace.rowHeadquarters}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
@@ -1594,7 +1647,7 @@ export function CohortComparisonWorkspace({
                 {/* Founded Year */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Founded
+                    {t.companyProfile.founded}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
@@ -1618,14 +1671,17 @@ export function CohortComparisonWorkspace({
                 {/* Industries & Domain */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    Industries &amp; Website
+                    {t.cohortWorkspace.rowSectorIndustry}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const d = dossiersById[cand.id];
                     const industriesText =
                       d?.profile?.industries && d.profile.industries.length > 0
-                        ? d.profile.industries.slice(0, 3).join(' · ')
-                        : cand.sector || '—';
+                        ? d.profile.industries
+                            .slice(0, 3)
+                            .map((ind) => translatePresetMetadata(ind, locale))
+                            .join(' · ')
+                        : translatePresetMetadata(cand.sector || '—', locale);
                     const domain = d?.profile?.domain || null;
 
                     return (
@@ -1658,14 +1714,14 @@ export function CohortComparisonWorkspace({
                     colSpan={selectedCandidates.length + 1}
                     className="py-2.5 px-5 text-xs font-semibold text-[#49afe9]"
                   >
-                    03. Live News Sentiment &amp; Top Catalyst
+                    03. {t.cohortWorkspace.dimNewsSentiment}
                   </td>
                 </tr>
 
                 {/* Sentiment Score & Breakdown */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3 px-5 font-medium text-slate-300">
-                    News Sentiment Posture
+                    {t.cohortWorkspace.rowHeadlinePosture}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const pulse = dossiersById[cand.id]?.newsPulse ?? null;
@@ -1700,18 +1756,21 @@ export function CohortComparisonWorkspace({
                       >
                         <div className="flex items-center gap-1.5">
                           <span className={`font-semibold ${postureColor}`}>
-                            {pulse.netPosture}
+                            {translateSentimentLabel(pulse.netPosture, locale)}
                           </span>
                           <span className="text-slate-500" aria-hidden="true">
                             ·
                           </span>
                           <span className="text-slate-200">
-                            {pulse.bullishPct}% Bullish
+                            {isKo
+                              ? `강세 ${pulse.bullishPct}%`
+                              : `${pulse.bullishPct}% Bullish`}
                           </span>
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          {pulse.bullishCount} Bullish · {pulse.bearishCount}{' '}
-                          Bearish · {pulse.neutralCount} Neutral
+                          {isKo
+                            ? `강세 ${pulse.bullishCount} · 약세 ${pulse.bearishCount} · 중립 ${pulse.neutralCount}`
+                            : `${pulse.bullishCount} Bullish · ${pulse.bearishCount} Bearish · ${pulse.neutralCount} Neutral`}
                         </div>
                       </td>
                     );
@@ -1721,7 +1780,7 @@ export function CohortComparisonWorkspace({
                 {/* Top Catalyst / Risk Headline */}
                 <tr className="hover:bg-[#0f203d]/40">
                   <td className="py-3.5 px-5 font-medium text-slate-300 align-top">
-                    Top Catalyst Headline
+                    {t.cohortWorkspace.rowTopCatalystHeadline}
                   </td>
                   {selectedCandidates.map((cand) => {
                     const pulse = dossiersById[cand.id]?.newsPulse ?? null;
@@ -1750,7 +1809,7 @@ export function CohortComparisonWorkspace({
                           key={cand.id}
                           className="py-3.5 px-5 border-l border-[#212c42] text-slate-500"
                         >
-                          No recent headlines
+                          {isKo ? '최근 관련 기사 없음' : 'No recent headlines'}
                         </td>
                       );
                     }
@@ -1777,7 +1836,9 @@ export function CohortComparisonWorkspace({
                           <ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-slate-400" />
                         </a>
                         <div className="text-[11px] text-slate-400">
-                          <span className={sentColor}>{cat.sentiment}</span>
+                          <span className={sentColor}>
+                            {translateSentimentLabel(cat.sentiment, locale)}
+                          </span>
                           <span className="mx-1.5" aria-hidden="true">
                             ·
                           </span>
@@ -1793,7 +1854,9 @@ export function CohortComparisonWorkspace({
         </div>
       ) : (
         <div className="bg-[#0d1b33] border border-[#212c42] rounded-xl p-6 text-center text-sm text-slate-300">
-          Select at least one company from the verified candidates above to view normalized price performance and side-by-side comparison metrics.
+          {isKo
+            ? '위 후보 목록에서 최소 1개 이상의 기업을 선택하면 정규화 수익률 차트와 비교 매트릭스가 표시됩니다.'
+            : 'Select at least one company from the verified candidates above to view normalized price performance and side-by-side comparison metrics.'}
         </div>
       )}
     </section>

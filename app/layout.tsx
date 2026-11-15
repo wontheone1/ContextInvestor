@@ -13,6 +13,7 @@
  */
 
 import type { Metadata } from 'next';
+import { LanguageProvider } from '@/components/LanguageProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -51,7 +52,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Root application layout component wrapping all pages with dark-mode quantitative styling.
+ * Root application layout component wrapping all pages with dark-mode quantitative styling
+ * and bilingual English/Korean LanguageProvider context.
  */
 export default function RootLayout({
   children,
@@ -70,14 +72,14 @@ export default function RootLayout({
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap"
         />
       </head>
       <body
         suppressHydrationWarning
         className="bg-[#091326] text-white antialiased selection:bg-[#09a4ff]/30 selection:text-white"
       >
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );

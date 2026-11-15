@@ -36,6 +36,11 @@ import type {
   CompanyMarketOverviewData,
   PriceChartPoint,
 } from '@/lib/market-data-service';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  translatePresetMetadata,
+  type AppLocale,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface CompanyMarketOverviewProps {
@@ -72,39 +77,41 @@ function formatVolume(value: number | null | undefined): string {
   return value.toLocaleString('en-US');
 }
 
-function formatAxisDate(ts: number, range: ChartRange): string {
+function formatAxisDate(ts: number, range: ChartRange, locale: AppLocale): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '';
+  const intlLocale = locale === 'ko' ? 'ko-KR' : 'en-US';
   if (range === '1D') {
-    return d.toLocaleTimeString('en-US', {
+    return d.toLocaleTimeString(intlLocale, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     });
   }
   if (range === '5D') {
-    return d.toLocaleDateString('en-US', {
+    return d.toLocaleDateString(intlLocale, {
       month: 'short',
       day: 'numeric',
     });
   }
   if (range === '5Y') {
-    return d.toLocaleDateString('en-US', {
+    return d.toLocaleDateString(intlLocale, {
       month: 'short',
       year: '2-digit',
     });
   }
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(intlLocale, {
     month: 'short',
     day: 'numeric',
   });
 }
 
-function formatTooltipTimestamp(ts: number, range: ChartRange): string {
+function formatTooltipTimestamp(ts: number, range: ChartRange, locale: AppLocale): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '';
+  const intlLocale = locale === 'ko' ? 'ko-KR' : 'en-US';
   if (range === '1D' || range === '5D') {
-    return d.toLocaleString('en-US', {
+    return d.toLocaleString(intlLocale, {
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
@@ -112,7 +119,7 @@ function formatTooltipTimestamp(ts: number, range: ChartRange): string {
       hour12: false,
     });
   }
-  return d.toLocaleDateString('en-US', {
+  return d.toLocaleDateString(intlLocale, {
     month: 'short',
     day: '2-digit',
     year: 'numeric',
@@ -203,6 +210,7 @@ function InteractivePriceChart({
   currency: string;
   isPositive: boolean;
 }) {
+  const { locale, t } = useLanguage();
   const gradientId = useId().replace(/:/g, '');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -307,17 +315,17 @@ function InteractivePriceChart({
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 font-mono-tabular mb-2 min-h-[20px]">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-slate-300">
-            {formatTooltipTimestamp(hoveredPoint.timestamp, range)}
+            {formatTooltipTimestamp(hoveredPoint.timestamp, range, locale)}
           </span>
           <span>
-            Close:{' '}
+            {t.marketOverview.closeLabel}:{' '}
             <strong className="text-white font-semibold">
               {formatPrice(hoveredPoint.close, currency)}
             </strong>
           </span>
           {hoveredPoint.high !== null && hoveredPoint.low !== null && (
             <span>
-              H/L:{' '}
+              {t.marketOverview.highLowLabel}:{' '}
               <span className="text-slate-200">
                 {formatPrice(hoveredPoint.high, currency)} /{' '}
                 {formatPrice(hoveredPoint.low, currency)}
@@ -326,7 +334,7 @@ function InteractivePriceChart({
           )}
           {hoveredPoint.volume !== null && (
             <span>
-              Vol:{' '}
+              {t.marketOverview.volLabel}:{' '}
               <span className="text-slate-200">
                 {formatVolume(hoveredPoint.volume)}
               </span>
@@ -491,7 +499,7 @@ function InteractivePriceChart({
                 fontSize="11"
                 fontFamily="var(--font-mono), monospace"
               >
-                {formatAxisDate(c.point.timestamp, range)}
+                {formatAxisDate(c.point.timestamp, range, locale)}
               </text>
             );
           })}
@@ -517,11 +525,14 @@ export function CompanyMarketOverview({
   isFollowPending = false,
   onToggleFollow,
 }: CompanyMarketOverviewProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
+
   if (isLoading) {
     return (
       <section
         id="market-overview"
-        aria-label="Company Price Chart and Key Metrics"
+        aria-label={t.marketOverview.keyInvestmentMetrics}
         className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6 items-stretch"
       >
         <div className="lg:col-span-8 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 animate-pulse">
@@ -545,12 +556,12 @@ export function CompanyMarketOverview({
     return (
       <section
         id="market-overview"
-        aria-label="Company Price Chart and Key Metrics"
+        aria-label={t.marketOverview.unavailableTitle}
         className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6 flex flex-wrap items-center justify-between gap-4"
       >
         <div>
           <h2 className="text-base font-bold text-white mb-1">
-            Market Data Unavailable for {searchedQuery}
+            {t.marketOverview.unavailableTitle} ({searchedQuery})
           </h2>
           <p className="text-xs text-slate-400">{error}</p>
         </div>
@@ -560,7 +571,7 @@ export function CompanyMarketOverview({
           className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Retry Market Lookup</span>
+          <span>{t.common.retry}</span>
         </button>
       </section>
     );
@@ -569,48 +580,56 @@ export function CompanyMarketOverview({
   if (!data) return null;
 
   if (data.kind === 'private') {
+    const undisclosedLabel = isKo ? '비공개' : 'Undisclosed';
     const privateRows = [
       {
-        label: 'Latest Valuation',
-        value: data.latestValuation || 'Undisclosed',
-        tooltip: 'Most recently reported private market valuation.',
+        label: t.marketOverview.estValuation,
+        value: data.latestValuation || undisclosedLabel,
+        tooltip: t.marketOverview.estValuationTooltip,
       },
       {
-        label: 'Last Funding Round',
-        value: data.lastRound || 'Undisclosed',
-        tooltip: 'Latest primary venture or growth equity financing round.',
+        label: t.marketOverview.fundingStage,
+        value: data.lastRound || undisclosedLabel,
+        tooltip: t.marketOverview.fundingStageTooltip,
       },
       {
-        label: 'Total Funding',
-        value: data.totalFunding || 'Undisclosed',
-        tooltip: 'Cumulative disclosed private capital raised.',
+        label: isKo ? '누적 투자 유치' : 'Total Funding',
+        value: data.totalFunding || undisclosedLabel,
+        tooltip: isKo
+          ? '현재까지 공개된 누적 프라이빗 투자 유치 금액'
+          : 'Cumulative disclosed private capital raised.',
       },
       {
-        label: 'Est. Revenue',
-        value: data.estimatedRevenue || 'Undisclosed',
-        tooltip: 'Most recently reported annual revenue or annualized run rate.',
+        label: isKo ? '추정 매출' : 'Est. Revenue',
+        value: data.estimatedRevenue || undisclosedLabel,
+        tooltip: isKo
+          ? '가장 최근 보도된 연간 매출 또는 연간 환산 매출(ARR)'
+          : 'Most recently reported annual revenue or annualized run rate.',
       },
       {
-        label: 'Sector',
-        value: data.sector || 'Private Technology',
-        tooltip: 'Primary industry classification.',
+        label: t.marketOverview.sectorCategory,
+        value: translatePresetMetadata(
+          data.sector || (isKo ? '비상장 테크' : 'Private Technology'),
+          locale
+        ),
+        tooltip: isKo ? '주요 산업 분류' : 'Primary industry classification.',
       },
       {
-        label: 'Headquarters',
-        value: data.headquarters || 'United States',
-        tooltip: 'Corporate headquarters location.',
+        label: t.companyProfile.headquarters,
+        value: data.headquarters || (isKo ? '미국' : 'United States'),
+        tooltip: isKo ? '본사 소재지' : 'Corporate headquarters location.',
       },
       {
-        label: 'Chief Executive',
+        label: isKo ? '최고경영자 (CEO)' : 'Chief Executive',
         value: data.ceo || '—',
-        tooltip: 'Current Chief Executive Officer.',
+        tooltip: isKo ? '현직 최고경영자(CEO)' : 'Current Chief Executive Officer.',
       },
     ];
 
     return (
       <section
         id="market-overview"
-        aria-label="Private Company Profile and Metrics"
+        aria-label={t.marketOverview.privateMetricsHeader}
         className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6 items-stretch"
       >
         <div className="lg:col-span-8 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 flex flex-col justify-between">
@@ -619,12 +638,15 @@ export function CompanyMarketOverview({
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mb-1">
                   <span className="text-[#49afe9] font-medium">
-                    {data.listingNote || 'Privately Held'}
+                    {translatePresetMetadata(
+                      data.listingNote || t.marketOverview.privateCompanyBadge,
+                      locale
+                    )}
                   </span>
                   {data.sector && (
                     <>
                       <span aria-hidden="true">·</span>
-                      <span>{data.sector}</span>
+                      <span>{translatePresetMetadata(data.sector, locale)}</span>
                     </>
                   )}
                 </div>
@@ -647,8 +669,8 @@ export function CompanyMarketOverview({
                   }}
                   title={
                     isFollowed
-                      ? `Unfollow ${data.companyName}`
-                      : `Follow ${data.companyName}`
+                      ? `${t.common.unfollow} ${data.companyName}`
+                      : `${t.common.follow} ${data.companyName}`
                   }
                   className={`group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                     isFollowed
@@ -659,22 +681,24 @@ export function CompanyMarketOverview({
                   {isFollowPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verifying...</span>
+                      <span>{t.watchlist.verifyingButton}</span>
                     </>
                   ) : isFollowed ? (
                     <span className="inline-grid items-center justify-items-center">
                       <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
                         <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                        <span>Following</span>
+                        <span>{t.common.following}</span>
                       </span>
                       <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                        Unfollow
+                        {t.common.unfollow}
                       </span>
                     </span>
                   ) : (
                     <>
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Follow {data.companyName}</span>
+                      <span>
+                        {t.common.follow} {data.companyName}
+                      </span>
                     </>
                   )}
                 </button>
@@ -687,8 +711,7 @@ export function CompanyMarketOverview({
 
           <div className="pt-4 border-t border-[#212c42] flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-400">
-              Public exchange price charts and live multiples are available for
-              US-listed equities.
+              {t.marketOverview.privateDataDisclaimer}
             </p>
             {data.sources.length > 0 && (
               <div className="flex flex-wrap items-center gap-3">
@@ -711,10 +734,12 @@ export function CompanyMarketOverview({
 
         <div className="lg:col-span-4 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6">
           <h3 className="text-sm font-bold text-white mb-1">
-            Private Market Metrics
+            {t.marketOverview.privateMetricsHeader}
           </h3>
           <p className="text-xs text-slate-400 mb-4">
-            Reported capital &amp; valuation profile
+            {isKo
+              ? '보고된 투자 유치 및 기업가치 요약'
+              : 'Reported capital & valuation profile'}
           </p>
 
           <div className="divide-y divide-[#212c42]">
@@ -755,105 +780,125 @@ export function CompanyMarketOverview({
     items: Array<{ label: string; value: string; tooltip: string }>;
   }> = [
     {
-      heading: 'Valuation & Size',
+      heading: isKo ? '밸류에이션 및 규모' : 'Valuation & Size',
       items: [
         {
-          label: 'Market Cap',
+          label: t.marketOverview.marketCap,
           value: data.metrics.marketCap || '—',
-          tooltip: 'Total equity market capitalization of outstanding shares.',
+          tooltip: t.marketOverview.marketCapTooltip,
         },
         {
-          label: 'Enterprise Value',
+          label: isKo ? '기업가치 (EV)' : 'Enterprise Value',
           value: data.metrics.enterpriseValue || '—',
-          tooltip:
-            'Market capitalization plus total debt minus cash and equivalents.',
+          tooltip: isKo
+            ? '시가총액에 총부채를 더하고 현금성 자산을 차감한 기업가치(EV)'
+            : 'Market capitalization plus total debt minus cash and equivalents.',
         },
         {
-          label: 'Trailing P/E',
+          label: t.marketOverview.peRatioTtm,
           value: data.metrics.trailingPE || '—',
-          tooltip:
-            'Current share price divided by trailing 12-month earnings per share.',
+          tooltip: t.marketOverview.peRatioTooltip,
         },
         {
-          label: 'Forward P/E',
+          label: t.marketOverview.forwardPe,
           value: data.metrics.forwardPE || '—',
-          tooltip:
-            'Current share price divided by consensus forward 12-month EPS.',
+          tooltip: t.marketOverview.forwardPeTooltip,
         },
         {
-          label: 'P/B Ratio',
+          label: isKo ? 'PBR (주가순자산비율)' : 'P/B Ratio',
           value: data.metrics.priceToBook || '—',
-          tooltip: 'Share price relative to book value per share.',
+          tooltip: isKo
+            ? '주당 순자산가치(BPS) 대비 현재 주가 배수'
+            : 'Share price relative to book value per share.',
         },
         {
-          label: 'EPS (TTM)',
+          label: t.marketOverview.epsTtm,
           value: data.metrics.trailingEps
             ? `$${data.metrics.trailingEps}`
             : '—',
-          tooltip: 'Trailing 12-month diluted earnings per share.',
+          tooltip: t.marketOverview.epsTooltip,
         },
       ],
     },
     {
-      heading: 'Growth & Profitability',
+      heading: isKo ? '성장성 및 수익성' : 'Growth & Profitability',
       items: [
         {
-          label: 'Revenue (TTM)',
+          label: isKo ? '매출액 (TTM)' : 'Revenue (TTM)',
           value: data.metrics.totalRevenue || '—',
-          tooltip: 'Total trailing 12-month top-line revenue.',
+          tooltip: isKo
+            ? '최근 12개월(TTM) 누적 총매출액'
+            : 'Total trailing 12-month top-line revenue.',
         },
         {
-          label: 'Revenue Growth',
+          label: isKo ? '매출 성장률' : 'Revenue Growth',
           value: data.metrics.revenueGrowth || '—',
-          tooltip: 'Year-over-year quarterly revenue growth rate.',
+          tooltip: isKo
+            ? '전년 동기 대비 분기 매출 성장률(YoY)'
+            : 'Year-over-year quarterly revenue growth rate.',
         },
         {
-          label: 'Net Margin',
+          label: isKo ? '순이익률' : 'Net Margin',
           value: data.metrics.profitMargins || '—',
-          tooltip: 'Net income as a percentage of total revenue.',
+          tooltip: isKo
+            ? '총매출 대비 당기순이익 비율'
+            : 'Net income as a percentage of total revenue.',
         },
         {
-          label: 'Op Margin',
+          label: isKo ? '영업이익률' : 'Op Margin',
           value: data.metrics.operatingMargins || '—',
-          tooltip: 'Operating income as a percentage of total revenue.',
+          tooltip: isKo
+            ? '총매출 대비 영업이익 비율'
+            : 'Operating income as a percentage of total revenue.',
         },
         {
-          label: 'ROE',
+          label: isKo ? '자기자본이익률 (ROE)' : 'ROE',
           value: data.metrics.returnOnEquity || '—',
-          tooltip: 'Return on shareholders’ equity over the trailing 12 months.',
+          tooltip: isKo
+            ? '최근 12개월 기준 주주 자본 대비 순이익 수익률'
+            : 'Return on shareholders’ equity over the trailing 12 months.',
         },
         {
-          label: 'Analyst Target',
+          label: isKo ? '목표주가 컨센서스' : 'Analyst Target',
           value: data.metrics.targetMeanPrice
             ? `$${data.metrics.targetMeanPrice}`
             : '—',
-          tooltip: 'Wall Street consensus mean 12-month price target.',
+          tooltip: isKo
+            ? '월가 애널리스트 12개월 평균 목표주가 컨센서스'
+            : 'Wall Street consensus mean 12-month price target.',
         },
       ],
     },
     {
-      heading: 'Yield, Risk & Liquidity',
+      heading: isKo ? '배당 · 변동성 · 유동성' : 'Yield, Risk & Liquidity',
       items: [
         {
-          label: 'Dividend Yield',
+          label: isKo ? '배당수익률' : 'Dividend Yield',
           value: data.metrics.dividendYield || '—',
-          tooltip: 'Annualized dividend payout as a percentage of share price.',
+          tooltip: isKo
+            ? '현재 주가 대비 연간 배당금 비율'
+            : 'Annualized dividend payout as a percentage of share price.',
         },
         {
-          label: 'Beta (5Y)',
+          label: isKo ? '베타 (5년)' : 'Beta (5Y)',
           value: data.metrics.beta || '—',
-          tooltip:
-            '5-year monthly volatility sensitivity relative to the S&P 500.',
+          tooltip: isKo
+            ? 'S&P 500 지수 대비 최근 5년 월간 주가 변동성 민감도'
+            : '5-year monthly volatility sensitivity relative to the S&P 500.',
         },
         {
-          label: 'Volume',
+          label: isKo ? '거래량' : 'Volume',
           value: data.metrics.volume || '—',
-          tooltip: 'Total shares traded during the latest session.',
+          tooltip: isKo
+            ? '최근 거래일 누적 주식 거래량'
+            : 'Total shares traded during the latest session.',
         },
         {
-          label: 'Avg Volume',
+          label: isKo ? '평균 거래량' : 'Avg Volume',
           value: data.metrics.averageVolume || '—',
-          tooltip: 'Average daily share trading volume.',
+          tooltip: isKo
+            ? '일평균 주식 거래량'
+            : 'Average daily share trading volume.',
         },
       ],
     },
@@ -862,7 +907,7 @@ export function CompanyMarketOverview({
   return (
     <section
       id="market-overview"
-      aria-label="Company Price Chart and Key Metrics"
+      aria-label={t.marketOverview.keyInvestmentMetrics}
       className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6 items-stretch"
     >
       {/* Left 8 Columns: Interactive Price Chart */}
@@ -877,18 +922,24 @@ export function CompanyMarketOverview({
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
-                  {isAdrEquity ? 'US-Traded ADR Equity' : 'US Listed Equity'}
+                  {isAdrEquity
+                    ? isKo
+                      ? '미국 거래 ADR 주식'
+                      : 'US-Traded ADR Equity'
+                    : isKo
+                      ? '미국 상장 주식'
+                      : 'US Listed Equity'}
                 </span>
                 {data.sector && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span>{data.sector}</span>
+                    <span>{translatePresetMetadata(data.sector, locale)}</span>
                   </>
                 )}
                 {data.industry && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span>{data.industry}</span>
+                    <span>{translatePresetMetadata(data.industry, locale)}</span>
                   </>
                 )}
               </div>
@@ -911,8 +962,8 @@ export function CompanyMarketOverview({
                     }}
                     title={
                       isFollowed
-                        ? `Unfollow ${displaySymbol}`
-                        : `Follow ${displaySymbol}`
+                        ? `${t.common.unfollow} ${displaySymbol}`
+                        : `${t.common.follow} ${displaySymbol}`
                     }
                     className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                       isFollowed
@@ -923,22 +974,24 @@ export function CompanyMarketOverview({
                     {isFollowPending ? (
                       <>
                         <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Verifying...</span>
+                        <span>{t.watchlist.verifyingButton}</span>
                       </>
                     ) : isFollowed ? (
                       <span className="inline-grid items-center justify-items-center">
                         <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
                           <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                          <span>Following</span>
+                          <span>{t.common.following}</span>
                         </span>
                         <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                          Unfollow
+                          {t.common.unfollow}
                         </span>
                       </span>
                     ) : (
                       <>
                         <Plus className="w-3 h-3" />
-                        <span>Follow {displaySymbol}</span>
+                        <span>
+                          {t.common.follow} {displaySymbol}
+                        </span>
                       </>
                     )}
                   </button>
@@ -972,7 +1025,9 @@ export function CompanyMarketOverview({
                   </span>
                 </span>
                 <span className="text-xs text-slate-400">
-                  {activeRange === '1D' ? 'Today' : `${activeRange} Return`}
+                  {activeRange === '1D'
+                    ? t.marketOverview.todayReturn
+                    : `${activeRange} ${t.marketOverview.rangeReturnSuffix}`}
                 </span>
               </div>
             </div>
@@ -1021,14 +1076,14 @@ export function CompanyMarketOverview({
         {/* Bottom Range Bars */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 mt-4 border-t border-[#212c42]">
           <RangeBar
-            label="Day Range"
+            label={t.marketOverview.dayRange}
             low={data.metrics.dayLow}
             high={data.metrics.dayHigh}
             current={data.price}
             currency={data.currency}
           />
           <RangeBar
-            label="52-Week Range"
+            label={t.marketOverview.week52Range}
             low={data.metrics.fiftyTwoWeekLow}
             high={data.metrics.fiftyTwoWeekHigh}
             current={data.price}
@@ -1042,10 +1097,12 @@ export function CompanyMarketOverview({
         <div className="flex items-baseline justify-between gap-2 pb-3 mb-4 border-b border-[#212c42]">
           <div>
             <h3 className="text-base font-bold text-white">
-              Key Investment Metrics
+              {t.marketOverview.keyInvestmentMetrics}
             </h3>
             <p className="text-xs text-slate-400">
-              Valuation, profitability &amp; consensus ({displaySymbol})
+              {isKo
+                ? `밸류에이션 · 수익성 · 컨센서스 (${displaySymbol})`
+                : `Valuation, profitability & consensus (${displaySymbol})`}
             </p>
           </div>
           <span className="text-xs text-slate-400 font-mono-tabular">

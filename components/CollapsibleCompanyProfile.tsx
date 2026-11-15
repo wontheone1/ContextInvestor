@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
+import { useLanguage } from '@/components/LanguageProvider';
+import type { AppLocale } from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface CollapsibleCompanyProfileProps {
@@ -84,12 +86,20 @@ function formatProfileStockSymbol(rawSym: string, companyName: string): string {
  * @returns Ordered array of concise metadata strings
  */
 function buildSummarySegments(
-  profile: CompanyProfileData
+  profile: CompanyProfileData,
+  locale: AppLocale
 ): Array<{ text: string; mono?: boolean }> {
+  const isKo = locale === 'ko';
   const segments: Array<{ text: string; mono?: boolean }> = [];
 
   if (profile.organizationTypeLabel) {
-    segments.push({ text: profile.organizationTypeLabel });
+    const orgLabel =
+      isKo && profile.organizationTypeLabel === 'Public Company'
+        ? '상장 기업'
+        : isKo && profile.organizationTypeLabel === 'Private Company'
+          ? '비상장 기업'
+          : profile.organizationTypeLabel;
+    segments.push({ text: orgLabel });
   }
   if (profile.headquartersShort) {
     segments.push({ text: profile.headquartersShort });
@@ -98,12 +108,24 @@ function buildSummarySegments(
     segments.push({ text: profile.employeesDisplay, mono: true });
   }
   if (profile.foundedYear) {
-    segments.push({ text: `Est. ${profile.foundedYear}`, mono: true });
+    segments.push({
+      text: isKo ? `${profile.foundedYear}년 설립` : `Est. ${profile.foundedYear}`,
+      mono: true,
+    });
   }
   if (profile.funding.stageLabel) {
-    segments.push({ text: `Stage: ${profile.funding.stageLabel}` });
+    segments.push({
+      text: isKo
+        ? `단계: ${profile.funding.stageLabel}`
+        : `Stage: ${profile.funding.stageLabel}`,
+    });
   } else if (profile.revenueDisplay) {
-    segments.push({ text: `Est. Rev: ${profile.revenueDisplay}`, mono: true });
+    segments.push({
+      text: isKo
+        ? `추정 매출: ${profile.revenueDisplay}`
+        : `Est. Rev: ${profile.revenueDisplay}`,
+      mono: true,
+    });
   }
 
   return segments;
@@ -123,6 +145,8 @@ export function CollapsibleCompanyProfile({
   error,
   onRetry,
 }: CollapsibleCompanyProfileProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [expandedForQuery, setExpandedForQuery] = useState<string | null>(null);
   const normalizedQueryKey = searchedQuery.trim().toLowerCase();
   const isExpanded = Boolean(profile) && expandedForQuery === normalizedQueryKey;
@@ -176,7 +200,9 @@ export function CollapsibleCompanyProfile({
         <div className="flex items-center gap-2.5 min-w-0 text-xs text-slate-300 truncate">
           <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
           <span className="truncate">
-            Company profile unavailable for {searchedQuery}: {error}
+            {isKo
+              ? `${searchedQuery} 기업 프로필을 불러올 수 없습니다: ${error}`
+              : `Company profile unavailable for ${searchedQuery}: ${error}`}
           </span>
         </div>
         <button
@@ -185,7 +211,7 @@ export function CollapsibleCompanyProfile({
           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium text-[#49afe9] hover:text-white bg-[#102344] hover:bg-[#16305c] border border-[#212c42] transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
           <RefreshCw className="w-3 h-3" />
-          Retry
+          {t.common.retry}
         </button>
       </div>
     );
@@ -197,19 +223,20 @@ export function CollapsibleCompanyProfile({
         <div className="flex items-center gap-2.5 min-w-0 text-xs text-slate-400 truncate">
           <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
           <span className="truncate">
-            No structured company profile record found for &ldquo;{searchedQuery}
-            &rdquo;.
+            {isKo
+              ? `“${searchedQuery}”에 대한 구조화된 기업 프로필 데이터가 없습니다.`
+              : `No structured company profile record found for “${searchedQuery}”.`}
           </span>
         </div>
       </div>
     );
   }
 
-  const summarySegments = buildSummarySegments(profile);
+  const summarySegments = buildSummarySegments(profile, locale);
 
   return (
     <section
-      aria-label={`Company profile for ${profile.name}`}
+      aria-label={`${t.companyProfile.corporateDossier}: ${profile.name}`}
       className="mb-6 bg-[#0d1b33] border border-[#212c42] rounded-lg overflow-hidden"
     >
       {/* Compact 1-Line Summary Bar (Collapsed by Default) */}
@@ -263,12 +290,12 @@ export function CollapsibleCompanyProfile({
         >
           {isExpanded ? (
             <>
-              <span>Hide Profile</span>
+              <span>{t.companyProfile.hideProfile}</span>
               <ChevronUp className="w-3.5 h-3.5" />
             </>
           ) : (
             <>
-              <span>Show Profile</span>
+              <span>{t.companyProfile.showProfile}</span>
               <ChevronDown className="w-3.5 h-3.5" />
             </>
           )}
@@ -282,7 +309,9 @@ export function CollapsibleCompanyProfile({
           <div className="p-4 sm:p-5 border-b border-[#212c42] space-y-3">
             <p className="text-sm leading-relaxed text-slate-200 max-w-[90ch]">
               {profile.description ||
-                `${profile.name} (${profile.organizationTypeLabel}) corporate profile retrieved via Context.dev Company Search.`}
+                (isKo
+                  ? `Context.dev 기업 검색을 통해 조회된 ${profile.name} 기업 프로필입니다.`
+                  : `${profile.name} (${profile.organizationTypeLabel}) corporate profile retrieved via Context.dev Company Search.`)}
             </p>
 
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-xs text-slate-300">
@@ -325,7 +354,7 @@ export function CollapsibleCompanyProfile({
                     </span>
                   )}
                   <span className="text-slate-400 whitespace-nowrap">
-                    Status:{' '}
+                    {isKo ? '운영 상태: ' : 'Status: '}
                     <span className="text-slate-200">
                       {profile.operatingStatusLabel}
                     </span>
@@ -339,37 +368,55 @@ export function CollapsibleCompanyProfile({
           <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-[#212c42]">
             {/* Column 1: Headquarters, Founding Year & Headcount */}
             <div className="p-4 sm:p-5 space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Headquarters &amp; Scale
+              <h3 className="text-xs font-semibold text-slate-400">
+                {t.companyProfile.headquartersAndScale}
               </h3>
               <dl className="space-y-2.5 text-xs">
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-slate-400 shrink-0">Headquarters</dt>
+                  <dt className="text-slate-400 shrink-0">
+                    {t.companyProfile.headquarters}
+                  </dt>
                   <dd className="text-slate-100 text-right">
                     {profile.headquartersFull ||
                       profile.headquartersShort ||
-                      'Not disclosed'}
+                      (isKo ? '비공개' : 'Not disclosed')}
                   </dd>
                 </div>
 
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-slate-400 shrink-0">Founded</dt>
+                  <dt className="text-slate-400 shrink-0">
+                    {t.companyProfile.founded}
+                  </dt>
                   <dd className="text-slate-100 font-mono-tabular text-right">
-                    {profile.foundedYear ? profile.foundedYear : 'Not disclosed'}
+                    {profile.foundedYear
+                      ? profile.foundedYear
+                      : isKo
+                        ? '비공개'
+                        : 'Not disclosed'}
                   </dd>
                 </div>
 
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-slate-400 shrink-0">Headcount</dt>
+                  <dt className="text-slate-400 shrink-0">
+                    {t.companyProfile.employees}
+                  </dt>
                   <dd className="text-slate-100 font-mono-tabular text-right">
-                    {profile.employeesDisplay || 'Not disclosed'}
+                    {profile.employeesDisplay ||
+                      (isKo ? '비공개' : 'Not disclosed')}
                   </dd>
                 </div>
 
                 <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-slate-400 shrink-0">Organization</dt>
+                  <dt className="text-slate-400 shrink-0">
+                    {t.companyProfile.organizationType}
+                  </dt>
                   <dd className="text-slate-100 text-right">
-                    {profile.organizationTypeLabel}
+                    {isKo && profile.organizationTypeLabel === 'Public Company'
+                      ? '상장 기업'
+                      : isKo &&
+                          profile.organizationTypeLabel === 'Private Company'
+                        ? '비상장 기업'
+                        : profile.organizationTypeLabel}
                     {profile.stockSymbols.length > 0 && (
                       <span className="font-mono-tabular text-slate-300">
                         {' '}
@@ -387,28 +434,31 @@ export function CollapsibleCompanyProfile({
 
             {/* Column 2: Industries & Estimated Revenue */}
             <div className="p-4 sm:p-5 space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Industries &amp; Revenue
+              <h3 className="text-xs font-semibold text-slate-400">
+                {t.companyProfile.industriesAndRevenue}
               </h3>
 
               <div className="space-y-3 text-xs">
                 <div>
                   <div className="text-slate-400 mb-1">
-                    Industry Classifications
+                    {t.companyProfile.industries}
                   </div>
                   <p className="text-slate-100 leading-relaxed">
                     {profile.industries.length > 0
                       ? profile.industries.join(' · ')
-                      : 'Not classified'}
+                      : isKo
+                        ? '미분류'
+                        : 'Not classified'}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-[#212c42]/70 flex items-baseline justify-between gap-4">
                   <span className="text-slate-400 shrink-0">
-                    Est. Annual Revenue
+                    {t.companyProfile.estAnnualRevenue}
                   </span>
                   <span className="text-slate-100 font-mono-tabular font-medium text-right">
-                    {profile.revenueDisplay || 'Not disclosed'}
+                    {profile.revenueDisplay ||
+                      (isKo ? '비공개' : 'Not disclosed')}
                   </span>
                 </div>
               </div>
@@ -417,8 +467,8 @@ export function CollapsibleCompanyProfile({
             {/* Column 3: Funding Stage & Chronological Round History */}
             <div className="p-4 sm:p-5 space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Funding &amp; Round History
+                <h3 className="text-xs font-semibold text-slate-400">
+                  {t.companyProfile.fundingAndRoundHistory}
                 </h3>
                 {profile.funding.stageLabel && (
                   <span className="text-xs font-medium text-[#49afe9] whitespace-nowrap">
@@ -430,24 +480,30 @@ export function CollapsibleCompanyProfile({
               <div className="space-y-2 text-xs">
                 <div className="flex items-baseline justify-between gap-4">
                   <span className="text-slate-400 shrink-0">
-                    Total Disclosed
+                    {t.companyProfile.totalFundingRaised}
                   </span>
                   <span className="text-slate-100 font-mono-tabular text-right">
                     {profile.funding.totalUsdDisplay
                       ? `${profile.funding.totalUsdDisplay}${
                           profile.funding.roundCount > 0
-                            ? ` (${profile.funding.roundCount} rounds)`
+                            ? isKo
+                              ? ` (${profile.funding.roundCount}회 라운드)`
+                              : ` (${profile.funding.roundCount} rounds)`
                             : ''
                         }`
                       : profile.funding.roundCount > 0
-                        ? `${profile.funding.roundCount} recorded rounds`
-                        : 'No private rounds disclosed'}
+                        ? isKo
+                          ? `${profile.funding.roundCount}회 투자 라운드`
+                          : `${profile.funding.roundCount} recorded rounds`
+                        : t.companyProfile.noFundingDisclosed}
                   </span>
                 </div>
 
                 {profile.funding.latestRoundDisplay && (
                   <div className="flex items-baseline justify-between gap-4">
-                    <span className="text-slate-400 shrink-0">Latest Round</span>
+                    <span className="text-slate-400 shrink-0">
+                      {t.companyProfile.latestStage}
+                    </span>
                     <span className="text-slate-200 font-mono-tabular text-right">
                       {profile.funding.latestRoundDisplay}
                     </span>

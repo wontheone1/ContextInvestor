@@ -33,6 +33,11 @@ import {
   type CompanyPreset,
   type WatchlistSparklineRange,
 } from '@/lib/config';
+import { useLanguage } from '@/components/LanguageProvider';
+import {
+  translatePresetMetadata,
+  translateWatchlistRangeDescription,
+} from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface WatchlistCarouselProps {
@@ -130,10 +135,14 @@ export function WatchlistCarousel({
   onResetDefaults,
   isCustomized = false,
 }: WatchlistCarouselProps) {
+  const { locale, t } = useLanguage();
+  const isKo = locale === 'ko';
   const [followInput, setFollowInput] = useState('');
 
-  const rangeDescription =
-    APP_CONFIG.watchlist.rangeDescriptions[sparklineRange] || '1-Month';
+  const rangeDescription = translateWatchlistRangeDescription(
+    sparklineRange,
+    locale
+  );
 
   /**
    * Submits a candidate ticker or company name for server-side existence verification
@@ -151,23 +160,32 @@ export function WatchlistCarousel({
   };
 
   return (
-    <section aria-label="Followed Companies Watchlist" className="mb-6">
+    <section aria-label={t.watchlist.carouselHeader} className="mb-6">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-3">
         <div className="space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-200 tracking-tight">
-              Companies You Are Following ({companies.length})
+              {t.watchlist.carouselHeader} ({companies.length}
+              {isKo ? t.watchlist.followedCountSuffix : ''})
             </h2>
             <span className="text-xs text-slate-500" aria-hidden="true">
               ·
             </span>
             <span className="text-xs text-[#49afe9] font-mono-tabular">
-              {rangeDescription} ({sparklineRange}) public stock chart
-              {isHydratingQuotes ? ' · Updating...' : ''}
+              {isKo
+                ? `${rangeDescription} (${sparklineRange}) 상장 주가 차트`
+                : `${rangeDescription} (${sparklineRange}) public stock chart`}
+              {isHydratingQuotes
+                ? isKo
+                  ? ' · 업데이트 중...'
+                  : ' · Updating...'
+                : ''}
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            Public equities show live {rangeDescription.toLowerCase()} ({sparklineRange}) price &amp; sparkline · Private companies show disclosed valuation (no public share chart).
+            {isKo
+              ? `상장 주식은 실시간 ${rangeDescription} (${sparklineRange}) 주가 및 스파크라인을 표시하며, 비상장 기업은 공개 기업가치를 표시합니다 (상장 차트 없음).`
+              : `Public equities show live ${rangeDescription.toLowerCase()} (${sparklineRange}) price & sparkline · Private companies show disclosed valuation (no public share chart).`}
           </p>
         </div>
 
@@ -176,7 +194,7 @@ export function WatchlistCarousel({
           {/* Interactive Sparkline Timeframe Selector */}
           <div
             role="group"
-            aria-label="Watchlist sparkline time period"
+            aria-label={t.watchlist.returnWindowLabel}
             className="flex items-center gap-0.5 p-0.5 bg-[#0d1b33] border border-[#212c42] rounded-lg"
           >
             {APP_CONFIG.watchlist.supportedRanges.map((r) => (
@@ -191,7 +209,7 @@ export function WatchlistCarousel({
                     onSparklineRangeChange(r);
                   }
                 }}
-                title={`Show ${APP_CONFIG.watchlist.rangeDescriptions[r]} (${r}) price trend for followed public stocks`}
+                title={`${translateWatchlistRangeDescription(r, locale)} (${r})`}
                 className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 font-mono-tabular cursor-pointer ${
                   sparklineRange === r
                     ? 'bg-[#09a4ff] text-white'
@@ -215,8 +233,8 @@ export function WatchlistCarousel({
                     onClearFollowError();
                   }
                 }}
-                placeholder="Follow real ticker or company (e.g. TSLA, Anthropic)..."
-                aria-label="Follow verified ticker or company name"
+                placeholder={t.watchlist.followInputPlaceholder}
+                aria-label={t.watchlist.followInputPlaceholder}
                 aria-invalid={Boolean(followError)}
                 className={`w-60 sm:w-64 px-2.5 py-1.5 text-xs bg-[#0d1b33] border rounded-lg text-white placeholder:text-slate-500 focus:outline-none disabled:opacity-60 ${
                   followError
@@ -232,12 +250,12 @@ export function WatchlistCarousel({
                 {isAddingCompany ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Verifying...</span>
+                    <span>{t.watchlist.verifyingButton}</span>
                   </>
                 ) : (
                   <>
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Follow</span>
+                    <span>{t.common.follow}</span>
                   </>
                 )}
               </button>
@@ -248,11 +266,11 @@ export function WatchlistCarousel({
             <button
               type="button"
               onClick={onResetDefaults}
-              title="Reset to default institutional watchlist"
+              title={t.watchlist.resetDefaults}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white bg-[#0d1b33] border border-[#212c42] hover:border-slate-600 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-3 h-3" />
-              <span>Reset Defaults</span>
+              <span>{t.watchlist.resetDefaults}</span>
             </button>
           )}
         </div>
@@ -272,7 +290,7 @@ export function WatchlistCarousel({
             <button
               type="button"
               onClick={onClearFollowError}
-              aria-label="Dismiss follow validation error"
+              aria-label={t.common.close}
               className="p-0.5 text-rose-300 hover:text-white transition-colors cursor-pointer shrink-0"
             >
               <X className="w-3.5 h-3.5" />
@@ -284,8 +302,23 @@ export function WatchlistCarousel({
       {companies.length === 0 ? (
         <div className="p-6 rounded-xl bg-[#0d1b33] border border-[#212c42] flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-slate-300">
-            You are not following any companies right now. Use the form above, click{' '}
-            <span className="font-semibold text-white">+ Follow</span> on any company below, or restore the default institutional watchlist.
+            {isKo ? (
+              <>
+                현재 팔로우 중인 기업이 없습니다. 상단 입력창에서 검색하거나 아래 테마의{' '}
+                <span className="font-semibold text-white">
+                  {t.common.plusFollow}
+                </span>{' '}
+                버튼을 누르거나 기본 관심종목을 복원하세요.
+              </>
+            ) : (
+              <>
+                You are not following any companies right now. Use the form
+                above, click{' '}
+                <span className="font-semibold text-white">+ Follow</span> on
+                any company below, or restore the default institutional
+                watchlist.
+              </>
+            )}
           </p>
           {onResetDefaults && (
             <button
@@ -294,7 +327,7 @@ export function WatchlistCarousel({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-[#09a4ff] hover:bg-[#078be0] text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Restore Default Watchlist</span>
+              <span>{t.watchlist.resetDefaults}</span>
             </button>
           )}
         </div>
@@ -321,12 +354,17 @@ export function WatchlistCarousel({
               : null;
 
             // Ensure legacy private presets never display a stale "+X.XX%" string
-            const privateSubtext =
+            const rawPrivateSubtext =
               !isPublicEquity &&
               item.changePct &&
               !/^[+-]?\d+(\.\d+)?%$/.test(item.changePct.trim())
                 ? item.changePct
                 : 'Unlisted · No public share chart';
+
+            const privateSubtext = translatePresetMetadata(
+              rawPrivateSubtext,
+              locale
+            );
 
             return (
               <div
@@ -344,7 +382,7 @@ export function WatchlistCarousel({
                     </span>
                   ) : (
                     <span className="text-[11px] text-slate-400 shrink-0">
-                      Private
+                      {t.common.privateCompany}
                     </span>
                   )}
 
@@ -357,16 +395,16 @@ export function WatchlistCarousel({
                         });
                         onRemoveCompany(item.value);
                       }}
-                      title={`Unfollow ${item.label}`}
+                      title={`${t.common.unfollow} ${item.label}`}
                       className="group/unfollow inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50"
                     >
                       <span className="inline-grid items-center justify-items-center">
                         <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover/unfollow:opacity-0">
                           <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
-                          <span>Following</span>
+                          <span>{t.common.following}</span>
                         </span>
                         <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover/unfollow:opacity-100">
-                          Unfollow
+                          {t.common.unfollow}
                         </span>
                       </span>
                     </button>
@@ -382,6 +420,7 @@ export function WatchlistCarousel({
                     });
                     onSelectPreset(item);
                   }}
+                  title={`${t.watchlist.clickToResearchTooltip} (${item.label})`}
                   className="w-full flex-1 flex flex-col justify-between text-left cursor-pointer"
                 >
                   <div>
@@ -389,45 +428,45 @@ export function WatchlistCarousel({
                       {item.label}
                     </div>
                     <div className="text-xs text-slate-400 truncate mb-3">
-                      {item.sector}
+                      {translatePresetMetadata(item.sector, locale)}
                     </div>
                   </div>
 
-                {isPublicEquity ? (
-                  <div className="flex items-end justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-white font-mono-tabular">
-                        {item.price}
+                  {isPublicEquity ? (
+                    <div className="flex items-end justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-white font-mono-tabular">
+                          {item.price}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-mono-tabular whitespace-nowrap">
+                          <span
+                            className={
+                              item.positive ? 'text-emerald-400' : 'text-rose-400'
+                            }
+                          >
+                            {item.changePct}
+                          </span>
+                          <span className="text-slate-500" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="text-slate-400">
+                            {effectiveTimeframe}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs font-mono-tabular whitespace-nowrap">
-                        <span
-                          className={
-                            item.positive ? 'text-emerald-400' : 'text-rose-400'
-                          }
-                        >
-                          {item.changePct}
-                        </span>
-                        <span className="text-slate-500" aria-hidden="true">
-                          ·
-                        </span>
-                        <span className="text-slate-400">
-                          {effectiveTimeframe}
-                        </span>
+                      {sparklineNode}
+                    </div>
+                  ) : (
+                    <div className="pt-0.5">
+                      <div className="text-xs font-medium text-slate-200 truncate">
+                        {t.watchlist.privateUnlistedSubtext}
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono-tabular truncate">
+                        {privateSubtext}
                       </div>
                     </div>
-                    {sparklineNode}
-                  </div>
-                ) : (
-                  <div className="pt-0.5">
-                    <div className="text-xs font-medium text-slate-200 truncate">
-                      Privately Held
-                    </div>
-                    <div className="text-xs text-slate-400 font-mono-tabular truncate">
-                      {privateSubtext}
-                    </div>
-                  </div>
-                )}
-              </button>
+                  )}
+                </button>
               </div>
             );
           })}

@@ -40,13 +40,16 @@ function normalizeSentiment(value: unknown): ArticleSentiment {
  * @returns Promise resolving to enriched articles with `sentiment` populated, plus optional error info
  */
 export async function analyzeHeadlineSentiments(
-  articles: EnrichedNewsArticle[]
+  articles: EnrichedNewsArticle[],
+  locale: 'en' | 'ko' = 'en'
 ): Promise<{
   articles: EnrichedNewsArticle[];
   sentimentError: string | null;
 }> {
+  const isKo = locale === 'ko';
   logFunctionCall('analyzeHeadlineSentiments', {
     articleCount: articles.length,
+    locale,
   });
 
   if (articles.length === 0) {
@@ -78,7 +81,11 @@ export async function analyzeHeadlineSentiments(
     excerpt: article.description ? article.description.slice(0, 180) : '',
   }));
 
-  const prompt = `Classify the investor market sentiment of each news article below strictly as "Bullish", "Bearish", or "Neutral", and provide a concise 1-sentence reason (max 18 words) explaining why.
+  const prompt = `Classify the investor market sentiment of each news article below strictly as "Bullish", "Bearish", or "Neutral", and provide a concise 1-sentence reason (${
+    isKo
+      ? 'written in natural, institutional Korean (한국어)'
+      : 'max 18 words in English'
+  }) explaining why.
 
 Articles:
 ${JSON.stringify(headlinesPayload, null, 2)}`;
@@ -87,8 +94,11 @@ ${JSON.stringify(headlinesPayload, null, 2)}`;
     thinkingConfig: {
       thinkingLevel: ThinkingLevel.MINIMAL,
     },
-    systemInstruction:
-      'You are an institutional financial news analyst. For each article, return sentiment ("Bullish", "Bearish", or "Neutral") and a crisp 1-sentence reason explaining the specific positive catalyst, negative risk/headwind, or neutral context for investors.',
+    systemInstruction: `You are an institutional financial news analyst. For each article, return sentiment (strictly "Bullish", "Bearish", or "Neutral" in English) and a crisp 1-sentence reason explaining the specific positive catalyst, negative risk/headwind, or neutral context for investors.${
+      isKo
+        ? ' Write the `reason` field in natural, institutional Korean (한국어), while keeping `sentiment` strictly in English ("Bullish", "Bearish", or "Neutral").'
+        : ''
+    }`,
     responseMimeType: 'application/json',
     responseSchema: {
       type: Type.ARRAY,
@@ -105,8 +115,9 @@ ${JSON.stringify(headlinesPayload, null, 2)}`;
           },
           reason: {
             type: Type.STRING,
-            description:
-              'Concise 1-sentence explanation (<= 18 words) of why the article is Bullish, Bearish, or Neutral',
+            description: isKo
+              ? 'Concise 1-sentence explanation in Korean (한국어) of why the article is Bullish, Bearish, or Neutral'
+              : 'Concise 1-sentence explanation (<= 18 words) of why the article is Bullish, Bearish, or Neutral',
           },
         },
         required: ['index', 'sentiment', 'reason'],
