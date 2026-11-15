@@ -22,6 +22,7 @@ import { formatTickerWithAdr } from './adr-directory';
 import { formatSharePriceByCurrency } from './krx-directory';
 import { APP_CONFIG, type CompanyPreset } from './config';
 import type { CompanyProfileData } from './company-profile-service';
+import type { CompanyProductsData } from './company-products-types';
 import type { AIMarketBriefResponse } from './gemini-service';
 import type {
   ChartRange,
@@ -88,6 +89,21 @@ export interface SingleCompanyChatContext {
     fundingSummary: string | null;
     description: string | null;
   } | null;
+  productsPortfolio: {
+    businessModelSummary: string;
+    primaryCustomerSegments: string[];
+    revenueSegments: Array<{
+      segmentName: string;
+      shareOrScaleNote: string | null;
+      keyOfferings: string;
+    }>;
+    productLines: Array<{
+      name: string;
+      category: string;
+      description: string;
+      targetCustomers: string | null;
+    }>;
+  } | null;
   aiBrief: {
     sentiment: string;
     confidenceScore: number;
@@ -119,6 +135,9 @@ export interface CohortComparedCompanySnapshot {
   employees: string | null;
   headquarters: string | null;
   foundedYear: number | null;
+  coreProducts: string[];
+  revenueSegments: string[];
+  targetCustomers: string[];
   newsPosture: string | null;
   bullishPct: number | null;
   topCatalyst: {
@@ -195,6 +214,7 @@ export function buildWorkspaceResearchContext(params: {
   marketData: CompanyMarketOverviewData | null;
   chartRange: ChartRange;
   companyProfile: CompanyProfileData | null;
+  companyProducts?: CompanyProductsData | null;
   aiBrief: AIMarketBriefResponse | null;
   relatedData: RelatedCompaniesResponse | null;
   articles: EnrichedNewsArticle[];
@@ -260,6 +280,7 @@ export function buildWorkspaceResearchContext(params: {
           const dossier = params.cohortDossiersById[cand.id];
           const m = dossier?.market ?? screen.initialMarketById[cand.id] ?? null;
           const p = dossier?.profile ?? null;
+          const prod = dossier?.products ?? null;
           const n = dossier?.newsPulse ?? null;
 
           let periodReturnPctDisplay: string | null = null;
@@ -322,6 +343,20 @@ export function buildWorkspaceResearchContext(params: {
               p?.headquartersShort ||
               (m?.kind === 'private' ? m.headquarters : null),
             foundedYear: p?.foundedYear ?? null,
+            coreProducts: prod
+              ? prod.productLines
+                  .slice(0, 4)
+                  .map((pl) => `${pl.name} (${pl.category})`)
+              : [],
+            revenueSegments: prod
+              ? prod.revenueSegments
+                  .slice(0, 4)
+                  .map(
+                    (rs) =>
+                      `${rs.segmentName}${rs.shareOrScaleNote ? `: ${rs.shareOrScaleNote}` : ''}`
+                  )
+              : [],
+            targetCustomers: prod ? prod.primaryCustomerSegments.slice(0, 4) : [],
             newsPosture: n?.netPosture ?? null,
             bullishPct: n ? n.bullishPct : null,
             topCatalyst: n?.topCatalyst
@@ -458,6 +493,28 @@ export function buildWorkspaceResearchContext(params: {
               }`
             : null,
           description: p.description,
+        }
+      : null,
+    productsPortfolio: params.companyProducts
+      ? {
+          businessModelSummary: params.companyProducts.businessModelSummary,
+          primaryCustomerSegments:
+            params.companyProducts.primaryCustomerSegments.slice(0, 6),
+          revenueSegments: params.companyProducts.revenueSegments
+            .slice(0, 5)
+            .map((rs) => ({
+              segmentName: rs.segmentName,
+              shareOrScaleNote: rs.shareOrScaleNote,
+              keyOfferings: rs.keyOfferings,
+            })),
+          productLines: params.companyProducts.productLines
+            .slice(0, 6)
+            .map((pl) => ({
+              name: pl.name,
+              category: pl.category,
+              description: pl.description,
+              targetCustomers: pl.targetCustomers,
+            })),
         }
       : null,
     aiBrief: params.aiBrief

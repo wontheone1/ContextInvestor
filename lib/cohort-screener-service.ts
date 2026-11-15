@@ -32,6 +32,7 @@ import {
   getCompanyProfileBySearch,
   type ContextDevCompanyRecord,
 } from './company-profile-service';
+import { getCompanyProductsPortfolio } from './company-products-service';
 import {
   createContextDevClient,
   searchCompanyNews,
@@ -737,7 +738,20 @@ async function synthesizeComparativeSummary(
   const snapshot = dossiers.map((d) => {
     const m = d.market;
     const p = d.profile;
+    const prod = d.products;
     const n = d.newsPulse;
+    const coreProducts = prod
+      ? prod.productLines.slice(0, 3).map((pl) => pl.name)
+      : [];
+    const revenueSegments = prod
+      ? prod.revenueSegments
+          .slice(0, 3)
+          .map(
+            (rs) =>
+              `${rs.segmentName}${rs.shareOrScaleNote ? ` (${rs.shareOrScaleNote})` : ''}`
+          )
+      : [];
+
     if (m?.kind === 'public') {
       return {
         company: `${m.companyName} (${formatTickerWithAdr(
@@ -751,6 +765,8 @@ async function synthesizeComparativeSummary(
         trailingPE: m.metrics.trailingPE,
         forwardPE: m.metrics.forwardPE,
         revenue: m.currency === 'KRW' ? m.metrics.totalRevenue || p?.revenueDisplay : p?.revenueDisplay || m.metrics.totalRevenue,
+        coreProducts,
+        revenueSegments,
         newsPosture: n?.netPosture || 'Neutral',
         topCatalyst: n?.topCatalyst?.title || null,
       };
@@ -759,6 +775,8 @@ async function synthesizeComparativeSummary(
       company: `${m?.companyName || p?.name || d.id} (Private)`,
       valuation: m?.kind === 'private' ? m.latestValuation : p?.funding.totalUsdDisplay,
       revenue: p?.revenueDisplay || (m?.kind === 'private' ? m.estimatedRevenue : null),
+      coreProducts,
+      revenueSegments,
       newsPosture: n?.netPosture || 'Neutral',
       topCatalyst: n?.topCatalyst?.title || null,
     };
@@ -850,11 +868,12 @@ export async function hydrateCohortComparison(params: {
           id: item.id,
           market,
           profile: null,
+          products: null,
           newsPulse: null,
         };
       }
 
-      const [market, profile, newsPulse] = await Promise.all([
+      const [market, profile, products, newsPulse] = await Promise.all([
         getCompanyMarketOverview({
           query: item.searchQuery,
           entityType: item.entityType,
@@ -866,6 +885,12 @@ export async function hydrateCohortComparison(params: {
           entityType: item.entityType,
           companyNameHint: item.name,
         }).catch(() => null),
+        getCompanyProductsPortfolio({
+          query: item.searchQuery,
+          entityType: item.entityType,
+          companyNameHint: item.name,
+          locale,
+        }).catch(() => null),
         fetchCompanyNewsPulse(item).catch(() => null),
       ]);
 
@@ -873,6 +898,7 @@ export async function hydrateCohortComparison(params: {
         id: item.id,
         market,
         profile,
+        products,
         newsPulse,
       };
     })

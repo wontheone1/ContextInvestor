@@ -20,6 +20,7 @@
 
 import { stripAdrSuffix } from './adr-directory';
 import type { CompanyProfileData } from './company-profile-service';
+import type { CompanyProductsData } from './company-products-types';
 import { APP_CONFIG } from './config';
 import type {
   ChartRange,
@@ -78,6 +79,7 @@ export interface ComparedCompanyDossier {
   id: string;
   market: CompanyMarketOverviewData | null;
   profile: CompanyProfileData | null;
+  products?: CompanyProductsData | null;
   newsPulse: ComparedCompanyNewsPulse | null;
 }
 

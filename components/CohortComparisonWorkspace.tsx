@@ -1759,13 +1759,206 @@ export function CohortComparisonWorkspace({
                   })}
                 </tr>
 
-                {/* GROUP 3 HEADER: Live News Sentiment & Top Catalyst */}
+                {/* GROUP 3 HEADER: Products, Revenue Segments & Customers */}
                 <tr className="bg-[#091326]/70">
                   <td
                     colSpan={selectedCandidates.length + 1}
                     className="py-2.5 px-5 text-xs font-semibold text-[#49afe9]"
                   >
-                    03. {t.cohortWorkspace.dimNewsSentiment}
+                    03. {t.cohortWorkspace.dimProductsPortfolio}
+                  </td>
+                </tr>
+
+                {/* Core Product & Service Lines */}
+                <tr className="hover:bg-[#0f203d]/40">
+                  <td className="py-3.5 px-5 font-medium text-slate-300 align-top">
+                    {t.cohortWorkspace.rowCoreProducts}
+                  </td>
+                  {selectedCandidates.map((cand) => {
+                    const prod = dossiersById[cand.id]?.products ?? null;
+                    if (!prod) {
+                      return (
+                        <td
+                          key={cand.id}
+                          className="py-3.5 px-5 border-l border-[#212c42] align-top"
+                        >
+                          {isHydratingComparison ? (
+                            <div className="space-y-1.5">
+                              <div className="h-3.5 w-4/5 bg-[#162849] rounded animate-pulse" />
+                              <div className="h-3.5 w-full bg-[#162849] rounded animate-pulse" />
+                              <div className="h-3.5 w-2/3 bg-[#162849] rounded animate-pulse" />
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                      );
+                    }
+
+                    const topLines = prod.productLines.slice(0, 4);
+                    const leadCitation = prod.sources[0] || null;
+
+                    return (
+                      <td
+                        key={cand.id}
+                        className="py-3.5 px-5 border-l border-[#212c42] align-top space-y-2"
+                      >
+                        <ul className="space-y-1.5">
+                          {topLines.map((line, idx) => (
+                            <li
+                              key={`${line.name}-${idx}`}
+                              className="leading-snug"
+                            >
+                              <span className="font-semibold text-white">
+                                {line.name}
+                              </span>
+                              {line.category && (
+                                <span className="text-slate-400">
+                                  {' '}
+                                  · {line.category}
+                                </span>
+                              )}
+                              <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5">
+                                {line.description}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {leadCitation && (
+                          <div className="pt-0.5">
+                            <a
+                              href={leadCitation.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-mono-tabular text-[#49afe9] hover:text-white hover:underline transition-colors"
+                            >
+                              <span>{leadCitation.displayLabel}</span>
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Operating Revenue Segments & Mix */}
+                <tr className="hover:bg-[#0f203d]/40">
+                  <td className="py-3.5 px-5 font-medium text-slate-300 align-top">
+                    {t.cohortWorkspace.rowRevenueSegments}
+                  </td>
+                  {selectedCandidates.map((cand) => {
+                    const prod = dossiersById[cand.id]?.products ?? null;
+                    if (!prod) {
+                      return (
+                        <td
+                          key={cand.id}
+                          className="py-3.5 px-5 border-l border-[#212c42] align-top"
+                        >
+                          {isHydratingComparison ? (
+                            <div className="space-y-1.5">
+                              <div className="h-3.5 w-3/4 bg-[#162849] rounded animate-pulse" />
+                              <div className="h-3.5 w-1/2 bg-[#162849] rounded animate-pulse" />
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                      );
+                    }
+
+                    if (prod.revenueSegments.length === 0) {
+                      return (
+                        <td
+                          key={cand.id}
+                          className="py-3.5 px-5 border-l border-[#212c42] align-top text-slate-300 leading-relaxed"
+                        >
+                          {prod.businessModelSummary || '—'}
+                        </td>
+                      );
+                    }
+
+                    return (
+                      <td
+                        key={cand.id}
+                        className="py-3.5 px-5 border-l border-[#212c42] align-top space-y-1.5"
+                      >
+                        {prod.revenueSegments.slice(0, 4).map((seg, idx) => (
+                          <div
+                            key={`${seg.segmentName}-${idx}`}
+                            className="leading-snug"
+                          >
+                            <div className="flex flex-wrap items-baseline justify-between gap-1.5">
+                              <span className="font-semibold text-slate-100">
+                                {seg.segmentName}
+                              </span>
+                              {seg.shareOrScaleNote && (
+                                <span className="text-[11px] font-mono-tabular text-[#49afe9]">
+                                  {seg.shareOrScaleNote}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-400 line-clamp-1">
+                              {seg.keyOfferings}
+                            </div>
+                          </div>
+                        ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Target Customer Segments */}
+                <tr className="hover:bg-[#0f203d]/40">
+                  <td className="py-3 px-5 font-medium text-slate-300 align-top">
+                    {t.cohortWorkspace.rowTargetCustomers}
+                  </td>
+                  {selectedCandidates.map((cand) => {
+                    const prod = dossiersById[cand.id]?.products ?? null;
+                    if (!prod) {
+                      return (
+                        <td
+                          key={cand.id}
+                          className="py-3 px-5 border-l border-[#212c42] align-top"
+                        >
+                          {isHydratingComparison ? (
+                            <span className="inline-block h-3.5 w-36 bg-[#162849] rounded animate-pulse" />
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
+                        </td>
+                      );
+                    }
+
+                    const customerList =
+                      prod.primaryCustomerSegments.length > 0
+                        ? prod.primaryCustomerSegments
+                        : prod.productLines
+                            .map((p) => p.targetCustomers)
+                            .filter((c): c is string => Boolean(c))
+                            .slice(0, 3);
+
+                    return (
+                      <td
+                        key={cand.id}
+                        className="py-3 px-5 border-l border-[#212c42] align-top text-slate-200 leading-relaxed"
+                      >
+                        {customerList.length > 0
+                          ? customerList.slice(0, 4).join(' · ')
+                          : '—'}
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* GROUP 4 HEADER: Live News Sentiment & Top Catalyst */}
+                <tr className="bg-[#091326]/70">
+                  <td
+                    colSpan={selectedCandidates.length + 1}
+                    className="py-2.5 px-5 text-xs font-semibold text-[#49afe9]"
+                  >
+                    04. {t.cohortWorkspace.dimNewsSentiment}
                   </td>
                 </tr>
 

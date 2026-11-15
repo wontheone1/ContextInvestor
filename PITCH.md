@@ -19,9 +19,10 @@
 - **Time-Window & Source Controls**: Narrow coverage to the last 24 hours, 7 days, 30 days, 90 days, or custom date windows—and filter by article type (editorial reporting, press releases, regulatory filings, advisories), language, publisher country, or specific domain.
 - **Deterministic Browsing & Sorting**: Switch instantly between **Newest First** and **Relevance** sorting and page smoothly through deep historical coverage without losing active filters.
 
-### 3. Live Price Action & Key Valuation Indicators
+### 3. Live Price Action, Key Valuation Indicators & Official Product Portfolio Intelligence
 - **Interactive Equity Price Charts**: Inspect live price movement across `1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, and `5Y` timeframes with interactive crosshair inspection, previous-close reference lines, and period high/low tracking across USD (`$`) and pure Korean Won (`₩` integer) scales.
 - **At-a-Glance Fundamental Metrics**: Pair breaking news directly with Market Cap (`$B/$T` or pure Korean `₩조/억` units), Trailing & Forward P/E, P/B, EPS (TTM), Analyst Target Price, 52-Week Range positioning, trading volume, dividend yield, and beta—backed by resilient multi-source KRX fundamental enrichment.
+- **Company Products, Revenue Segments & Target Customers (`Context.dev web.answers`)**: Directly beneath price action—and side-by-side in the Cohort Comparison Matrix—Contextual Investing uses Context.dev `web.answers` (`mode: 'fast'`) to extract each company's commercial product & service lines, operating revenue segments, and primary buyer groups with clickable citations to official product and investor relations URLs in both English and Korean.
 
 ### 4. Supply-Chain & Competitive Ecosystem Discovery
 - **Relationship-Grouped Related Companies**: Whenever an investor searches a public company, Contextual Investing automatically maps its surrounding ecosystem across four actionable groups:

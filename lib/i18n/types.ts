@@ -169,6 +169,23 @@ export interface UiTranslations {
     recentRounds: string;
     noFundingDisclosed: string;
   };
+  companyProducts: {
+    headerTitle: string;
+    headerSubtitle: string;
+    loadingPortfolio: string;
+    monetizationLabel: string;
+    targetCustomersLabel: string;
+    revenueSegmentsHeader: string;
+    colSegmentName: string;
+    colKeyOfferings: string;
+    colShareScale: string;
+    productLinesHeader: string;
+    allCategories: string;
+    targetBuyersPrefix: string;
+    officialPageLink: string;
+    officialSourcesPrefix: string;
+    emptyPortfolio: string;
+  };
   relatedCompanies: {
     headerTitle: string;
     headerSubtitlePrefix: string;
@@ -251,6 +268,10 @@ export interface UiTranslations {
     rowHeadquarters: string;
     rowEmployeesFounded: string;
     rowRevenueFunding: string;
+    dimProductsPortfolio: string;
+    rowCoreProducts: string;
+    rowRevenueSegments: string;
+    rowTargetCustomers: string;
     dimNewsSentiment: string;
     rowHeadlinePosture: string;
     rowTopCatalystHeadline: string;

@@ -67,6 +67,7 @@ import { SdkCacheInspector } from '@/components/SdkCacheInspector';
 import { CompanyMarketOverview } from '@/components/CompanyMarketOverview';
 import { RelatedCompaniesPanel } from '@/components/RelatedCompaniesPanel';
 import { CollapsibleCompanyProfile } from '@/components/CollapsibleCompanyProfile';
+import CompanyProductsPanel from '@/components/CompanyProductsPanel';
 import { CohortComparisonWorkspace } from '@/components/CohortComparisonWorkspace';
 import { ContextualResearchDrawer } from '@/components/ContextualResearchDrawer';
 import {
@@ -79,6 +80,7 @@ import { formatTickerWithAdr } from '@/lib/adr-directory';
 import { formatSharePriceByCurrency } from '@/lib/krx-directory';
 import { translatePresetMetadata } from '@/lib/i18n';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
+import type { CompanyProductsData } from '@/lib/company-products-types';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
@@ -332,6 +334,16 @@ export default function InvestorDashboardPage() {
     new Map()
   );
   const profileReqSeqRef = useRef<number>(0);
+
+  // Company Products, Revenue Segments & Target Customers (Context.dev /v1/web/answers) State
+  const [companyProducts, setCompanyProducts] =
+    useState<CompanyProductsData | null>(null);
+  const [isLoadingProducts, setIsLoadingProducts] = useState<boolean>(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const productsCacheRef = useRef<Map<string, CompanyProductsData | null>>(
+    new Map()
+  );
+  const productsReqSeqRef = useRef<number>(0);
 
   // Natural-Language Cohort Screening & Multi-Company Comparison State
   const [workspaceMode, setWorkspaceMode] =
@@ -1309,6 +1321,87 @@ export default function InvestorDashboardPage() {
   );
 
   /**
+   * Loads the company's commercial products & services, operating revenue segments,
+   * and target customers via GET /api/company/products (Context.dev web.answers fast mode).
+   */
+  const fetchCompanyProducts = useCallback(
+    async (
+      query: string,
+      entityType: 'auto' | 'name' | 'ticker',
+      options?: {
+        domainHint?: string | null;
+        companyNameHint?: string | null;
+        forceRefresh?: boolean;
+        targetLocale?: 'en' | 'ko';
+      }
+    ) => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      const activeLocale = options?.targetLocale ?? localeRef.current;
+      const forceRefresh = Boolean(options?.forceRefresh);
+      const cacheKey = `${activeLocale}::${entityType}::${trimmed.toLowerCase()}`;
+
+      if (!forceRefresh && productsCacheRef.current.has(cacheKey)) {
+        setProductsError(null);
+        setCompanyProducts(productsCacheRef.current.get(cacheKey) ?? null);
+        setIsLoadingProducts(false);
+        return;
+      }
+
+      const seq = ++productsReqSeqRef.current;
+      setIsLoadingProducts(true);
+      setProductsError(null);
+      if (!forceRefresh) {
+        setCompanyProducts(null);
+      }
+
+      try {
+        const params = new URLSearchParams({
+          query: trimmed,
+          entityType,
+          locale: activeLocale,
+        });
+        if (options?.domainHint && options.domainHint.trim()) {
+          params.set('domain', options.domainHint.trim());
+        }
+        if (options?.companyNameHint && options.companyNameHint.trim()) {
+          params.set('companyNameHint', options.companyNameHint.trim());
+        }
+        if (forceRefresh) {
+          params.set('refresh', '1');
+        }
+
+        const res = await fetch(`/api/company/products?${params.toString()}`);
+        const json = await res.json();
+        if (seq !== productsReqSeqRef.current) return;
+        if (!res.ok || !json.ok) {
+          throw new Error(
+            json.error || 'Failed to load company products and revenue segments.'
+          );
+        }
+
+        const resolvedProducts =
+          (json.products as CompanyProductsData | null) ?? null;
+        productsCacheRef.current.set(cacheKey, resolvedProducts);
+        setCompanyProducts(resolvedProducts);
+      } catch (err) {
+        if (seq !== productsReqSeqRef.current) return;
+        setProductsError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to retrieve company product portfolio.'
+        );
+      } finally {
+        if (seq === productsReqSeqRef.current) {
+          setIsLoadingProducts(false);
+        }
+      }
+    },
+    []
+  );
+
+  /**
    * Fast chart-only refresh when switching timeframe tabs (1D, 5D, 1M, 6M, YTD, 1Y, 5Y).
    */
   const handleChartRangeChange = async (nextRange: ChartRange) => {
@@ -1557,6 +1650,10 @@ export default function InvestorDashboardPage() {
         undefined,
         false
       );
+      void fetchCompanyProducts(
+        searchState.entityValue,
+        searchState.entityType
+      );
       void fetchRelatedCompanies(searchState.entityValue, false);
     }, 0);
     return () => clearTimeout(timer);
@@ -1636,12 +1733,14 @@ export default function InvestorDashboardPage() {
                   id,
                   market: dossier.market ?? existing?.market ?? null,
                   profile: existing?.profile ?? null,
+                  products: existing?.products ?? null,
                   newsPulse: existing?.newsPulse ?? null,
                 }
               : {
                   id,
                   market: dossier.market ?? existing?.market ?? null,
                   profile: dossier.profile ?? existing?.profile ?? null,
+                  products: dossier.products ?? existing?.products ?? null,
                   newsPulse: dossier.newsPulse ?? existing?.newsPulse ?? null,
                 };
           }
@@ -1725,6 +1824,7 @@ export default function InvestorDashboardPage() {
             id,
             market: mkt,
             profile: null,
+            products: null,
             newsPulse: null,
           };
         }
@@ -1920,6 +2020,7 @@ export default function InvestorDashboardPage() {
           id,
           market: overview,
           profile: prev[id]?.profile ?? null,
+          products: prev[id]?.products ?? null,
           newsPulse: prev[id]?.newsPulse ?? null,
         },
       }));
@@ -2004,6 +2105,11 @@ export default function InvestorDashboardPage() {
       undefined,
       forceRefresh
     );
+    void fetchCompanyProducts(
+      targetState.entityValue,
+      targetState.entityType,
+      { forceRefresh }
+    );
     void fetchRelatedCompanies(targetState.entityValue, forceRefresh);
   };
 
@@ -2087,6 +2193,7 @@ export default function InvestorDashboardPage() {
     executeSearchForCursor(nextState, null, 0, false, null, null);
     void fetchMarketOverview(companyValue, entityType, chartRange);
     void fetchCompanyProfile(companyValue, entityType, undefined, false);
+    void fetchCompanyProducts(companyValue, entityType);
     void fetchRelatedCompanies(companyValue, false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -2131,6 +2238,9 @@ export default function InvestorDashboardPage() {
       company.name,
       false
     );
+    void fetchCompanyProducts(company.searchQuery, company.entityType, {
+      companyNameHint: company.name,
+    });
     void fetchRelatedCompanies(company.searchQuery, false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -2383,6 +2493,11 @@ export default function InvestorDashboardPage() {
         chartRangeRef.current,
         locale
       );
+      void fetchCompanyProducts(
+        entityValueRef.current,
+        entityTypeRef.current,
+        { targetLocale: locale }
+      );
       void fetchRelatedCompanies(entityValueRef.current, false, locale);
       if (articlesRef.current.length > 0) {
         void generateBriefForArticles(
@@ -2400,6 +2515,7 @@ export default function InvestorDashboardPage() {
     hydrateFollowedWatchlistQuotes,
     runCohortScreen,
     fetchMarketOverview,
+    fetchCompanyProducts,
     fetchRelatedCompanies,
     generateBriefForArticles,
     enrichMissingSentiments,
@@ -2414,6 +2530,7 @@ export default function InvestorDashboardPage() {
         marketData,
         chartRange,
         companyProfile,
+        companyProducts,
         aiBrief,
         relatedData,
         articles,
@@ -2433,6 +2550,7 @@ export default function InvestorDashboardPage() {
       marketData,
       chartRange,
       companyProfile,
+      companyProducts,
       aiBrief,
       relatedData,
       articles,
@@ -3122,6 +3240,27 @@ export default function InvestorDashboardPage() {
                           canFollowCurrentSearchedCompany
                             ? handleToggleCurrentSearchedCompanyFollow
                             : undefined
+                        }
+                      />
+
+                      <CompanyProductsPanel
+                        searchedQuery={searchState.entityValue}
+                        data={companyProducts}
+                        isLoading={isLoadingProducts}
+                        error={productsError}
+                        onRefresh={() =>
+                          void fetchCompanyProducts(
+                            searchState.entityValue,
+                            searchState.entityType,
+                            {
+                              domainHint: companyProfile?.domain ?? null,
+                              companyNameHint:
+                                marketData?.companyName ??
+                                companyProfile?.name ??
+                                null,
+                              forceRefresh: true,
+                            }
+                          )
                         }
                       />
 
