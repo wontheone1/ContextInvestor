@@ -391,6 +391,12 @@ export default function InvestorDashboardPage() {
   const fetchWatchlistDigest = useCallback(
     async (companiesToTrack: CompanyPreset[], forceRefresh = false) => {
       const seq = ++watchlistDigestReqSeqRef.current;
+      if (companiesToTrack.length === 0) {
+        setWatchlistDigest(null);
+        setWatchlistDigestError(null);
+        setIsLoadingWatchlistDigest(false);
+        return;
+      }
       setIsLoadingWatchlistDigest(true);
       setWatchlistDigestError(null);
 
@@ -520,9 +526,9 @@ export default function InvestorDashboardPage() {
       let customized = false;
       try {
         const rawSaved = window.localStorage.getItem(FOLLOWED_STORAGE_KEY);
-        if (rawSaved) {
+        if (rawSaved !== null) {
           const parsed = JSON.parse(rawSaved) as CompanyPreset[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             initialCompanies = parsed.map((p) =>
               p.entityType !== 'ticker' || p.kind === 'private'
                 ? { ...p, kind: 'private', sparkline: [] }
@@ -867,7 +873,7 @@ export default function InvestorDashboardPage() {
     alternateLabel?: string
   ) => {
     const latestList = followedCompaniesRef.current;
-    if (latestList.length <= 1) return;
+    if (latestList.length === 0) return;
 
     const cleanVal = valueToRemove.trim().toLowerCase();
     const cleanAlt = (alternateLabel || '').trim().toLowerCase();
@@ -2608,33 +2614,44 @@ export default function InvestorDashboardPage() {
                   <span className="text-xs text-slate-400 font-mono-tabular mr-1">
                     Following ({followedCompanies.length}):
                   </span>
-                  {followedCompanies.map((c) => {
-                    const isActiveSingle =
-                      workspaceMode === 'single' &&
-                      (searchState.entityValue.trim().toLowerCase() ===
-                        c.value.toLowerCase() ||
-                        activeCanonicalSymbol.trim().toLowerCase() ===
-                          c.value.toLowerCase());
-                    return (
+                  {followedCompanies.length === 0 ? (
+                    <div className="inline-flex items-center gap-2 text-xs text-slate-400">
+                      <span>None selected</span>
+                      <button
+                        type="button"
+                        onClick={handleResetDefaultWatchlist}
+                        className="text-[#49afe9] hover:text-white font-medium underline underline-offset-2 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        Restore Defaults
+                      </button>
+                    </div>
+                  ) : (
+                    followedCompanies.map((c) => (
                       <button
                         key={`${c.entityType}-${c.value}`}
                         type="button"
-                        onClick={() => handleSelectPreset(c)}
-                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                          isActiveSingle
-                            ? 'bg-[#09a4ff] border-[#09a4ff] text-white'
-                            : 'bg-[#0d1b33] border-[#212c42] text-slate-300 hover:text-white hover:border-[#49afe9]/50'
-                        }`}
+                        onClick={() =>
+                          void handleRemoveFollowedCompany(c.value, c.label)
+                        }
+                        title={`Unfollow ${c.label}`}
+                        className="group px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50"
                       >
-                        <span>{c.label}</span>
-                        {c.entityType === 'ticker' && (
-                          <span className="ml-1 font-mono-tabular opacity-85">
-                            {c.value}
+                        <span className="inline-grid items-center justify-items-center">
+                          <span className="col-start-1 row-start-1 inline-flex items-center transition-opacity duration-150 group-hover:opacity-0">
+                            <span>{c.label}</span>
+                            {c.entityType === 'ticker' && (
+                              <span className="ml-1 font-mono-tabular opacity-85">
+                                {c.value}
+                              </span>
+                            )}
                           </span>
-                        )}
+                          <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                            Unfollow
+                          </span>
+                        </span>
                       </button>
-                    );
-                  })}
+                    ))
+                  )}
                 </div>
 
                 <button
@@ -2771,9 +2788,14 @@ export default function InvestorDashboardPage() {
                         type="button"
                         disabled={isCurrentCompanyFollowPending}
                         onClick={handleToggleCurrentSearchedCompanyFollow}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+                        title={
                           isCurrentCompanyFollowed
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                            ? `Unfollow ${marketData?.companyName || activeCanonicalSymbol}`
+                            : `Follow ${marketData?.companyName || activeCanonicalSymbol}`
+                        }
+                        className={`group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+                          isCurrentCompanyFollowed
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
                             : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c] hover:text-white'
                         }`}
                       >
@@ -2783,10 +2805,15 @@ export default function InvestorDashboardPage() {
                             <span>Verifying...</span>
                           </>
                         ) : isCurrentCompanyFollowed ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Following in Watchlist</span>
-                          </>
+                          <span className="inline-grid items-center justify-items-center">
+                            <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
+                              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>Following in Watchlist</span>
+                            </span>
+                            <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                              Unfollow
+                            </span>
+                          </span>
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
@@ -3132,10 +3159,7 @@ export default function InvestorDashboardPage() {
                             <button
                               key={starter.value}
                               type="button"
-                              disabled={
-                                isPending ||
-                                (isFollowed && followedCompanies.length <= 1)
-                              }
+                              disabled={isPending}
                               onClick={() =>
                                 handleToggleFollowCompany(
                                   starter.value,
@@ -3143,9 +3167,14 @@ export default function InvestorDashboardPage() {
                                   starter.sector
                                 )
                               }
-                              className={`p-3.5 rounded-lg border text-left transition-colors flex items-start justify-between gap-2 cursor-pointer ${
+                              title={
                                 isFollowed
-                                  ? 'bg-[#102344] border-[#09a4ff] text-white'
+                                  ? `Unfollow ${starter.label}`
+                                  : `Follow ${starter.label}`
+                              }
+                              className={`group p-3.5 rounded-lg border text-left transition-colors flex items-start justify-between gap-2 cursor-pointer disabled:opacity-60 ${
+                                isFollowed
+                                  ? 'bg-[#102344] border-[#09a4ff] text-white hover:border-rose-400/70'
                                   : 'bg-[#091326] border-[#212c42] text-slate-200 hover:border-[#49afe9]/60'
                               }`}
                             >
@@ -3168,21 +3197,26 @@ export default function InvestorDashboardPage() {
                                 </div>
                               </div>
 
-                              <span
-                                className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border ${
-                                  isFollowed
-                                    ? 'bg-[#09a4ff] border-[#09a4ff] text-white'
-                                    : 'border-[#212c42] text-slate-400'
-                                }`}
-                              >
-                                {isPending ? (
+                              {isPending ? (
+                                <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 border border-[#212c42] text-[#49afe9]">
                                   <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : isFollowed ? (
-                                  <Check className="w-3 h-3" />
-                                ) : (
-                                  <Plus className="w-3 h-3" />
-                                )}
-                              </span>
+                                </span>
+                              ) : isFollowed ? (
+                                <span className="inline-grid items-center justify-items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 group-hover:bg-rose-500/20 group-hover:text-rose-200 group-hover:border-rose-500/50 transition-colors whitespace-nowrap shrink-0">
+                                  <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    <span>Following</span>
+                                  </span>
+                                  <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                    Unfollow
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#0d1b33] text-slate-300 border border-[#212c42] group-hover:border-[#09a4ff] group-hover:text-white transition-colors whitespace-nowrap shrink-0">
+                                  <Plus className="w-3 h-3 text-[#49afe9]" />
+                                  <span>Follow</span>
+                                </span>
+                              )}
                             </button>
                           );
                         })}

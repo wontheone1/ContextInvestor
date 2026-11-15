@@ -644,9 +644,14 @@ export function CompanyMarketOverview({
                     });
                     onToggleFollow();
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                  title={
                     isFollowed
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                      ? `Unfollow ${data.companyName}`
+                      : `Follow ${data.companyName}`
+                  }
+                  className={`group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                    isFollowed
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
                       : 'bg-[#091326] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#102344] hover:text-white'
                   }`}
                 >
@@ -656,10 +661,15 @@ export function CompanyMarketOverview({
                       <span>Verifying...</span>
                     </>
                   ) : isFollowed ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Following</span>
-                    </>
+                    <span className="inline-grid items-center justify-items-center">
+                      <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Following</span>
+                      </span>
+                      <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                        Unfollow
+                      </span>
+                    </span>
                   ) : (
                     <>
                       <Plus className="w-3.5 h-3.5" />
@@ -888,9 +898,14 @@ export function CompanyMarketOverview({
                       });
                       onToggleFollow();
                     }}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                    title={
                       isFollowed
-                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                        ? `Unfollow ${data.symbol}`
+                        : `Follow ${data.symbol}`
+                    }
+                    className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                      isFollowed
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
                         : 'bg-[#091326] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#102344] hover:text-white'
                     }`}
                   >
@@ -900,10 +915,15 @@ export function CompanyMarketOverview({
                         <span>Verifying...</span>
                       </>
                     ) : isFollowed ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span>Following</span>
-                      </>
+                      <span className="inline-grid items-center justify-items-center">
+                        <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                          <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Following</span>
+                        </span>
+                        <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                          Unfollow
+                        </span>
+                      </span>
                     ) : (
                       <>
                         <Plus className="w-3 h-3" />

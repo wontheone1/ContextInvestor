@@ -794,19 +794,29 @@ export function CohortComparisonWorkspace({
                           cand.sector
                         );
                       }}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                      title={
                         isCandFollowed
-                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                          ? `Unfollow ${cand.name}`
+                          : `Follow ${cand.name}`
+                      }
+                      className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                        isCandFollowed
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
                           : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
                       }`}
                     >
                       {isCandPending ? (
                         <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
                       ) : isCandFollowed ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span>Following</span>
-                        </>
+                        <span className="inline-grid items-center justify-items-center">
+                          <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span>Following</span>
+                          </span>
+                          <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                            Unfollow
+                          </span>
+                        </span>
                       ) : (
                         <>
                           <Plus className="w-3 h-3 text-[#49afe9]" />
@@ -1168,19 +1178,29 @@ export function CohortComparisonWorkspace({
                                   cand.sector
                                 )
                               }
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                              title={
                                 isFollowed
-                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                                  ? `Unfollow ${cand.name}`
+                                  : `Follow ${cand.name}`
+                              }
+                              className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                                isFollowed
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
                                   : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff]'
                               }`}
                             >
                               {isMatrixPending ? (
                                 <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
                               ) : isFollowed ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-400" />
-                                  <span>Following</span>
-                                </>
+                                <span className="inline-grid items-center justify-items-center">
+                                  <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    <span>Following</span>
+                                  </span>
+                                  <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                    Unfollow
+                                  </span>
+                                </span>
                               ) : (
                                 <>
                                   <Plus className="w-3 h-3" />

@@ -371,6 +371,13 @@ export function WatchlistLandingBrief({
         </div>
       )}
 
+      {/* Empty Watchlist State */}
+      {!isLoading && !error && !digest && followedCount === 0 && (
+        <div className="p-6 text-sm text-slate-300">
+          Follow at least one public equity or private company to generate your daily cross-watchlist Morning Brief.
+        </div>
+      )}
+
       {/* Main Populated Content */}
       {digest && (
         <div>

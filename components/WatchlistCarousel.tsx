@@ -26,7 +26,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, Plus, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Plus, RotateCcw, X } from 'lucide-react';
 import {
   APP_CONFIG,
   type CompanyPreset,
@@ -280,89 +280,114 @@ export function WatchlistCarousel({
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-        {companies.map((item) => {
-          const isSelected =
-            activeValue.toLowerCase() === item.value.toLowerCase() &&
-            (activeEntityType === 'auto' ||
-              activeEntityType === item.entityType);
-
-          const isPublicEquity =
-            item.kind !== 'private' && item.entityType === 'ticker';
-          const effectiveTimeframe = item.timeframe || sparklineRange;
-          const sparklineNode = isPublicEquity
-            ? renderSparklineSvg(
-                item.sparkline,
-                item.positive,
-                `${effectiveTimeframe} (${item.value})`
-              )
-            : null;
-
-          // Ensure legacy private presets never display a stale "+X.XX%" string
-          const privateSubtext =
-            !isPublicEquity &&
-            item.changePct &&
-            !/^[+-]?\d+(\.\d+)?%$/.test(item.changePct.trim())
-              ? item.changePct
-              : 'Unlisted · No public share chart';
-
-          return (
-            <div
-              key={`${item.entityType}-${item.value}`}
-              className={`relative group rounded-xl border transition-all ${
-                isSelected
-                  ? 'bg-[#102344] border-[#09a4ff]'
-                  : 'bg-[#0d1b33] border-[#212c42] hover:border-[#49afe9]/60'
-              }`}
+      {companies.length === 0 ? (
+        <div className="p-6 rounded-xl bg-[#0d1b33] border border-[#212c42] flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-slate-300">
+            You are not following any companies right now. Use the form above, click{' '}
+            <span className="font-semibold text-white">+ Follow</span> on any company below, or restore the default institutional watchlist.
+          </p>
+          {onResetDefaults && (
+            <button
+              type="button"
+              onClick={onResetDefaults}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-[#09a4ff] hover:bg-[#078be0] text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
-              {onRemoveCompany && companies.length > 1 && (
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore Default Watchlist</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+          {companies.map((item) => {
+            const isSelected =
+              activeValue.toLowerCase() === item.value.toLowerCase() &&
+              (activeEntityType === 'auto' ||
+                activeEntityType === item.entityType);
+
+            const isPublicEquity =
+              item.kind !== 'private' && item.entityType === 'ticker';
+            const effectiveTimeframe = item.timeframe || sparklineRange;
+            const sparklineNode = isPublicEquity
+              ? renderSparklineSvg(
+                  item.sparkline,
+                  item.positive,
+                  `${effectiveTimeframe} (${item.value})`
+                )
+              : null;
+
+            // Ensure legacy private presets never display a stale "+X.XX%" string
+            const privateSubtext =
+              !isPublicEquity &&
+              item.changePct &&
+              !/^[+-]?\d+(\.\d+)?%$/.test(item.changePct.trim())
+                ? item.changePct
+                : 'Unlisted · No public share chart';
+
+            return (
+              <div
+                key={`${item.entityType}-${item.value}`}
+                className={`flex flex-col justify-between rounded-xl border transition-all p-4 ${
+                  isSelected
+                    ? 'bg-[#102344] border-[#09a4ff]'
+                    : 'bg-[#0d1b33] border-[#212c42] hover:border-[#49afe9]/60'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  {isPublicEquity ? (
+                    <span className="text-xs text-[#49afe9] font-mono-tabular font-semibold shrink-0">
+                      {item.value}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 shrink-0">
+                      Private
+                    </span>
+                  )}
+
+                  {onRemoveCompany && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logFunctionCall('WatchlistCarousel.onRemoveCompany', {
+                          value: item.value,
+                        });
+                        onRemoveCompany(item.value);
+                      }}
+                      title={`Unfollow ${item.label}`}
+                      className="group/unfollow inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50"
+                    >
+                      <span className="inline-grid items-center justify-items-center">
+                        <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover/unfollow:opacity-0">
+                          <Check className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+                          <span>Following</span>
+                        </span>
+                        <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover/unfollow:opacity-100">
+                          Unfollow
+                        </span>
+                      </span>
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    logFunctionCall('WatchlistCarousel.onRemoveCompany', {
+                  onClick={() => {
+                    logFunctionCall('WatchlistCarousel.onSelectPreset', {
+                      entityType: item.entityType,
                       value: item.value,
                     });
-                    onRemoveCompany(item.value);
+                    onSelectPreset(item);
                   }}
-                  title={`Unfollow ${item.label}`}
-                  className="absolute top-2 right-2 z-10 p-1 rounded bg-[#091326]/80 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  className="w-full flex-1 flex flex-col justify-between text-left cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  logFunctionCall('WatchlistCarousel.onSelectPreset', {
-                    entityType: item.entityType,
-                    value: item.value,
-                  });
-                  onSelectPreset(item);
-                }}
-                className="w-full h-full flex flex-col justify-between text-left p-4 cursor-pointer"
-              >
-                <div>
-                  <div className="flex items-baseline justify-between gap-2 mb-1 pr-4">
-                    <span className="text-sm font-bold text-white truncate">
+                  <div>
+                    <div className="text-sm font-bold text-white truncate mb-0.5">
                       {item.label}
-                    </span>
-                    {isPublicEquity ? (
-                      <span className="text-xs text-[#49afe9] font-mono-tabular shrink-0">
-                        {item.value}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 shrink-0">
-                        Private
-                      </span>
-                    )}
+                    </div>
+                    <div className="text-xs text-slate-400 truncate mb-3">
+                      {item.sector}
+                    </div>
                   </div>
-
-                  <div className="text-xs text-slate-400 truncate mb-3">
-                    {item.sector}
-                  </div>
-                </div>
 
                 {isPublicEquity ? (
                   <div className="flex items-end justify-between gap-2">
@@ -399,10 +424,11 @@ export function WatchlistCarousel({
                   </div>
                 )}
               </button>
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
