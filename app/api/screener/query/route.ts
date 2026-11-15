@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       query?: string;
       range?: string;
       forceRefresh?: boolean;
+      locale?: string;
     };
 
     const query = typeof body.query === 'string' ? body.query.trim() : '';
@@ -52,11 +53,13 @@ export async function POST(req: NextRequest) {
         ? (body.range as ChartRange)
         : '1M';
     const forceRefresh = Boolean(body.forceRefresh);
+    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/screener/query', {
       query,
       range,
       forceRefresh,
+      locale,
     });
 
     if (!query) {
@@ -73,6 +76,7 @@ export async function POST(req: NextRequest) {
       query,
       range,
       forceRefresh,
+      locale,
     });
 
     return NextResponse.json({

@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       range?: string;
       theme?: string;
       chartOnly?: boolean;
+      locale?: string;
     };
 
     const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -65,12 +66,14 @@ export async function POST(req: NextRequest) {
         : '1M';
     const theme = typeof body.theme === 'string' ? body.theme.trim() : undefined;
     const chartOnly = Boolean(body.chartOnly);
+    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/screener/compare', {
       itemCount: validItems.length,
       range,
       theme,
       chartOnly,
+      locale,
     });
 
     if (validItems.length === 0) {
@@ -88,6 +91,7 @@ export async function POST(req: NextRequest) {
       range,
       theme,
       chartOnly,
+      locale,
     });
 
     return NextResponse.json({

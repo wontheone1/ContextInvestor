@@ -25,6 +25,16 @@ import {
   stripAdrSuffix,
 } from './adr-directory';
 import { APP_CONFIG } from './config';
+import {
+  fetchNaverKrxFundamentalsFallback,
+  formatKrwCompact,
+  formatSharePriceByCurrency,
+  isKrxSymbol,
+  lookupHangulPrivateAlias,
+  lookupKrxBySymbolOrCode,
+  normalizeEquitySymbol,
+  resolveEquityQueryWithLocale,
+} from './krx-directory';
 import { logFunctionCall, logGenAICall } from './logger';
 
 export type ChartRange = '1D' | '5D' | '1M' | '6M' | 'YTD' | '1Y' | '5Y';
@@ -122,6 +132,13 @@ const US_EXCHANGE_CODES = new Set([
   'PNK',
 ]);
 
+const KRX_EXCHANGE_CODES = new Set(['KSC', 'KOE']);
+
+const SUPPORTED_EXCHANGE_CODES = new Set([
+  ...US_EXCHANGE_CODES,
+  ...KRX_EXCHANGE_CODES,
+]);
+
 const RANGE_MAP: Record<ChartRange, { range: string; interval: string }> = {
   '1D': { range: '1d', interval: '5m' },
   '5D': { range: '5d', interval: '15m' },
@@ -186,23 +203,30 @@ function formatCompactNumber(val: number | null | undefined): string | null {
 }
 
 /**
- * Normalizes a ticker symbol for Yahoo Finance (e.g. BRK.B -> BRK-B).
+ * Normalizes a ticker symbol for Yahoo Finance while preserving `.KS`/`.KQ`
+ * suffixes for Korea Exchange stocks (and converting US share classes like `BRK.B` -> `BRK-B`).
  */
 function normalizeYahooSymbol(raw: string): string {
-  return stripAdrSuffix(raw).toUpperCase().replace(/\./g, '-');
+  return normalizeEquitySymbol(raw);
 }
 
 /**
- * Checks whether a Yahoo Finance search quote represents a US-listed equity.
+ * Checks whether a Yahoo Finance search quote represents a supported US, ADR,
+ * or Korea Exchange (`KOSPI` `.KS` / `KOSDAQ` `.KQ`) equity.
  */
-function isUsEquityQuote(quote: Record<string, unknown>): boolean {
-  const quoteType = String(quote.quoteType ?? '');
+function isSupportedEquityQuote(quote: Record<string, unknown>): boolean {
+  const quoteType = String(quote.quoteType ?? '').toUpperCase();
   const exchange = String(quote.exchange ?? '').toUpperCase();
   const exchDisp = String(quote.exchDisp ?? '').toUpperCase();
   const symbol = String(quote.symbol ?? '').toUpperCase();
 
   if (quoteType !== 'EQUITY') return false;
-  // Reject foreign-suffix tickers like NVDA.TO or MSFT.DE
+
+  if (KRX_EXCHANGE_CODES.has(exchange) || /^[0-9A-Z]{6}\.(KS|KQ)$/.test(symbol)) {
+    return /^[0-9A-Z]{6}\.(KS|KQ)$/.test(symbol);
+  }
+
+  // Reject other non-KRX foreign-suffix tickers like NVDA.TO or MSFT.DE
   if (symbol.includes('.')) return false;
 
   if (US_EXCHANGE_CODES.has(exchange)) return true;
@@ -263,36 +287,59 @@ async function getYahooAuth(
 }
 
 /**
- * Resolves a company name or ticker query into a US-listed equity symbol and name.
- * Returns null if the entity appears to be privately held or not found on US exchanges.
+ * Resolves a company name, KRX code, or ticker query into a supported US, ADR,
+ * or Korea Exchange (`KOSPI`/`KOSDAQ`) equity symbol and display name.
+ * Respects UI locale priority (`locale === 'ko'` -> KRX primary listing for
+ * dual-listed companies; `locale === 'en'` -> US ADR for dual-listed companies).
  */
-async function resolveUsEquitySymbol(
-  query: string,
-  entityType: 'auto' | 'name' | 'ticker' = 'auto'
-): Promise<{ symbol: string; shortName: string } | null> {
-  const trimmed = stripAdrSuffix(query);
+async function resolveSupportedEquitySymbol(
+  rawQuery: string,
+  entityType: 'auto' | 'name' | 'ticker' = 'auto',
+  locale: 'en' | 'ko' = 'en'
+): Promise<{
+  symbol: string;
+  shortName: string;
+  sectorHint?: string | null;
+} | null> {
+  const trimmed = stripAdrSuffix(rawQuery);
   if (!trimmed) return null;
 
-  if (KNOWN_PRIVATE_COMPANIES.has(trimmed.toLowerCase())) {
+  if (
+    KNOWN_PRIVATE_COMPANIES.has(trimmed.toLowerCase()) ||
+    lookupHangulPrivateAlias(trimmed)
+  ) {
     return null;
   }
 
-  // Fast-path resolution for US ADRs, US OTC international leaders, and brand aliases (e.g. "SK Hynix" -> SKHY)
+  // 1. Locale-aware KRX / Dual-Listed / Hangul alias / Naver Autocomplete resolution
+  const localeResolved = await resolveEquityQueryWithLocale(rawQuery, locale);
+  if (localeResolved) {
+    return {
+      symbol: localeResolved.symbol,
+      shortName: localeResolved.displayName,
+      sectorHint: localeResolved.sector,
+    };
+  }
+
+  // 2. Fast-path resolution for US ADRs, US OTC international leaders, and brand aliases
   const adrAlias = lookupAdrOrBrandAlias(trimmed);
   if (adrAlias) {
     return {
       symbol: adrAlias.symbol,
       shortName: adrAlias.canonicalName,
+      sectorHint: adrAlias.sector,
     };
   }
 
   const normalizedUpper = normalizeYahooSymbol(trimmed);
-  const looksLikeSymbol = /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(normalizedUpper);
+  const looksLikeSymbol =
+    /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(normalizedUpper) ||
+    /^[0-9A-Z]{6}\.(KS|KQ)$/.test(normalizedUpper);
 
   try {
     const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
       trimmed
-    )}&quotesCount=10&newsCount=0&enableFuzzyQuery=false`;
+    )}&quotesCount=12&newsCount=0&enableFuzzyQuery=false`;
     const res = await fetch(searchUrl, {
       headers: YAHOO_HEADERS,
       signal: AbortSignal.timeout(6000),
@@ -301,12 +348,19 @@ async function resolveUsEquitySymbol(
       const json = (await res.json()) as {
         quotes?: Array<Record<string, unknown>>;
       };
-      const usEquities = rankUsAndAdrEquityQuotes(
-        (json.quotes ?? []).filter(isUsEquityQuote)
+      const filteredQuotes = (json.quotes ?? []).filter(isSupportedEquityQuote);
+      const rankedEquities = rankUsAndAdrEquityQuotes(filteredQuotes).sort(
+        (a, b) => {
+          const aKrx = isKrxSymbol(String(a.symbol ?? ''));
+          const bKrx = isKrxSymbol(String(b.symbol ?? ''));
+          if (aKrx === bKrx) return 0;
+          if (locale === 'ko') return aKrx ? -1 : 1;
+          return 0;
+        }
       );
 
       // 1. Exact ticker match
-      const exactTicker = usEquities.find(
+      const exactTicker = rankedEquities.find(
         (q) => String(q.symbol ?? '').toUpperCase() === normalizedUpper
       );
       if (exactTicker) {
@@ -318,19 +372,19 @@ async function resolveUsEquitySymbol(
         };
       }
 
-      // 2. Company name / ADR name match (preserving short prefixes like "SK", "LG", "JD", "3M")
+      // 2. Company name / ADR / KRX name match
       const lowerQuery = trimmed.toLowerCase();
       const queryTokens = lowerQuery
-        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/[^a-z0-9가-힣\s]/g, ' ')
         .split(/\s+/)
         .filter(Boolean);
 
-      const nameMatch = usEquities.find((q) => {
+      const nameMatch = rankedEquities.find((q) => {
         const candidateName = `${String(q.longname ?? '')} ${String(
           q.shortname ?? ''
         )}`
           .toLowerCase()
-          .replace(/[^a-z0-9\s]/g, ' ');
+          .replace(/[^a-z0-9가-힣\s]/g, ' ');
         if (candidateName.includes(lowerQuery)) return true;
         const candidateWords = candidateName.split(/\s+/).filter(Boolean);
         return (
@@ -348,9 +402,12 @@ async function resolveUsEquitySymbol(
         };
       }
 
-      // If it was explicitly a ticker search or very ticker-like and US equities matched, pick top if symbol closely matches
-      if ((entityType === 'ticker' || looksLikeSymbol) && usEquities.length > 0) {
-        const first = usEquities[0];
+      // 3. Explicit ticker search fallback
+      if (
+        (entityType === 'ticker' || looksLikeSymbol) &&
+        rankedEquities.length > 0
+      ) {
+        const first = rankedEquities[0];
         if (
           String(first.symbol ?? '').toUpperCase().startsWith(normalizedUpper)
         ) {
@@ -367,9 +424,10 @@ async function resolveUsEquitySymbol(
     // Fall through to direct chart probe for ticker-like strings
   }
 
-  // Fallback direct chart check ONLY when input is clearly a ticker format
+  // Fallback direct chart check ONLY when input is clearly a supported ticker format
   if (
     entityType === 'ticker' ||
+    /^[0-9A-Z]{6}\.(KS|KQ)$/i.test(trimmed) ||
     (/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(trimmed) &&
       trimmed === trimmed.toUpperCase())
   ) {
@@ -443,7 +501,7 @@ export async function fetchChartData(
     ) {
       return null;
     }
-    if (exchangeName && !US_EXCHANGE_CODES.has(exchangeName)) {
+    if (exchangeName && !SUPPORTED_EXCHANGE_CODES.has(exchangeName)) {
       return null;
     }
 
@@ -605,6 +663,20 @@ async function fetchQuoteSummaryMetrics(
           ? priceObj.shortName
           : null;
 
+    const currencyStr =
+      typeof priceObj?.currency === 'string'
+        ? priceObj.currency.toUpperCase()
+        : isKrxSymbol(symbol)
+          ? 'KRW'
+          : 'USD';
+    const isKrwMetric = currencyStr === 'KRW' || isKrxSymbol(symbol);
+
+    const rawMktCap = rawField(priceObj, 'marketCap');
+    const rawEv = rawField(r.defaultKeyStatistics, 'enterpriseValue');
+    const rawRev = rawField(r.financialData, 'totalRevenue');
+    const rawEps = rawField(r.defaultKeyStatistics, 'trailingEps');
+    const rawTarget = rawField(r.financialData, 'targetMeanPrice');
+
     return {
       companyName: shortName,
       sector: r.assetProfile?.sector ?? null,
@@ -614,20 +686,34 @@ async function fetchQuoteSummaryMetrics(
       change: rawField(priceObj, 'regularMarketChange'),
       changePercent: rawField(priceObj, 'regularMarketChangePercent'),
       metrics: {
-        marketCap: fmtField(priceObj, 'marketCap'),
-        enterpriseValue: fmtField(r.defaultKeyStatistics, 'enterpriseValue'),
+        marketCap: isKrwMetric
+          ? formatKrwCompact(rawMktCap)
+          : fmtField(priceObj, 'marketCap'),
+        enterpriseValue: isKrwMetric
+          ? formatKrwCompact(rawEv)
+          : fmtField(r.defaultKeyStatistics, 'enterpriseValue'),
         trailingPE: fmtField(r.summaryDetail, 'trailingPE'),
         forwardPE: fmtField(r.summaryDetail, 'forwardPE'),
         priceToBook: fmtField(r.defaultKeyStatistics, 'priceToBook'),
-        trailingEps: fmtField(r.defaultKeyStatistics, 'trailingEps'),
+        trailingEps: isKrwMetric
+          ? rawEps !== null
+            ? formatSharePriceByCurrency(rawEps, 'KRW')
+            : null
+          : fmtField(r.defaultKeyStatistics, 'trailingEps'),
         dividendYield: fmtField(r.summaryDetail, 'dividendYield'),
         beta: fmtField(r.summaryDetail, 'beta'),
-        totalRevenue: fmtField(r.financialData, 'totalRevenue'),
+        totalRevenue: isKrwMetric
+          ? formatKrwCompact(rawRev)
+          : fmtField(r.financialData, 'totalRevenue'),
         revenueGrowth: fmtField(r.financialData, 'revenueGrowth'),
         profitMargins: fmtField(r.financialData, 'profitMargins'),
         operatingMargins: fmtField(r.financialData, 'operatingMargins'),
         returnOnEquity: fmtField(r.financialData, 'returnOnEquity'),
-        targetMeanPrice: fmtField(r.financialData, 'targetMeanPrice'),
+        targetMeanPrice: isKrwMetric
+          ? rawTarget !== null
+            ? formatSharePriceByCurrency(rawTarget, 'KRW')
+            : null
+          : fmtField(r.financialData, 'targetMeanPrice'),
         volume: fmtField(r.summaryDetail, 'volume'),
         averageVolume: fmtField(r.summaryDetail, 'averageVolume'),
         dayLow: rawField(r.summaryDetail, 'dayLow'),
@@ -808,14 +894,19 @@ If a figure is unknown or uncertain, set it to null. Never invent numbers.`;
 }
 
 /**
- * Fetches full price chart & key investment metrics for any searched company.
+ * Fetches full price chart & key investment metrics for any searched company,
+ * supporting US equities, US ADRs, KOSPI (`.KS`), KOSDAQ (`.KQ`), and private companies.
  */
 export async function getCompanyMarketOverview(options: {
   query: string;
   entityType?: 'auto' | 'name' | 'ticker';
   range?: ChartRange;
+  locale?: 'en' | 'ko';
 }): Promise<CompanyMarketOverviewData> {
-  const query = stripAdrSuffix(options.query);
+  const rawInput = options.query.trim();
+  const hangulPrivate = lookupHangulPrivateAlias(rawInput);
+  const query = hangulPrivate || stripAdrSuffix(rawInput);
+  const locale: 'en' | 'ko' = options.locale === 'ko' ? 'ko' : 'en';
   const range: ChartRange =
     options.range && options.range in RANGE_MAP ? options.range : '1M';
 
@@ -823,12 +914,16 @@ export async function getCompanyMarketOverview(options: {
     query,
     entityType: options.entityType ?? 'auto',
     range,
+    locale,
   });
 
-  let resolved = await resolveUsEquitySymbol(
-    query,
-    options.entityType ?? 'auto'
-  );
+  let resolved = hangulPrivate
+    ? null
+    : await resolveSupportedEquitySymbol(
+        rawInput,
+        options.entityType ?? 'auto',
+        locale
+      );
   let fallbackPrivate: PrivateCompanyMarketOverview | null = null;
 
   if (!resolved) {
@@ -844,9 +939,11 @@ export async function getCompanyMarketOverview(options: {
     }
   }
 
-  const [chart, summary] = await Promise.all([
+  const isKrx = isKrxSymbol(resolved.symbol);
+  const [chart, summary, naverFallback] = await Promise.all([
     fetchChartData(resolved.symbol, range),
     fetchQuoteSummaryMetrics(resolved.symbol),
+    isKrx ? fetchNaverKrxFundamentalsFallback(resolved.symbol) : Promise.resolve(null),
   ]);
 
   if (!chart) {
@@ -875,12 +972,28 @@ export async function getCompanyMarketOverview(options: {
         ? (change / baseline) * 100
         : 0;
 
-  const resolvedCompanyName =
-    summary?.companyName || chart.companyName || resolved.shortName;
-  const isAdr = isAdrTicker(
-    resolved.symbol,
-    `${resolvedCompanyName} ${chart.companyName || ''} ${resolved.shortName || ''}`
-  );
+  const krxCurated = isKrx ? lookupKrxBySymbolOrCode(resolved.symbol) : null;
+  const resolvedCompanyName = isKrx
+    ? locale === 'ko'
+      ? krxCurated?.koName ||
+        naverFallback?.stockNameKo ||
+        resolved.shortName ||
+        summary?.companyName ||
+        chart.companyName
+      : krxCurated?.enName ||
+        summary?.companyName ||
+        chart.companyName ||
+        resolved.shortName
+    : summary?.companyName || chart.companyName || resolved.shortName;
+
+  const isAdr =
+    !isKrx &&
+    isAdrTicker(
+      resolved.symbol,
+      `${resolvedCompanyName} ${chart.companyName || ''} ${resolved.shortName || ''}`
+    );
+
+  const resolvedCurrency = isKrx ? 'KRW' : chart.currency || 'USD';
 
   return {
     kind: 'public',
@@ -889,9 +1002,14 @@ export async function getCompanyMarketOverview(options: {
     query,
     symbol: resolved.symbol,
     companyName: resolvedCompanyName,
-    sector: summary?.sector ?? null,
+    sector:
+      (locale === 'ko' && krxCurated ? krxCurated.koSector : null) ??
+      summary?.sector ??
+      resolved.sectorHint ??
+      krxCurated?.sector ??
+      null,
     industry: summary?.industry ?? null,
-    currency: chart.currency || 'USD',
+    currency: resolvedCurrency,
     price,
     previousClose: baseline,
     change,
@@ -899,30 +1017,46 @@ export async function getCompanyMarketOverview(options: {
     range,
     points: chart.points,
     metrics: {
-      marketCap: summary?.metrics.marketCap ?? null,
+      marketCap:
+        summary?.metrics.marketCap ?? naverFallback?.marketCap ?? null,
       enterpriseValue: summary?.metrics.enterpriseValue ?? null,
-      trailingPE: summary?.metrics.trailingPE ?? null,
-      forwardPE: summary?.metrics.forwardPE ?? null,
-      priceToBook: summary?.metrics.priceToBook ?? null,
-      trailingEps: summary?.metrics.trailingEps ?? null,
-      dividendYield: summary?.metrics.dividendYield ?? null,
+      trailingPE:
+        summary?.metrics.trailingPE ?? naverFallback?.trailingPE ?? null,
+      forwardPE:
+        summary?.metrics.forwardPE ?? naverFallback?.forwardPE ?? null,
+      priceToBook:
+        summary?.metrics.priceToBook ?? naverFallback?.priceToBook ?? null,
+      trailingEps:
+        summary?.metrics.trailingEps ?? naverFallback?.trailingEps ?? null,
+      dividendYield:
+        summary?.metrics.dividendYield ?? naverFallback?.dividendYield ?? null,
       beta: summary?.metrics.beta ?? null,
       totalRevenue: summary?.metrics.totalRevenue ?? null,
       revenueGrowth: summary?.metrics.revenueGrowth ?? null,
       profitMargins: summary?.metrics.profitMargins ?? null,
       operatingMargins: summary?.metrics.operatingMargins ?? null,
       returnOnEquity: summary?.metrics.returnOnEquity ?? null,
-      targetMeanPrice: summary?.metrics.targetMeanPrice ?? null,
+      targetMeanPrice:
+        summary?.metrics.targetMeanPrice ??
+        naverFallback?.targetMeanPrice ??
+        null,
       volume:
         summary?.metrics.volume ??
+        naverFallback?.volume ??
         formatCompactNumber(chart.regularMarketVolume),
       averageVolume: summary?.metrics.averageVolume ?? null,
       dayLow: summary?.metrics.dayLow ?? chart.dayLow,
       dayHigh: summary?.metrics.dayHigh ?? chart.dayHigh,
       fiftyTwoWeekLow:
-        summary?.metrics.fiftyTwoWeekLow ?? chart.fiftyTwoWeekLow,
+        summary?.metrics.fiftyTwoWeekLow ??
+        chart.fiftyTwoWeekLow ??
+        naverFallback?.fiftyTwoWeekLow ??
+        null,
       fiftyTwoWeekHigh:
-        summary?.metrics.fiftyTwoWeekHigh ?? chart.fiftyTwoWeekHigh,
+        summary?.metrics.fiftyTwoWeekHigh ??
+        chart.fiftyTwoWeekHigh ??
+        naverFallback?.fiftyTwoWeekHigh ??
+        null,
     },
   };
 }

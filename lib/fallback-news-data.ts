@@ -17,7 +17,12 @@
  */
 
 import type { NewsSearchResponse } from 'context.dev/resources/news';
+import { stripAdrSuffix } from './adr-directory';
 import type { CompanyNewsQueryInput } from './context-dev';
+import {
+  lookupHangulPrivateAlias,
+  lookupKrxDirectoryEntry,
+} from './krx-directory';
 import { logFunctionCall } from './logger';
 
 interface SeedArticle {
@@ -173,7 +178,11 @@ export function buildFallbackNewsResponse(
   logFunctionCall('buildFallbackNewsResponse', { ...input });
 
   const now = Date.now();
-  const normalizedTarget = input.entityValue.trim();
+  const cleanedRaw = stripAdrSuffix(input.entityValue.trim());
+  const krxMatch = lookupKrxDirectoryEntry(cleanedRaw);
+  const hangulPriv = lookupHangulPrivateAlias(cleanedRaw);
+  const normalizedTarget =
+    krxMatch?.enName || hangulPriv || cleanedRaw;
   const upperKey = normalizedTarget.toUpperCase();
 
   const baseTemplates: SeedArticle[] =

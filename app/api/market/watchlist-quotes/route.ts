@@ -32,6 +32,7 @@ interface WatchlistQuotesRequestBody {
   query?: string;
   companies?: CompanyPreset[];
   range?: string;
+  locale?: string;
 }
 
 /**
@@ -46,19 +47,25 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as WatchlistQuotesRequestBody;
     const action = body.action === 'hydrate' ? 'hydrate' : 'validate';
     const range = normalizeWatchlistRange(body.range);
+    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('POST /api/market/watchlist-quotes', {
       action,
       query: body.query ?? null,
       companyCount: Array.isArray(body.companies) ? body.companies.length : 0,
       range,
+      locale,
     });
 
     if (action === 'hydrate') {
       const inputCompanies = Array.isArray(body.companies)
         ? body.companies
         : [];
-      const hydrated = await hydrateWatchlistPresets(inputCompanies, range);
+      const hydrated = await hydrateWatchlistPresets(
+        inputCompanies,
+        range,
+        locale
+      );
       return NextResponse.json({
         ok: true,
         ...hydrated,
@@ -66,7 +73,11 @@ export async function POST(req: NextRequest) {
     }
 
     const query = (body.query || '').trim();
-    const validation = await validateAndResolveFollowCompany(query, range);
+    const validation = await validateAndResolveFollowCompany(
+      query,
+      range,
+      locale
+    );
     if (!validation.valid || !validation.preset) {
       return NextResponse.json(
         {

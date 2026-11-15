@@ -5,9 +5,12 @@
 
 ---
 
+## Recently Shipped Milestones
+- **Full Bilingual (`EN` | `한국어`) & Korea Exchange (`KOSPI` `.KS` / `KOSDAQ` `.KQ`) Integration**: Shipped end-to-end Korean domestic stock lookup (Hangul names, English names, 6-digit KRX codes, and dynamic 2,600+ stock autocomplete), locale-aware dual-listing routing (`한국어` -> KRX 본주 vs. `EN` -> US ADR), pure KRW (`₩` integer prices & `조`/`억` market cap/EV/revenue) charts & fundamentals with Naver Finance fallback, Watchlist starter themes, and `0.00%`-normalized multi-currency cohort comparison.
+
 ## Why This Roadmap Exists
-Right now, **Contextual Investing** uses **1 Context.dev API** (`client.news.search`). To stand out cleanly against `challenge.md`:
-1. **Simple story**: Everyone understands *"Don't just read the news—fact-check rumors in one click, and get alerted when a company's own pricing or jobs page changes."*
+Right now, **Contextual Investing** combines **Context.dev** (`client.news.search` + `client.company.search`), live **US / ADR / KRX** market & fundamental data, and **Gemini** synthesis. To stand out even further against `challenge.md`:
+1. **Simple story**: Everyone understands *"Don't just read the news—fact-check rumors in one click, and get alerted when a company's own pricing, DART/SEC IR, or jobs page changes."*
 2. **Low risk, high demo wow-factor**: Every feature below uses methods already typed in our installed `context.dev` SDK (`v3.29.0`) without needing brittle webhook servers, ngrok tunnels, or massive batch pipelines.
 
 ---

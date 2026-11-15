@@ -28,6 +28,12 @@ import {
   stripAdrSuffix,
 } from './adr-directory.ts';
 import { APP_CONFIG } from './config.ts';
+import {
+  isKrxSymbol,
+  lookupHangulPrivateAlias,
+  lookupKrxDirectoryEntry,
+  resolveDynamicKrxAutocomplete,
+} from './krx-directory.ts';
 import { logFunctionCall } from './logger.ts';
 
 export type { NewsSearchParams, NewsSearchResponse };
@@ -149,6 +155,9 @@ export function inferEntitySearchOrder(
   entityValue: string
 ): Array<'ticker' | 'name'> {
   const trimmed = entityValue.trim();
+  if (isKrxSymbol(trimmed) || /^\d{6}$/.test(trimmed) || /[가-힣]/.test(trimmed)) {
+    return ['name'];
+  }
   const looksLikeTicker = /^[A-Za-z]{1,5}(\.[A-Za-z]{1,2})?$/.test(trimmed);
 
   if (!looksLikeTicker) {
@@ -419,12 +428,52 @@ export async function searchCompanyNews(
   resolvedEntityType: ResolvedEntityLookupType;
   resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
 }> {
+  const strippedEntityValue = stripAdrSuffix(input.entityValue);
+  const hangulPrivate = lookupHangulPrivateAlias(strippedEntityValue);
+  const krxCurated = lookupKrxDirectoryEntry(strippedEntityValue);
+
+  let effectiveEntityType = input.entityType;
+  let effectiveEntityValue = hangulPrivate || strippedEntityValue;
+  let fallbackDomain: string | undefined;
+
+  if (
+    krxCurated &&
+    (isKrxSymbol(strippedEntityValue) ||
+      /^\d{6}$/.test(strippedEntityValue) ||
+      /[가-힣]/.test(strippedEntityValue))
+  ) {
+    effectiveEntityType = input.entityType === 'domain' ? 'domain' : 'name';
+    effectiveEntityValue =
+      input.entityType === 'domain' && krxCurated.domain
+        ? krxCurated.domain
+        : krxCurated.enName;
+    fallbackDomain = krxCurated.domain;
+  } else if (
+    !krxCurated &&
+    (isKrxSymbol(strippedEntityValue) || /^\d{6}$/.test(strippedEntityValue))
+  ) {
+    const dyn = await resolveDynamicKrxAutocomplete(
+      strippedEntityValue.slice(0, 6),
+      'ko'
+    );
+    effectiveEntityType = 'name';
+    effectiveEntityValue = dyn?.displayName || strippedEntityValue;
+  } else if (hangulPrivate) {
+    effectiveEntityType = 'name';
+    effectiveEntityValue = hangulPrivate;
+  }
+
   const normalizedInput: CompanyNewsQueryInput = {
     ...input,
-    entityValue: stripAdrSuffix(input.entityValue),
+    entityType: effectiveEntityType,
+    entityValue: effectiveEntityValue,
+    exchange:
+      effectiveEntityType === 'name' || effectiveEntityType === 'domain'
+        ? undefined
+        : input.exchange,
   };
 
-  logFunctionCall('searchCompanyNews', { ...normalizedInput });
+  logFunctionCall('searchCompanyNews', { ...normalizedInput, fallbackDomain });
 
   const client = createContextDevClient(clientOverrides);
 
@@ -483,6 +532,29 @@ export async function searchCompanyNews(
         } catch {
           // Ignore fallback error if primary returned a valid empty payload
         }
+      }
+    }
+
+    // KRX domain fallback: if canonical English name returned 0 articles and we know the corporate domain, try domain lookup
+    if (
+      fallbackDomain &&
+      !normalizedInput.cursor &&
+      (!explicitResult ||
+        !explicitResult.response.data ||
+        explicitResult.response.data.length === 0)
+    ) {
+      try {
+        const domainRes = await executeSingleEntityTypeSearch(client, {
+          ...normalizedInput,
+          entityType: 'domain',
+          entityValue: fallbackDomain,
+          exchange: undefined,
+        });
+        if (domainRes.response.data && domainRes.response.data.length > 0) {
+          return domainRes;
+        }
+      } catch {
+        // Ignore domain fallback error
       }
     }
 

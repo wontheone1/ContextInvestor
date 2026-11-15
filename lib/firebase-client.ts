@@ -145,6 +145,20 @@ export async function testFirestoreConnection(): Promise<boolean> {
 }
 
 /**
+ * Computes a deterministic 32-bit FNV-1a hexadecimal digest so non-ASCII
+ * queries (such as Hangul company names like `"삼성전자"`) map to collision-free
+ * URL-safe document keys matching `^[a-zA-Z0-9_\-]+$`.
+ */
+function hashDeterministicHex(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
  * Generates a deterministic, URL-safe cache key ID matching `^[a-zA-Z0-9_\-]+$`
  * and `<= 128` characters for a given company news search query.
  *
@@ -165,10 +179,15 @@ export function buildSearchCacheId(params: {
 }): string {
   logFunctionCall('buildSearchCacheId', { ...params });
 
+  const trimmedEntity = params.entityValue.trim().toLowerCase();
+  const entitySegment = /[^\x20-\x7E]/.test(trimmedEntity)
+    ? `u${hashDeterministicHex(trimmedEntity)}`
+    : trimmedEntity;
+
   const raw = [
     'v5sentr',
     params.entityType,
-    params.entityValue.trim().toLowerCase(),
+    entitySegment,
     params.exchange || 'any',
     params.sortBy,
     params.dateFrom || 0,
@@ -179,7 +198,10 @@ export function buildSearchCacheId(params: {
     params.cursor || 'page1',
   ].join('_');
 
-  const sanitized = raw.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+  const sanitized = raw
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 120);
   return sanitized || 'default_cache_key';
 }
 
@@ -415,19 +437,24 @@ export interface FollowedCompanyRecord {
 
 /**
  * Generates a deterministic, URL-safe company follow key matching `^[a-zA-Z0-9_\-]+$`
- * and `<= 64` characters.
+ * and `<= 64` characters while avoiding collisions on Hangul names.
  */
 export function buildCompanyFollowKey(
   entityType: 'name' | 'ticker',
   value: string
 ): string {
-  const sanitized = value
-    .trim()
-    .toLowerCase()
+  const trimmed = value.trim().toLowerCase();
+  const sanitized = trimmed
     .replace(/[^a-z0-9_-]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50);
+
+  if (/[^\x00-\x7F]/.test(trimmed)) {
+    const hash = hashDeterministicHex(trimmed);
+    const prefix = sanitized ? `${sanitized.slice(0, 36)}_` : '';
+    return `${entityType}_${prefix}u${hash}`;
+  }
   return `${entityType}_${sanitized || 'company'}`;
 }
 

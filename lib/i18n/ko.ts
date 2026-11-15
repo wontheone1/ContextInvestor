@@ -66,11 +66,12 @@ export const KO_TRANSLATIONS: UiTranslations = {
     unfollowTooltipPrefix: '클릭하여 언팔로우:',
   },
   searchBar: {
-    searchLabel: '미국 주식·ADR 티커, 비상장 기업 또는 자연어 조건 그룹 검색',
+    searchLabel:
+      '한국 주식(KOSPI·KOSDAQ), 미국 주식·ADR, 비상장 기업 또는 자연어 조건 그룹 검색',
     singleModeBadge: '개별 기업 모드',
     cohortModeBadge: '코호트 비교 모드',
     placeholder:
-      '미국/ADR 티커(NVDA, TSM, SKHY), 비상장사(Stripe, OpenAI) 또는 자연어 조건("시가총액 2000억 달러 이상 AI 반도체 기업") 입력...',
+      '한국 주식·종목코드(삼성전자, 005930, 알테오젠), 미국/ADR(NVDA, TSM), 비상장사(OpenAI) 또는 조건("시총 50조 이상 한국 반도체 기업") 입력...',
     searchButton: '리서치 실행',
     searchingButton: '분석 중...',
     switchToCohort: '코호트 비교 전환',
@@ -228,7 +229,8 @@ export const KO_TRANSLATIONS: UiTranslations = {
     ofFourSelected: '/ 최대 4개',
     followSelected: '+ 선택 기업 일괄 팔로우',
     followingSelected: '선택 기업 팔로잉 중',
-    addPeerPlaceholder: '비교할 티커 또는 기업명 추가 (예: AMD, Anthropic)...',
+    addPeerPlaceholder:
+      '비교할 티커·종목명 추가 (예: 삼성전자, 000660, AMD, Anthropic)...',
     addPeerButton: '+ 비교 추가',
     addingPeerButton: '추가 중...',
     matchedCandidatesHeader: '검증된 코호트 후보 기업',
@@ -263,7 +265,7 @@ export const KO_TRANSLATIONS: UiTranslations = {
     sectionKicker: '관심종목 통합 인텔리전스',
     pageTitle: '맞춤형 관심종목 일일 브리핑',
     pageSubtitle:
-      '팔로우 중인 모든 미국 상장주, ADR 및 비상장 유니콘의 실시간 글로벌 뉴스를 취합하여 가장 중요한 강세 모멘텀과 약세 리스크를 AI 확신도 순으로 정리합니다.',
+      '팔로우 중인 한국 KOSPI·KOSDAQ 상장주, 미국 상장주, ADR 및 비상장 유니콘의 실시간 뉴스를 취합하여 핵심 강세 모멘텀과 약세 리스크를 AI 확신도 순으로 정리합니다.',
     manageWatchlistBtn: '관심종목 편집',
     headerTitle: '오늘의 관심종목 AI 종합 브리핑',
     companiesTrackedSuffix: '개 관심기업 추적 중',
@@ -291,12 +293,13 @@ export const KO_TRANSLATIONS: UiTranslations = {
     sectionKicker: '개인 관심종목 및 테마 레이더',
     pageTitle: '팔로우 관심종목 및 추천 테마',
     pageSubtitle:
-      '미국 상장주, 미국 거래 ADR 및 비상장 유니콘을 한곳에서 추적하세요. 카드를 클릭하면 심층 분석으로 이동하며, 팔로잉 버튼에 마우스를 올리면 언팔로우할 수 있습니다.',
+      '한국 KOSPI·KOSDAQ 주식, 미국 상장주, ADR 및 비상장 유니콘을 한곳에서 추적하세요. 카드를 클릭하면 심층 분석으로 이동하며, 팔로잉 버튼에 마우스를 올리면 언팔로우할 수 있습니다.',
     openDailyBriefBtn: '일일 브리핑 보기',
     carouselHeader: '내 관심종목 리스트',
     followedCountSuffix: '개 팔로잉',
     returnWindowLabel: '수익률 기간:',
-    followInputPlaceholder: '티커 또는 기업명 추가 (예: TSM, SK Hynix, Databricks)...',
+    followInputPlaceholder:
+      '종목코드·기업명 추가 (예: 삼성전자, 005930, 알테오젠, NVDA, Databricks)...',
     followAddButton: '+ 팔로우',
     verifyingButton: '검증 중...',
     resetDefaults: '기본값 복원',
@@ -356,7 +359,7 @@ export const KO_TRANSLATIONS: UiTranslations = {
     liveScreenshotBadge: '실제 앱 화면',
   },
   footer: {
-    tagline: '실시간 미국 상장주 · ADR · 비상장 시장 인텔리전스 터미널',
+    tagline: '실시간 한국 KOSPI·KOSDAQ · 미국 상장주 · ADR · 비상장 시장 인텔리전스',
     poweredBy: 'Context.dev · Google Gemini · 실시간 시장 데이터 기반',
     languageTogglePrefix: '인터페이스 언어:',
   },

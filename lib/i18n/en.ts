@@ -63,11 +63,12 @@ export const EN_TRANSLATIONS: UiTranslations = {
     unfollowTooltipPrefix: 'Click to unfollow',
   },
   searchBar: {
-    searchLabel: 'Research Any Ticker, Private Company, or Multi-Company Cohort',
+    searchLabel:
+      'Research Any US, KOSPI/KOSDAQ, ADR Ticker, Private Company, or Multi-Company Cohort',
     singleModeBadge: 'Single-Company Mode',
     cohortModeBadge: 'Cohort Screening Mode',
     placeholder:
-      'Enter US/ADR ticker (NVDA, TSM, SKHY), private company (Stripe, OpenAI), or natural-language cohort ("AI chip companies over $200B market cap")...',
+      'Enter US/ADR/KRX ticker (NVDA, TSM, 005930.KS, Hyundai Motor), private company (Stripe, OpenAI), or cohort ("AI chip companies > $200B")...',
     searchButton: 'Research',
     searchingButton: 'Searching...',
     switchToCohort: 'Compare Cohort',
@@ -225,7 +226,8 @@ export const EN_TRANSLATIONS: UiTranslations = {
     ofFourSelected: 'of up to 4',
     followSelected: '+ Follow Selected',
     followingSelected: 'Following Selected',
-    addPeerPlaceholder: 'Add ticker or company (e.g. AMD, Anthropic)...',
+    addPeerPlaceholder:
+      'Add ticker or company (e.g. AMD, 005930.KS, Anthropic)...',
     addPeerButton: '+ Add Peer',
     addingPeerButton: 'Adding...',
     matchedCandidatesHeader: 'Verified Cohort Candidates',
@@ -288,12 +290,13 @@ export const EN_TRANSLATIONS: UiTranslations = {
     sectionKicker: 'Personal Portfolio & Radar',
     pageTitle: 'Followed Watchlist & Starter Themes',
     pageSubtitle:
-      'Track US equities, US-traded ADRs, and private unicorns in one unified watchlist. Click any card to launch full research or hover any Following button to unfollow.',
+      'Track US equities, Korea KOSPI & KOSDAQ stocks, US-traded ADRs, and private unicorns in one unified watchlist. Click any card to launch full research or hover any Following button to unfollow.',
     openDailyBriefBtn: 'Open Daily Brief',
     carouselHeader: 'Active Watchlist',
     followedCountSuffix: 'Followed',
     returnWindowLabel: 'Sparkline Window:',
-    followInputPlaceholder: 'Add ticker or company (e.g. TSM, SK Hynix, Databricks)...',
+    followInputPlaceholder:
+      'Add ticker or company (e.g. NVDA, 005930.KS, Hyundai Motor, Databricks)...',
     followAddButton: '+ Follow',
     verifyingButton: 'Verifying...',
     resetDefaults: 'Reset Defaults',
@@ -353,7 +356,7 @@ export const EN_TRANSLATIONS: UiTranslations = {
     liveScreenshotBadge: 'Live App View',
   },
   footer: {
-    tagline: 'Real-Time Public, ADR & Private Market Intelligence',
+    tagline: 'Real-Time US, KOSPI/KOSDAQ, ADR & Private Market Intelligence',
     poweredBy: 'Powered by Context.dev, Google Gemini & Live Market Data',
     languageTogglePrefix: 'Interface Language:',
   },

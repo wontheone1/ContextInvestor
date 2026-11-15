@@ -20,6 +20,7 @@
 
 import { stripAdrSuffix } from './adr-directory';
 import type { CompanyProfileData } from './company-profile-service';
+import { APP_CONFIG } from './config';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
@@ -107,7 +108,7 @@ export interface CohortCompareResponse {
 }
 
 const COHORT_PLURAL_NOUNS =
-  /\b(companies|stocks|equities|tickers|startups|unicorns|firms|leaders|players|makers|manufacturers|vendors|providers|competitors|peers|suppliers|platforms|names|giants)\b/i;
+  /\b(companies|stocks|equities|tickers|startups|unicorns|firms|leaders|players|makers|manufacturers|vendors|providers|competitors|peers|suppliers|platforms|names|giants)\b|(기업들|종목들|주식들|관련주|수혜주|대장주|유니콘|스타트업들|상위주|비교해)/i;
 
 const COHORT_COMPARISON_PATTERNS = [
   /\b(over|under|above|below|more than|less than|greater than|at least|exceeding)\s+\$?\d+/i,
@@ -115,7 +116,10 @@ const COHORT_COMPARISON_PATTERNS = [
   /\b(market\s*cap|mkt\s*cap|valuation|enterprise\s*value|p\/e|pe\s+ratio|revenue|arr|headcount|funding)\b/i,
   /\b\d+(\.\d+)?\s*(bn|billion|trillion|tn|mn|million|b|t)\b/i,
   /\b(companies|stocks|startups|unicorns)\s+(like|similar\s+to|in|with|that|building|making|focused)\b/i,
-  /^(top|best|largest|biggest|leading|fastest[-\s]growing|public|private|us)\s+/i,
+  /^(top|best|largest|biggest|leading|fastest[-\s]growing|public|private|us|korea|korean|kospi|kosdaq)\s+/i,
+  /(시총|시가총액|기업가치|매출|영업이익|배당|밸류에이션).*(이상|이하|초과|미만|넘는|상위)/i,
+  /\d+(\.\d+)?\s*(조|억)\s*원?\s*(이상|이하|초과|미만|넘는)/,
+  /(코스피|코스닥|한국|국내)\s+.*(기업|종목|주식|반도체|바이오|방산|2차전지|배터리|자동차|금융)/,
 ];
 
 const SINGLE_COMPANY_SUFFIX =
@@ -136,8 +140,13 @@ export function detectSearchQueryIntent(rawQuery: string): SearchWorkspaceMode {
     return 'single';
   }
 
-  // 1. Short 1-5 char ticker symbols (`NVDA`, `BRK.B`, `TSM`) are always single-company
-  if (/^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(trimmed)) {
+  // 1. Short 1-5 char US tickers (`NVDA`, `BRK.B`), KRX symbols (`005930.KS`, `196170.KQ`),
+  //    or 6-digit KRX stock codes (`005930`, `196170`) are always single-company
+  if (
+    /^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(trimmed) ||
+    /^[0-9A-Za-z]{6}\.(KS|KQ)$/i.test(trimmed) ||
+    /^\d{6}$/.test(trimmed)
+  ) {
     return 'single';
   }
 
@@ -157,8 +166,11 @@ export function detectSearchQueryIntent(rawQuery: string): SearchWorkspaceMode {
     return 'cohort';
   }
 
-  // 4. Multi-word queries containing plural cohort nouns (`AI chip companies`, `cloud security stocks`)
+  // 4. Multi-word queries containing plural cohort nouns (`AI chip companies`, `반도체 관련주`)
   if (words.length >= 2 && COHORT_PLURAL_NOUNS.test(trimmed)) {
+    return 'cohort';
+  }
+  if (/[가-힣]/.test(trimmed) && COHORT_PLURAL_NOUNS.test(trimmed)) {
     return 'cohort';
   }
 
@@ -171,8 +183,9 @@ export function detectSearchQueryIntent(rawQuery: string): SearchWorkspaceMode {
 }
 
 /**
- * Parses compact human/financial USD strings (`"$3.38T"`, `"245.6B"`, `"$70 billion"`, `"850M"`)
- * into a numeric USD value for deterministic threshold verification and sorting.
+ * Parses compact USD (`"$3.38T"`, `"245.6B"`, `"850M"`) OR pure KRW (`"₩336.8조"`, `"₩4,820억"`)
+ * strings into a numeric USD-equivalent value strictly for sorting and threshold checks,
+ * while preserving pure KRW display strings across all UI surfaces.
  *
  * @param raw - Formatted currency or compact number string
  * @returns Numeric USD value or null if unparseable
@@ -182,6 +195,21 @@ export function parseCompactUsdString(
 ): number | null {
   if (!raw || typeof raw !== 'string') return null;
   const normalized = raw.trim().replace(/,/g, '');
+
+  // Handle pure KRW compact strings (`₩336.8조`, `4,820억`, `50조원`)
+  if (/₩|조|억|KRW/i.test(normalized)) {
+    const joMatch = normalized.match(/(\d+(?:\.\d+)?)\s*조/);
+    const eokMatch = normalized.match(/(\d+(?:\.\d+)?)\s*억/);
+    if (joMatch || eokMatch) {
+      const jo = joMatch ? Number.parseFloat(joMatch[1]) : 0;
+      const eok = eokMatch ? Number.parseFloat(eokMatch[1]) : 0;
+      const totalKrw = jo * 1e12 + eok * 1e8;
+      if (totalKrw > 0) {
+        return totalKrw / APP_CONFIG.krx.defaultApproxKrwPerUsd;
+      }
+    }
+  }
+
   const match = normalized.match(
     /(-?\d+(?:\.\d+)?)\s*(trillion|tn|t|billion|bn|b|million|mn|m|thousand|k)?/i
   );

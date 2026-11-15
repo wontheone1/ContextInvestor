@@ -23,8 +23,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get('query') ?? '').trim();
     const forceRefresh = searchParams.get('refresh') === '1';
+    const locale: 'en' | 'ko' =
+      searchParams.get('locale') === 'ko' ? 'ko' : 'en';
 
-    logFunctionCall('GET /api/ai/related', { query, forceRefresh });
+    logFunctionCall('GET /api/ai/related', { query, forceRefresh, locale });
 
     if (!query) {
       return NextResponse.json(
@@ -33,7 +35,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const data = await getRelatedCompanies(query, forceRefresh);
+    const data = await getRelatedCompanies(query, forceRefresh, locale);
 
     return NextResponse.json({
       ok: true,

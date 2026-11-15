@@ -19,6 +19,7 @@
  */
 
 import { formatTickerWithAdr } from './adr-directory';
+import { formatSharePriceByCurrency } from './krx-directory';
 import { APP_CONFIG, type CompanyPreset } from './config';
 import type { CompanyProfileData } from './company-profile-service';
 import type { AIMarketBriefResponse } from './gemini-service';
@@ -292,7 +293,9 @@ export function buildWorkspaceResearchContext(params: {
                   : cand.valuationDisplay,
             sharePriceOrStatus:
               m?.kind === 'public'
-                ? `$${m.price.toFixed(2)} ${m.currency || 'USD'}`
+                ? `${formatSharePriceByCurrency(m.price, m.currency)} ${
+                    m.currency || 'USD'
+                  }`
                 : 'Privately Held',
             periodReturnPctDisplay,
             trailingPE: m?.kind === 'public' ? m.metrics.trailingPE : null,
@@ -302,7 +305,13 @@ export function buildWorkspaceResearchContext(params: {
               m?.kind === 'public' &&
               m.metrics.fiftyTwoWeekLow !== null &&
               m.metrics.fiftyTwoWeekHigh !== null
-                ? `$${m.metrics.fiftyTwoWeekLow.toFixed(2)} – $${m.metrics.fiftyTwoWeekHigh.toFixed(2)}`
+                ? `${formatSharePriceByCurrency(
+                    m.metrics.fiftyTwoWeekLow,
+                    m.currency
+                  )} – ${formatSharePriceByCurrency(
+                    m.metrics.fiftyTwoWeekHigh,
+                    m.currency
+                  )}`
                 : null,
             revenue:
               (m?.kind === 'public' ? m.metrics.totalRevenue : null) ||
@@ -396,7 +405,13 @@ export function buildWorkspaceResearchContext(params: {
     metricsMap.volume = m.metrics.volume;
     metricsMap.fiftyTwoWeekRange =
       m.metrics.fiftyTwoWeekLow !== null && m.metrics.fiftyTwoWeekHigh !== null
-        ? `$${m.metrics.fiftyTwoWeekLow.toFixed(2)} – $${m.metrics.fiftyTwoWeekHigh.toFixed(2)}`
+        ? `${formatSharePriceByCurrency(
+            m.metrics.fiftyTwoWeekLow,
+            m.currency
+          )} – ${formatSharePriceByCurrency(
+            m.metrics.fiftyTwoWeekHigh,
+            m.currency
+          )}`
         : null;
   } else if (m?.kind === 'private') {
     metricsMap.latestValuation = m.latestValuation;
@@ -416,7 +431,9 @@ export function buildWorkspaceResearchContext(params: {
     activeChartRange: params.chartRange,
     priceDisplay:
       m?.kind === 'public'
-        ? `$${m.price.toFixed(2)} ${m.currency || 'USD'}`
+        ? `${formatSharePriceByCurrency(m.price, m.currency)} ${
+            m.currency || 'USD'
+          }`
         : m?.kind === 'private'
           ? `Private · ${m.latestValuation || 'Unlisted'}`
           : null,
@@ -479,7 +496,7 @@ export function buildWorkspaceResearchContext(params: {
     : displayName;
   const priceSnippet =
     m?.kind === 'public'
-      ? `$${m.price.toFixed(2)}`
+      ? formatSharePriceByCurrency(m.price, m.currency)
       : m?.kind === 'private' && m.latestValuation
         ? m.latestValuation
         : null;

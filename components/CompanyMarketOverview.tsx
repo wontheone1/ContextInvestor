@@ -8,10 +8,11 @@
  * USE CASES:
  * 1. Rendering an interactive historical SVG price & volume chart with timeframe
  *    switching (`1D`, `5D`, `1M`, `6M`, `YTD`, `1Y`, `5Y`), crosshair hover
- *    scrubbing, and Day / 52-Week range bars for any searched US-listed equity.
+ *    scrubbing, and Day / 52-Week range bars for US, ADR, and Korea Exchange
+ *    (KOSPI `.KS` & KOSDAQ `.KQ`) equities.
  * 2. Displaying structured key investment metrics (Valuation, Growth &
- *    Profitability, Per-Share & Consensus) with tabular numerals and concise
- *    English hover/focus tooltips.
+ *    Profitability, Per-Share & Consensus) in pure currency units (`$` USD or
+ *    pure integer `₩` & `조`/`억` KRW) with tabular numerals and tooltips.
  * 3. Rendering a grounded private-market valuation and metrics summary when the
  *    searched company is privately held (e.g. Stripe, OpenAI).
  * ============================================================================
@@ -31,6 +32,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import { formatTickerWithAdr, isAdrTicker } from '@/lib/adr-directory';
+import {
+  formatSharePriceByCurrency,
+  getKrxMarketFromSymbol,
+} from '@/lib/krx-directory';
 import type {
   ChartRange,
   CompanyMarketOverviewData,
@@ -59,14 +64,55 @@ export interface CompanyMarketOverviewProps {
 
 const CHART_RANGES: ChartRange[] = ['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y'];
 
+/**
+ * Formats a share price cleanly in pure KRW (`₩` integer, zero decimals) or USD (`$`, 2 decimals).
+ */
 function formatPrice(value: number | null | undefined, currency = 'USD'): string {
   if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+  if ((currency || '').toUpperCase() === 'KRW') {
+    return formatSharePriceByCurrency(value, 'KRW');
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency,
+    currency: currency || 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+/**
+ * Formats a signed price change delta (`+₩1,200` for KRW vs `+3.45` for USD).
+ */
+function formatSignedPriceDelta(delta: number, currency = 'USD'): string {
+  if (!Number.isFinite(delta)) return '0.00';
+  if ((currency || '').toUpperCase() === 'KRW') {
+    const sign = delta >= 0 ? '+' : '-';
+    return `${sign}₩${Math.round(Math.abs(delta)).toLocaleString('en-US')}`;
+  }
+  return `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`;
+}
+
+/**
+ * Formats a pre-formatted per-share metric string (EPS, Analyst Target) without
+ * duplicating currency symbols when server-side KRW formatting already added `₩`.
+ */
+function formatPerShareMetricString(
+  raw: string | null | undefined,
+  currency = 'USD'
+): string {
+  if (!raw || !raw.trim()) return '—';
+  const trimmed = raw.trim();
+  if (/^[+-]?[₩$]/.test(trimmed)) {
+    return trimmed;
+  }
+  if ((currency || '').toUpperCase() === 'KRW') {
+    const parsed = Number(trimmed.replace(/,/g, ''));
+    if (Number.isFinite(parsed)) {
+      return formatSharePriceByCurrency(parsed, 'KRW');
+    }
+    return `₩${trimmed}`;
+  }
+  return `$${trimmed}`;
 }
 
 function formatVolume(value: number | null | undefined): string {
@@ -214,10 +260,11 @@ function InteractivePriceChart({
   const gradientId = useId().replace(/:/g, '');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
+  const isKrw = (currency || '').toUpperCase() === 'KRW';
   const width = 800;
   const height = 270;
   const padLeft = 10;
-  const padRight = 68;
+  const padRight = isKrw ? 78 : 68;
   const padTop = 16;
   const padBottom = 28;
   const plotWidth = width - padLeft - padRight;
@@ -346,8 +393,8 @@ function InteractivePriceChart({
             pointDelta >= 0 ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
           }
         >
+          {formatSignedPriceDelta(pointDelta, currency)} (
           {pointDelta >= 0 ? '+' : ''}
-          {pointDelta.toFixed(2)} ({pointDelta >= 0 ? '+' : ''}
           {pointDeltaPct.toFixed(2)}%)
         </span>
       </div>
@@ -394,7 +441,9 @@ function InteractivePriceChart({
                 fontSize="11"
                 fontFamily="var(--font-mono), monospace"
               >
-                {tick.val.toFixed(2)}
+                {isKrw
+                  ? `₩${Math.round(tick.val).toLocaleString('en-US')}`
+                  : tick.val.toFixed(2)}
               </text>
             </g>
           ))}
@@ -763,11 +812,15 @@ export function CompanyMarketOverview({
     );
   }
 
-  // Public US / ADR Equity View
+  // Public US / ADR / KRX (KOSPI & KOSDAQ) Equity View
   const isPositive = data.change >= 0;
-  const isFlat = Math.abs(data.change) < 0.005;
+  const isKrwEquity = (data.currency || '').toUpperCase() === 'KRW';
+  const isFlat = isKrwEquity
+    ? Math.abs(data.change) < 0.5
+    : Math.abs(data.change) < 0.005;
+  const krxMarket = getKrxMarketFromSymbol(data.symbol);
   const isAdrEquity = Boolean(
-    data.isAdr || isAdrTicker(data.symbol, data.companyName)
+    !krxMarket && (data.isAdr || isAdrTicker(data.symbol, data.companyName))
   );
   const displaySymbol = formatTickerWithAdr(
     data.symbol,
@@ -813,9 +866,10 @@ export function CompanyMarketOverview({
         },
         {
           label: t.marketOverview.epsTtm,
-          value: data.metrics.trailingEps
-            ? `$${data.metrics.trailingEps}`
-            : '—',
+          value: formatPerShareMetricString(
+            data.metrics.trailingEps,
+            data.currency
+          ),
           tooltip: t.marketOverview.epsTooltip,
         },
       ],
@@ -860,12 +914,17 @@ export function CompanyMarketOverview({
         },
         {
           label: isKo ? '목표주가 컨센서스' : 'Analyst Target',
-          value: data.metrics.targetMeanPrice
-            ? `$${data.metrics.targetMeanPrice}`
-            : '—',
+          value: formatPerShareMetricString(
+            data.metrics.targetMeanPrice,
+            data.currency
+          ),
           tooltip: isKo
-            ? '월가 애널리스트 12개월 평균 목표주가 컨센서스'
-            : 'Wall Street consensus mean 12-month price target.',
+            ? krxMarket
+              ? '증권사 애널리스트 12개월 평균 목표주가 컨센서스'
+              : '월가 애널리스트 12개월 평균 목표주가 컨센서스'
+            : krxMarket
+              ? 'Consensus mean 12-month analyst price target (KRW).'
+              : 'Wall Street consensus mean 12-month price target.',
         },
       ],
     },
@@ -883,8 +942,12 @@ export function CompanyMarketOverview({
           label: isKo ? '베타 (5년)' : 'Beta (5Y)',
           value: data.metrics.beta || '—',
           tooltip: isKo
-            ? 'S&P 500 지수 대비 최근 5년 월간 주가 변동성 민감도'
-            : '5-year monthly volatility sensitivity relative to the S&P 500.',
+            ? krxMarket
+              ? '벤치마크 지수 대비 최근 5년 월간 주가 변동성 민감도'
+              : 'S&P 500 지수 대비 최근 5년 월간 주가 변동성 민감도'
+            : krxMarket
+              ? '5-year monthly volatility sensitivity relative to benchmark index.'
+              : '5-year monthly volatility sensitivity relative to the S&P 500.',
         },
         {
           label: isKo ? '거래량' : 'Volume',
@@ -922,13 +985,21 @@ export function CompanyMarketOverview({
                 </span>
                 <span aria-hidden="true">·</span>
                 <span>
-                  {isAdrEquity
+                  {krxMarket === 'KOSPI'
                     ? isKo
-                      ? '미국 거래 ADR 주식'
-                      : 'US-Traded ADR Equity'
-                    : isKo
-                      ? '미국 상장 주식'
-                      : 'US Listed Equity'}
+                      ? 'KOSPI 상장 주식'
+                      : 'KOSPI Listed Equity'
+                    : krxMarket === 'KOSDAQ'
+                      ? isKo
+                        ? 'KOSDAQ 상장 주식'
+                        : 'KOSDAQ Listed Equity'
+                      : isAdrEquity
+                        ? isKo
+                          ? '미국 거래 ADR 주식'
+                          : 'US-Traded ADR Equity'
+                        : isKo
+                          ? '미국 상장 주식'
+                          : 'US Listed Equity'}
                 </span>
                 {data.sector && (
                   <>
@@ -1019,8 +1090,8 @@ export function CompanyMarketOverview({
                     <TrendingDown className="w-4 h-4" aria-hidden="true" />
                   )}
                   <span>
+                    {formatSignedPriceDelta(data.change, data.currency)} (
                     {isPositive ? '+' : ''}
-                    {data.change.toFixed(2)} ({isPositive ? '+' : ''}
                     {data.changePercent.toFixed(2)}%)
                   </span>
                 </span>

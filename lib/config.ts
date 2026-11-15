@@ -29,7 +29,15 @@ export interface CompanyPreset {
   value: string;
   kind?: 'public' | 'private';
   isAdr?: boolean;
-  exchange?: 'NASDAQ' | 'NYSE' | 'LSE' | 'XETRA' | 'JPX' | 'HKSE';
+  exchange?:
+    | 'NASDAQ'
+    | 'NYSE'
+    | 'KOSPI'
+    | 'KOSDAQ'
+    | 'LSE'
+    | 'XETRA'
+    | 'JPX'
+    | 'HKSE';
   sector: string;
   price: string;
   changePct: string;
@@ -80,6 +88,16 @@ export const APP_CONFIG = {
   },
 
   /**
+   * Centralized Korea Exchange (KOSPI & KOSDAQ) Lookup & Fundamental Endpoints
+   */
+  krx: {
+    naverAutocompleteUrl: 'https://ac.stock.naver.com/ac',
+    naverIntegrationBaseUrl: 'https://m.stock.naver.com/api/stock',
+    /** Reference FX rate used only when normalizing mixed-currency screening thresholds */
+    defaultApproxKrwPerUsd: 1400,
+  },
+
+  /**
    * Natural-Language Cohort Screening & Multi-Company Comparison Configuration
    */
   cohortScreener: {
@@ -91,6 +109,11 @@ export const APP_CONFIG = {
       {
         label: 'AI chip companies > $200B',
         query: 'AI chip companies with over 200 bn USD market cap',
+      },
+      {
+        label: 'Korea chip & HBM leaders > ₩10조',
+        query: 'Korean semiconductor & HBM stocks over 10조 KRW market cap',
+        koQuery: '시가총액 10조 이상 한국 반도체 및 HBM 기업',
       },
       {
         label: 'Cloud cybersecurity > $50B',
@@ -160,6 +183,8 @@ export const APP_CONFIG = {
     exchanges: [
       'NASDAQ',
       'NYSE',
+      'KOSPI',
+      'KOSDAQ',
       'LSE',
       'XETRA',
       'JPX',
@@ -387,6 +412,45 @@ export const APP_CONFIG = {
             kind: 'private' as const,
             sector: 'Data & AI Lakehouse',
             hint: 'Private · Est. $62B',
+          },
+        ],
+      },
+      {
+        id: 'krx_leaders',
+        title: 'Korea KOSPI & KOSDAQ Leaders',
+        description: 'HBM memory, automotive mobility, and K-biotech innovators',
+        companies: [
+          {
+            label: 'Samsung Electronics',
+            value: '005930.KS',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Semiconductors & Consumer Tech',
+            hint: 'Public · KOSPI',
+          },
+          {
+            label: 'SK Hynix',
+            value: '000660.KS',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Semiconductors & HBM Memory',
+            hint: 'Public · KOSPI',
+          },
+          {
+            label: 'Hyundai Motor',
+            value: '005380.KS',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Automotive & Future Mobility',
+            hint: 'Public · KOSPI',
+          },
+          {
+            label: 'Alteogen',
+            value: '196170.KQ',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Subcutaneous Biologics Platform',
+            hint: 'Public · KOSDAQ',
           },
         ],
       },

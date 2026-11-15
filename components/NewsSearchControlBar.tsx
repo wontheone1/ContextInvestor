@@ -7,9 +7,11 @@
  * Context.dev `POST /v1/news/search` Filter/Sort Control Bar.
  *
  * USE CASES:
- * 1. Unified search bar auto-detecting direct Company Name / US Stock Ticker
- *    lookups (`NVDA`, `Stripe`, `OpenAI`) vs. natural-language multi-company
- *    screening queries (`"AI chip companies with over 200 bn USD market cap"`).
+ * 1. Unified search bar auto-detecting direct Company Name / Stock Ticker
+ *    lookups across US, ADR, and Korea Exchange (`NVDA`, `삼성전자`, `005930`,
+ *    `196170.KQ`, `Stripe`, `OpenAI`) vs. natural-language multi-company
+ *    screening queries (`"AI chip companies with over 200 bn USD market cap"`,
+ *    `"시가총액 10조 이상 한국 반도체 및 HBM 기업"`).
  * 2. Offering 1-click sample natural-language screening queries and an explicit
  *    escape hatch to switch between Cohort Screen and Single-Company modes.
  * 3. Progressively disclosing publication date ranges (`filterBy.date`), sort
@@ -262,22 +264,28 @@ export function NewsSearchControlBar({
           <span className="text-xs text-slate-400 mr-1">
             {t.searchBar.trySamplePrompts}
           </span>
-          {APP_CONFIG.cohortScreener.sampleQueries.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => {
-                logFunctionCall(
-                  'NewsSearchControlBar.handleSampleNaturalQuery',
-                  { query: item.query }
-                );
-                onRunSampleNaturalQuery?.(item.query);
-              }}
-              className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {translatePresetMetadata(item.label, locale)}
-            </button>
-          ))}
+          {APP_CONFIG.cohortScreener.sampleQueries.map((item) => {
+            const effectiveQuery =
+              isKo && 'koQuery' in item && item.koQuery
+                ? item.koQuery
+                : item.query;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  logFunctionCall(
+                    'NewsSearchControlBar.handleSampleNaturalQuery',
+                    { query: effectiveQuery, locale }
+                  );
+                  onRunSampleNaturalQuery?.(effectiveQuery);
+                }}
+                className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {translatePresetMetadata(item.label, locale)}
+              </button>
+            );
+          })}
         </div>
 
         {onForceWorkspaceMode && state.entityValue.trim().length > 0 && (

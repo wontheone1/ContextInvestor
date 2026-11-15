@@ -241,6 +241,69 @@ const ADR_AND_BRAND_ALIASES: Array<{
     },
   },
   {
+    aliases: ['posco', 'posco holdings', 'pkx'],
+    record: {
+      symbol: 'PKX',
+      canonicalName: 'POSCO Holdings',
+      sector: 'Steel & Battery Materials',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['kb financial', 'kb financial group'],
+    record: {
+      symbol: 'KB',
+      canonicalName: 'KB Financial Group',
+      sector: 'Banking & Financial Services',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['shinhan', 'shinhan financial', 'shinhan financial group', 'shg'],
+    record: {
+      symbol: 'SHG',
+      canonicalName: 'Shinhan Financial Group',
+      sector: 'Banking & Financial Services',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['korea electric power', 'kepco', 'kep'],
+    record: {
+      symbol: 'KEP',
+      canonicalName: 'Korea Electric Power (KEPCO)',
+      sector: 'Electric Power Utility & Grid',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['sk telecom', 'skm'],
+    record: {
+      symbol: 'SKM',
+      canonicalName: 'SK Telecom',
+      sector: 'Telecom & AI Data Centers',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['kt corp', 'kt corporation'],
+    record: {
+      symbol: 'KT',
+      canonicalName: 'KT Corporation',
+      sector: 'Telecom, Cloud & Enterprise AI',
+      isAdr: true,
+    },
+  },
+  {
+    aliases: ['woori financial', 'woori financial group', 'wf'],
+    record: {
+      symbol: 'WF',
+      canonicalName: 'Woori Financial Group',
+      sector: 'Banking & Financial Services',
+      isAdr: true,
+    },
+  },
+  {
     aliases: ['ase technology', 'ase group', 'asx'],
     record: {
       symbol: 'ASX',
@@ -520,6 +583,9 @@ const KNOWN_ADR_SYMBOLS = new Set<string>([
   'SHG',
   'PKX',
   'KEP',
+  'SKM',
+  'KT',
+  'WF',
   'CHT',
 ]);
 
@@ -578,14 +644,15 @@ export function lookupAdrOrBrandAlias(query: string): AdrAliasRecord | null {
 }
 
 /**
- * Strips any trailing `(ADR)` display suffix from a user-entered or formatted
- * ticker/query string so underlying API lookups always receive clean symbols.
+ * Strips any trailing `(ADR)`, `(KOSPI)`, or `(KOSDAQ)` display suffix from a
+ * user-entered or formatted ticker/query string so underlying API lookups
+ * always receive clean symbols.
  *
- * @param raw - Raw ticker or search string (e.g. `"ASML (ADR)"` or `"SKHY"`)
- * @returns Clean string without trailing `(ADR)`
+ * @param raw - Raw ticker or search string (e.g. `"ASML (ADR)"` or `"005930.KS (KOSPI)"`)
+ * @returns Clean string without trailing exchange/ADR tag
  */
 export function stripAdrSuffix(raw: string): string {
-  return raw.replace(/\s*\(\s*ADR\s*\)\s*$/i, '').trim();
+  return raw.replace(/\s*\(\s*(?:ADR|KOSPI|KOSDAQ)\s*\)\s*$/i, '').trim();
 }
 
 /**
@@ -643,9 +710,11 @@ export function isAdrTicker(
 }
 
 /**
- * Formats a stock ticker for UI display, appending ` (ADR)` immediately after
- * ADR / US-traded foreign equity symbols (e.g. `ASML (ADR)`, `ARM (ADR)`,
- * `SKHY (ADR)`) while keeping domestic US stocks (`NVDA`, `MSFT`) unchanged.
+ * Formats a stock ticker for UI display:
+ * - KRX KOSPI tickers (`*.KS`) -> `005930.KS (KOSPI)`
+ * - KRX KOSDAQ tickers (`*.KQ`) -> `196170.KQ (KOSDAQ)`
+ * - US ADR / OTC foreign equities -> `SKHY (ADR)`, `ASML (ADR)`
+ * - Domestic US stocks (`NVDA`, `MSFT`) -> unchanged
  *
  * @param symbol - Raw stock ticker symbol
  * @param companyNameHint - Optional company name or security title hint
@@ -663,6 +732,12 @@ export function formatTickerWithAdr(
   const cleaned = stripAdrSuffix(symbol).trim();
   if (!cleaned) {
     return '';
+  }
+  if (/^[0-9A-Z]{6}\.KS$/i.test(cleaned)) {
+    return `${cleaned.toUpperCase()} (KOSPI)`;
+  }
+  if (/^[0-9A-Z]{6}\.KQ$/i.test(cleaned)) {
+    return `${cleaned.toUpperCase()} (KOSDAQ)`;
   }
   return isAdrTicker(cleaned, companyNameHint, explicitIsAdr)
     ? `${cleaned} (ADR)`

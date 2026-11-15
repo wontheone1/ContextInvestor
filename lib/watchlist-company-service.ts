@@ -44,6 +44,15 @@ import {
   rankUsAndAdrEquityQuotes,
   stripAdrSuffix,
 } from './adr-directory';
+import {
+  formatSharePriceByCurrency,
+  getKrxMarketFromSymbol,
+  isKrxSymbol,
+  lookupHangulPrivateAlias,
+  lookupKrxBySymbolOrCode,
+  normalizeEquitySymbol,
+  resolveEquityQueryWithLocale,
+} from './krx-directory';
 import { fetchChartData } from './market-data-service';
 import { detectSearchQueryIntent } from './query-intent';
 import { logFunctionCall, logGenAICall } from './logger';
@@ -86,6 +95,8 @@ const US_EQUITY_EXCHANGES = new Set([
   'OBB',
   'PNK',
 ]);
+
+const KRX_EQUITY_EXCHANGES = new Set(['KSC', 'KOE']);
 
 const CORPORATE_SUFFIX_REGEX =
   /\b(inc|incorporated|corp|corporation|ltd|limited|plc|llc|lp|holdings|holding|group|co|company|technologies|technology|platforms|systems|international|the)\b/gi;
@@ -336,7 +347,8 @@ function normalizeCoreCompanyName(raw: string): string {
   return raw
     .toLowerCase()
     .replace(CORPORATE_SUFFIX_REGEX, ' ')
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\(주\)|주식회사/g, ' ')
+    .replace(/[^a-z0-9가-힣\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -359,10 +371,11 @@ function cleanDisplayCompanyLabel(raw: string): string {
 }
 
 /**
- * Checks whether a Yahoo Finance search result represents a listed US/ADR equity.
+ * Checks whether a Yahoo Finance search result represents a listed US, ADR,
+ * or Korea Exchange (`KOSPI`/`KOSDAQ`) equity.
  *
  * @param quote - Raw quote entry from Yahoo `v1/finance/search`
- * @returns True if listed equity on a supported US venue
+ * @returns True if listed equity on a supported US or KRX venue
  */
 function isSupportedUsEquityQuote(quote: Record<string, unknown>): boolean {
   const quoteType = String(quote.quoteType ?? '').toUpperCase();
@@ -371,6 +384,14 @@ function isSupportedUsEquityQuote(quote: Record<string, unknown>): boolean {
   const symbol = String(quote.symbol ?? '').toUpperCase();
 
   if (quoteType !== 'EQUITY') return false;
+
+  if (
+    KRX_EQUITY_EXCHANGES.has(exchange) ||
+    /^[0-9A-Z]{6}\.(KS|KQ)$/.test(symbol)
+  ) {
+    return /^[0-9A-Z]{6}\.(KS|KQ)$/.test(symbol);
+  }
+
   if (symbol.includes('.')) return false;
 
   if (US_EQUITY_EXCHANGES.has(exchange)) return true;
@@ -380,24 +401,25 @@ function isSupportedUsEquityQuote(quote: Record<string, unknown>): boolean {
 
 /**
  * Builds a live `CompanyPreset` for a verified public ticker over the requested `range`
- * using real Yahoo Finance historical closes.
+ * using real Yahoo Finance historical closes, formatting `KRW` prices as integer `₩`
+ * and `USD` prices with `$` and 2 decimals.
  *
- * @param symbol - Verified stock symbol (e.g. `NVDA`)
+ * @param symbol - Verified stock symbol (e.g. `NVDA`, `005930.KS`, `196170.KQ`)
  * @param range - Sparkline timeframe (`1D`, `5D`, `1M`, `6M`, `1Y`)
  * @param labelHint - Optional display label override
  * @param sectorHint - Optional sector label override
+ * @param locale - Active UI language (`'en'` | `'ko'`)
  * @returns Hydrated `CompanyPreset` or null if Yahoo chart data is unavailable
  */
 export async function buildLivePublicPreset(
   symbol: string,
   range: WatchlistSparklineRange,
   labelHint?: string | null,
-  sectorHint?: string | null
+  sectorHint?: string | null,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<CompanyPreset | null> {
-  const normalizedSymbol = stripAdrSuffix(symbol)
-    .toUpperCase()
-    .replace(/\./g, '-');
-  const cacheKey = `${normalizedSymbol}::${range}`;
+  const normalizedSymbol = normalizeEquitySymbol(symbol);
+  const cacheKey = `${normalizedSymbol}::${range}::${locale}`;
   const cached = quotePresetCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
     return {
@@ -428,29 +450,55 @@ export async function buildLivePublicPreset(
   const positive = rawPct >= 0;
   const formattedPct = `${positive ? '+' : ''}${rawPct.toFixed(2)}%`;
 
+  const isKrx = isKrxSymbol(normalizedSymbol);
+  const krxMarket = getKrxMarketFromSymbol(normalizedSymbol);
+  const krxCurated = isKrx ? lookupKrxBySymbolOrCode(normalizedSymbol) : null;
+
   const knownFeatured = APP_CONFIG.featuredCompanies.find(
     (f) =>
       f.entityType === 'ticker' &&
       f.value.toUpperCase() === normalizedSymbol
   );
 
-  const adrDisplayName = lookupCompanyNameForAdrTicker(normalizedSymbol);
+  const adrDisplayName = !isKrx
+    ? lookupCompanyNameForAdrTicker(normalizedSymbol)
+    : null;
 
   const resolvedLabel =
     labelHint?.trim() ||
+    (isKrx && krxCurated
+      ? locale === 'ko'
+        ? krxCurated.koName
+        : krxCurated.enName
+      : null) ||
     knownFeatured?.label ||
     adrDisplayName ||
     cleanDisplayCompanyLabel(chart.companyName || normalizedSymbol);
 
-  const isAdr = isAdrTicker(
-    normalizedSymbol,
-    `${resolvedLabel} ${chart.companyName || ''}`
-  );
+  const isAdr =
+    !isKrx &&
+    isAdrTicker(
+      normalizedSymbol,
+      `${resolvedLabel} ${chart.companyName || ''}`
+    );
 
   const resolvedSector =
     sectorHint?.trim() ||
+    (isKrx && krxCurated
+      ? locale === 'ko'
+        ? krxCurated.koSector
+        : krxCurated.sector
+      : null) ||
     knownFeatured?.sector ||
-    (isAdr ? 'US-Traded ADR Equity' : 'US Listed Equity');
+    (isKrx
+      ? locale === 'ko'
+        ? `${krxMarket || 'KRX'} 상장 주식`
+        : `${krxMarket || 'KRX'} Listed Equity`
+      : isAdr
+        ? 'US-Traded ADR Equity'
+        : 'US Listed Equity');
+
+  const effectiveCurrency = isKrx ? 'KRW' : chart.currency || 'USD';
 
   const preset: CompanyPreset = {
     label: resolvedLabel,
@@ -458,8 +506,9 @@ export async function buildLivePublicPreset(
     value: normalizedSymbol,
     kind: 'public',
     isAdr,
+    ...(krxMarket ? { exchange: krxMarket } : {}),
     sector: resolvedSector,
-    price: `$${currentPrice.toFixed(2)}`,
+    price: formatSharePriceByCurrency(currentPrice, effectiveCurrency),
     changePct: formattedPct,
     timeframe: range,
     positive,
@@ -475,39 +524,60 @@ export async function buildLivePublicPreset(
 }
 
 /**
- * Resolves a user query against Yahoo Finance US equities with strict ticker or
- * company-name verification (preventing random strings from fuzzy-matching unrelated stocks).
+ * Resolves a user query against US equities, ADRs, and KOSPI/KOSDAQ equities
+ * with strict ticker or company-name verification.
  *
  * @param rawQuery - User input query
  * @param range - Sparkline timeframe
+ * @param locale - Active UI language (`'en'` | `'ko'`)
  * @returns Verified `CompanyPreset` or null if not a real listed public equity
  */
 async function resolveVerifiedPublicPreset(
   rawQuery: string,
-  range: WatchlistSparklineRange
+  range: WatchlistSparklineRange,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<CompanyPreset | null> {
   const cleaned = stripAdrSuffix(rawQuery).replace(/^\$/, '').trim();
   if (!cleaned) return null;
 
-  if (VERIFIED_PRIVATE_COMPANIES[cleaned.toLowerCase()]) {
+  if (
+    VERIFIED_PRIVATE_COMPANIES[cleaned.toLowerCase()] ||
+    lookupHangulPrivateAlias(cleaned)
+  ) {
     return null;
   }
 
-  // Fast-path for curated US-listed ADRs, OTC international leaders, and brand aliases (e.g. SK Hynix -> SKHY)
+  // 1. Locale-aware KRX / Dual-Listed / Hangul alias / Naver Autocomplete resolution
+  const localeHit = await resolveEquityQueryWithLocale(rawQuery, locale);
+  if (localeHit) {
+    const localePreset = await buildLivePublicPreset(
+      localeHit.symbol,
+      range,
+      localeHit.displayName,
+      localeHit.sector,
+      locale
+    );
+    if (localePreset) {
+      return localePreset;
+    }
+  }
+
+  // 2. Fast-path for curated US-listed ADRs, OTC international leaders, and brand aliases
   const adrHit = lookupAdrOrBrandAlias(cleaned);
   if (adrHit) {
     const adrPreset = await buildLivePublicPreset(
       adrHit.symbol,
       range,
       adrHit.canonicalName,
-      adrHit.sector
+      adrHit.sector,
+      locale
     );
     if (adrPreset) {
       return adrPreset;
     }
   }
 
-  const normalizedUpper = cleaned.toUpperCase().replace(/\./g, '-');
+  const normalizedUpper = normalizeEquitySymbol(cleaned);
   const cleanInputName = normalizeCoreCompanyName(cleaned);
   const inputWords = cleanInputName.split(/\s+/).filter(Boolean);
 
@@ -636,7 +706,8 @@ async function resolveVerifiedPublicPreset(
   if (
     !matchedSymbol &&
     !searchSucceeded &&
-    /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(normalizedUpper)
+    (/^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(normalizedUpper) ||
+      /^[0-9A-Z]{6}\.(KS|KQ)$/.test(normalizedUpper))
   ) {
     matchedSymbol = normalizedUpper;
   }
@@ -649,7 +720,8 @@ async function resolveVerifiedPublicPreset(
     matchedSymbol,
     range,
     matchedName ? cleanDisplayCompanyLabel(matchedName) : null,
-    matchedSector
+    matchedSector,
+    locale
   );
 }
 
@@ -978,10 +1050,11 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
       return null;
     }
 
-    // 1. If it resolves to a US public equity or US-traded ADR, verify live chart on Yahoo Finance!
+    // 1. If it resolves to a US public equity, US-traded ADR, or KRX (.KS/.KQ) stock, verify live chart!
     if (
       typeof parsed.usOrAdrTicker === 'string' &&
-      /^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(parsed.usOrAdrTicker.trim())
+      (/^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(parsed.usOrAdrTicker.trim()) ||
+        /^[0-9A-Za-z]{6}\.(KS|KQ)$/i.test(parsed.usOrAdrTicker.trim()))
     ) {
       const pubPreset = await buildLivePublicPreset(
         parsed.usOrAdrTicker.trim(),
@@ -1073,30 +1146,43 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
  */
 export async function validateAndResolveFollowCompany(
   rawInput: string,
-  range: WatchlistSparklineRange = APP_CONFIG.watchlist.defaultSparklineRange
+  range: WatchlistSparklineRange = APP_CONFIG.watchlist.defaultSparklineRange,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<ValidateFollowResult> {
-  logFunctionCall('validateAndResolveFollowCompany', { rawInput, range });
+  logFunctionCall('validateAndResolveFollowCompany', {
+    rawInput,
+    range,
+    locale,
+  });
 
-  const trimmed = stripAdrSuffix(rawInput);
+  const hangulPrivate = lookupHangulPrivateAlias(rawInput);
+  const trimmed = hangulPrivate || stripAdrSuffix(rawInput);
   if (!trimmed) {
     return {
       valid: false,
-      error: 'Enter a stock ticker (e.g. TSLA) or real company name (e.g. Anthropic).',
+      error:
+        locale === 'ko'
+          ? '종목코드(예: 005930, NVDA) 또는 기업명(예: 삼성전자, Anthropic)을 입력해 주세요.'
+          : 'Enter a stock ticker (e.g. TSLA, 005930.KS) or real company name (e.g. Samsung Electronics, Anthropic).',
     };
   }
 
+  const isSixDigitKrxCode = /^\d{6}$/.test(trimmed);
   if (
     trimmed.length > 65 ||
-    !/[a-zA-Z]/.test(trimmed) ||
+    (!/[a-zA-Z가-힣]/.test(trimmed) && !isSixDigitKrxCode) ||
     detectSearchQueryIntent(trimmed) === 'cohort'
   ) {
     return {
       valid: false,
-      error: `"${trimmed.slice(0, 40)}" looks like a screening phrase or invalid identifier — enter a real company name or stock ticker to follow.`,
+      error:
+        locale === 'ko'
+          ? `"${trimmed.slice(0, 40)}"은(는) 조건 검색어이거나 올바르지 않은 식별자입니다 — 실제 기업명이나 종목코드를 입력해 주세요.`
+          : `"${trimmed.slice(0, 40)}" looks like a screening phrase or invalid identifier — enter a real company name or stock ticker to follow.`,
     };
   }
 
-  const cacheKey = `${trimmed.toLowerCase()}::${range}`;
+  const cacheKey = `${rawInput.trim().toLowerCase()}::${range}::${locale}`;
   const cached = validationCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
     return cached.result;
@@ -1126,8 +1212,12 @@ export async function validateAndResolveFollowCompany(
     return res;
   }
 
-  // 2. Check verified US-listed public equities via Yahoo Finance
-  const publicPreset = await resolveVerifiedPublicPreset(trimmed, range);
+  // 2. Check verified US, ADR, and KOSPI/KOSDAQ public equities (passing rawInput so (ADR)/(KOSPI) suffix hints work)
+  const publicPreset = await resolveVerifiedPublicPreset(
+    rawInput,
+    range,
+    locale
+  );
   if (publicPreset) {
     const res: ValidateFollowResult = {
       valid: true,
@@ -1170,7 +1260,10 @@ export async function validateAndResolveFollowCompany(
 
   const notFoundResult: ValidateFollowResult = {
     valid: false,
-    error: `Cannot follow "${trimmed}" — only US-listed equities, US-traded ADRs, and verified privately held companies are supported.`,
+    error:
+      locale === 'ko'
+        ? `"${trimmed}" 종목을 팔로우할 수 없습니다 — 미국 상장주, 한국 KOSPI·KOSDAQ 상장주, 미국 ADR 및 검증된 비상장 기업만 지원됩니다.`
+        : `Cannot follow "${trimmed}" — only US-listed equities, Korea KOSPI/KOSDAQ stocks, US-traded ADRs, and verified privately held companies are supported.`,
   };
 
   validationCache.set(cacheKey, {
@@ -1194,18 +1287,20 @@ export async function validateAndResolveFollowCompany(
  */
 export async function resolveFollowabilityForSuggestedCompany(
   name: string,
-  tickerHint?: string | null
+  tickerHint?: string | null,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<{
   canFollow: boolean;
   ticker: string | null;
   entityType: 'ticker' | 'name';
   searchQuery: string;
 }> {
-  const cleanName = stripAdrSuffix(name);
+  const hangulPriv = lookupHangulPrivateAlias(name);
+  const cleanName = hangulPriv || stripAdrSuffix(name);
   const cleanTicker = tickerHint
     ? stripAdrSuffix(tickerHint).toUpperCase() || null
     : null;
-  const cacheKey = `${cleanName.toLowerCase()}::${cleanTicker || ''}`;
+  const cacheKey = `${cleanName.toLowerCase()}::${cleanTicker || ''}::${locale}`;
 
   const cached = followabilityCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
@@ -1232,7 +1327,34 @@ export async function resolveFollowabilityForSuggestedCompany(
     return res;
   }
 
-  // 2. Curated US ADR / OTC / brand alias directory (e.g. SK Hynix -> SKHY, Samsung -> SSNLF, Foxconn -> HNHPF)
+  // 2. Locale-aware KRX / Dual-Listed resolution (handles KOSPI/KOSDAQ + Korean/English ADR priority)
+  const localeHit =
+    (await resolveEquityQueryWithLocale(name, locale)) ||
+    (cleanTicker ? await resolveEquityQueryWithLocale(cleanTicker, locale) : null);
+  if (localeHit) {
+    const krxOrAdrPreset = await buildLivePublicPreset(
+      localeHit.symbol,
+      '1M',
+      localeHit.displayName,
+      localeHit.sector,
+      locale
+    );
+    if (krxOrAdrPreset) {
+      const res = {
+        canFollow: true,
+        ticker: krxOrAdrPreset.value,
+        entityType: 'ticker' as const,
+        searchQuery: krxOrAdrPreset.value,
+      };
+      followabilityCache.set(cacheKey, {
+        result: res,
+        expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+      });
+      return res;
+    }
+  }
+
+  // 3. Curated US ADR / OTC / brand alias directory
   const adrHit =
     lookupAdrOrBrandAlias(cleanName) ||
     (cleanTicker ? lookupAdrOrBrandAlias(cleanTicker) : null);
@@ -1241,7 +1363,8 @@ export async function resolveFollowabilityForSuggestedCompany(
       adrHit.symbol,
       '1M',
       adrHit.canonicalName,
-      adrHit.sector
+      adrHit.sector,
+      locale
     );
     if (adrPreset) {
       const res = {
@@ -1258,12 +1381,18 @@ export async function resolveFollowabilityForSuggestedCompany(
     }
   }
 
-  // 3. Explicit US/ADR ticker hint verified against live Yahoo Finance chart
-  if (cleanTicker && /^[A-Z]{1,5}([.-][A-Z]{1,2})?$/.test(cleanTicker)) {
+  // 4. Explicit US/ADR or KRX ticker hint verified against live Yahoo Finance chart
+  if (
+    cleanTicker &&
+    (/^[A-Z]{1,5}([.-][A-Z]{1,2})?$/.test(cleanTicker) ||
+      /^[0-9A-Z]{6}\.(KS|KQ)$/.test(cleanTicker))
+  ) {
     const pubFromHint = await buildLivePublicPreset(
       cleanTicker,
       '1M',
-      cleanName
+      cleanName,
+      null,
+      locale
     );
     if (pubFromHint) {
       const res = {
@@ -1280,8 +1409,8 @@ export async function resolveFollowabilityForSuggestedCompany(
     }
   }
 
-  // 4. Strict Yahoo Finance US/ADR search by company name
-  const pubByName = await resolveVerifiedPublicPreset(cleanName, '1M');
+  // 5. Strict Yahoo Finance US/ADR/KRX search by company name
+  const pubByName = await resolveVerifiedPublicPreset(cleanName, '1M', locale);
   if (pubByName) {
     const res = {
       canFollow: true,
@@ -1353,11 +1482,13 @@ export async function resolveFollowabilityForSuggestedCompany(
  */
 export async function hydrateWatchlistPresets(
   items: CompanyPreset[],
-  range: WatchlistSparklineRange = APP_CONFIG.watchlist.defaultSparklineRange
+  range: WatchlistSparklineRange = APP_CONFIG.watchlist.defaultSparklineRange,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<HydrateWatchlistResult> {
   logFunctionCall('hydrateWatchlistPresets', {
     itemCount: items.length,
     range,
+    locale,
   });
 
   const bounded = items.slice(0, APP_CONFIG.watchlist.maxFollowedCompanies);
@@ -1397,7 +1528,8 @@ export async function hydrateWatchlistPresets(
           defaultPublic.value,
           range,
           defaultPublic.label,
-          defaultPublic.sector
+          defaultPublic.sector,
+          locale
         );
         return (
           live || {
@@ -1408,8 +1540,26 @@ export async function hydrateWatchlistPresets(
         );
       }
 
+      // 2b. Explicit KRX symbol fast-path so followed .KS/.KQ stocks preserve their exact listing across UI locales
+      if (isKrxSymbol(rawVal)) {
+        const krxLive = await buildLivePublicPreset(
+          rawVal,
+          range,
+          null,
+          null,
+          locale
+        );
+        if (krxLive) {
+          return krxLive;
+        }
+      }
+
       // 3. Custom user-added entry: validate existence AND hydrate live data
-      const check = await validateAndResolveFollowCompany(rawVal, range);
+      const check = await validateAndResolveFollowCompany(
+        rawVal,
+        range,
+        locale
+      );
       if (!check.valid || !check.preset) {
         invalidValues.push(rawVal);
         return null;

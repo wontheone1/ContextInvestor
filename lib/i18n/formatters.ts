@@ -127,7 +127,9 @@ export function translateRelationshipCategory(
 ): string {
   if (locale === 'en') return category;
   const map: Record<string, string> = {
+    Suppliers: '공급사 및 장비·소재',
     'Suppliers & Infra': '공급망 및 인프라',
+    Customers: '주요 고객사',
     'Customers & Adopters': '고객사 및 도입 기업',
     'Peers & Competitors': '동종업계 및 경쟁사',
     'Strategic Partners': '전략적 파트너',
@@ -145,7 +147,9 @@ export function translateRelationshipDescription(
 ): string {
   if (locale === 'en') return fallbackDescription;
   const map: Record<string, string> = {
+    Suppliers: '핵심 부품, 반도체 파운드리, 장비 및 인프라 공급 기업',
     'Suppliers & Infra': '핵심 부품, 반도체 파운드리, 장비 및 클라우드 인프라 공급 기업',
+    Customers: '주요 매출처, OEM 및 엔터프라이즈 구매 고객사',
     'Customers & Adopters': '주요 매출처, 하이퍼스케일러 및 엔터프라이즈 도입 고객사',
     'Peers & Competitors': '동일 섹터 및 핵심 제품군에서 직접 경쟁하는 주요 비교 기업',
     'Strategic Partners': '공동 R&D, 유통, 플랫폼 통합 및 지분 제휴 파트너사',
@@ -255,6 +259,7 @@ export function translatePresetMetadata(
   const exactMap: Record<string, string> = {
     // Sample cohort query chips
     'AI chip companies > $200B': 'AI 반도체 기업 > $200B',
+    'Korea chip & HBM leaders > ₩10조': '한국 반도체 대장주 > ₩10조',
     'Cloud cybersecurity > $50B': '클라우드 보안주 > $50B',
     'Private AI unicorns > $10B': '비상장 AI 유니콘 > $10B',
     // Filter options in APP_CONFIG.filters
@@ -292,8 +297,19 @@ export function translatePresetMetadata(
     'Frontier Private Unicorns': '프론티어 비상장 AI·핀테크 유니콘',
     'High-conviction unlisted leaders tracked by valuation & news':
       '추정 기업가치와 실시간 뉴스로 추적하는 핵심 비상장 선도 기업',
+    'Korea KOSPI & KOSDAQ Leaders': '한국 KOSPI · KOSDAQ 대표주',
+    'HBM memory, automotive mobility, and K-biotech innovators':
+      'HBM 메모리, 미래 모빌리티 및 K-바이오 플랫폼 대표 기업',
+    'Samsung Electronics': '삼성전자',
+    'SK Hynix': 'SK하이닉스',
+    'Hyundai Motor': '현대차',
+    Alteogen: '알테오젠',
     // Common sectors & hints
     'Semiconductors & AI': '반도체 및 AI',
+    'Semiconductors & Consumer Tech': '반도체 · IT 하드웨어',
+    'Semiconductors & HBM Memory': '반도체 · HBM 메모리',
+    'Automotive & Future Mobility': '자동차 · 미래 모빌리티',
+    'Subcutaneous Biologics Platform': '바이오 플랫폼 · 피하주사 제형',
     'Fintech Infrastructure': '핀테크 인프라',
     'Consumer Hardware': '소비자 하드웨어 및 생태계',
     'Cloud & Enterprise AI': '클라우드 및 엔터프라이즈 AI',
@@ -308,6 +324,12 @@ export function translatePresetMetadata(
     'Data & AI Lakehouse': '데이터 및 AI 레이크하우스',
     'Public · NASDAQ': '상장 · NASDAQ',
     'Public · NYSE': '상장 · NYSE',
+    'Public · KOSPI': '상장 · KOSPI',
+    'Public · KOSDAQ': '상장 · KOSDAQ',
+    'KOSPI Listed Equity': 'KOSPI 상장 주식',
+    'KOSDAQ Listed Equity': 'KOSDAQ 상장 주식',
+    'US Listed Equity': '미국 상장 주식',
+    'US-Traded ADR Equity': '미국 상장 ADR',
     'ADR · NYSE': 'ADR · NYSE',
     'ADR · NASDAQ': 'ADR · NASDAQ',
     'ADR · US OTC': 'ADR · 미국 OTC',

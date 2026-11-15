@@ -76,6 +76,7 @@ import {
 import { useLanguage } from '@/components/LanguageProvider';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
+import { formatSharePriceByCurrency } from '@/lib/krx-directory';
 import { translatePresetMetadata } from '@/lib/i18n';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
@@ -465,9 +466,11 @@ export default function InvestorDashboardPage() {
       itemsToHydrate: CompanyPreset[],
       targetRange: WatchlistSparklineRange,
       persistToLocalStorage: boolean,
-      refreshDigestOnPrune = false
+      refreshDigestOnPrune = false,
+      targetLocale?: 'en' | 'ko'
     ) => {
       const seq = ++watchlistQuotesSeqRef.current;
+      const activeLocale = targetLocale ?? localeRef.current;
       setIsHydratingWatchlistQuotes(true);
 
       try {
@@ -478,6 +481,7 @@ export default function InvestorDashboardPage() {
             action: 'hydrate',
             companies: itemsToHydrate,
             range: targetRange,
+            locale: activeLocale,
           }),
         });
         const json = await res.json();
@@ -671,6 +675,7 @@ export default function InvestorDashboardPage() {
           action: 'validate',
           query: trimmed,
           range: watchlistRange,
+          locale: localeRef.current,
         }),
       });
       const json = await res.json();
@@ -794,6 +799,7 @@ export default function InvestorDashboardPage() {
                 action: 'validate',
                 query: item.query.trim(),
                 range: watchlistRange,
+                locale: localeRef.current,
               }),
             });
             const json = await res.json();
@@ -1139,11 +1145,13 @@ export default function InvestorDashboardPage() {
     async (
       query: string,
       entityType: 'auto' | 'name' | 'ticker',
-      range: ChartRange
+      range: ChartRange,
+      targetLocale?: 'en' | 'ko'
     ) => {
       const trimmed = query.trim();
       if (!trimmed) return;
 
+      const activeLocale = targetLocale ?? localeRef.current;
       setIsLoadingMarket(true);
       setMarketError(null);
       try {
@@ -1151,6 +1159,7 @@ export default function InvestorDashboardPage() {
           query: trimmed,
           entityType,
           range,
+          locale: activeLocale,
         });
         const res = await fetch(`/api/market/overview?${params.toString()}`);
         const data = await res.json();
@@ -1176,11 +1185,16 @@ export default function InvestorDashboardPage() {
    * (`Suppliers`, `Customers`, `Peers & Competitors`, `Strategic Partners`).
    */
   const fetchRelatedCompanies = useCallback(
-    async (query: string, forceRefresh = false) => {
+    async (
+      query: string,
+      forceRefresh = false,
+      targetLocale?: 'en' | 'ko'
+    ) => {
       const trimmed = query.trim();
       if (!trimmed) return;
 
-      const cacheKey = trimmed.toLowerCase();
+      const activeLocale = targetLocale ?? localeRef.current;
+      const cacheKey = `${activeLocale}::${trimmed.toLowerCase()}`;
       if (!forceRefresh) {
         const cached = relatedCacheRef.current.get(cacheKey);
         if (cached) {
@@ -1196,7 +1210,10 @@ export default function InvestorDashboardPage() {
       setRelatedError(null);
 
       try {
-        const params = new URLSearchParams({ query: trimmed });
+        const params = new URLSearchParams({
+          query: trimmed,
+          locale: activeLocale,
+        });
         if (forceRefresh) {
           params.set('refresh', '1');
         }
@@ -1306,6 +1323,7 @@ export default function InvestorDashboardPage() {
         symbol: marketData.symbol,
         range: nextRange,
         chartOnly: '1',
+        locale: localeRef.current,
       });
       const res = await fetch(`/api/market/overview?${params.toString()}`);
       const data = await res.json();
@@ -1555,7 +1573,8 @@ export default function InvestorDashboardPage() {
       targetSelectedIds: string[],
       range: ChartRange,
       theme: string,
-      chartOnly = false
+      chartOnly = false,
+      targetLocale?: 'en' | 'ko'
     ) => {
       const byId = new Map<string, ScreenedCandidateItem>();
       for (const c of candidatesList) {
@@ -1582,6 +1601,7 @@ export default function InvestorDashboardPage() {
       }
 
       const seq = ++cohortCompareSeqRef.current;
+      const activeLocale = targetLocale ?? localeRef.current;
       setIsHydratingComparison(true);
 
       try {
@@ -1593,6 +1613,7 @@ export default function InvestorDashboardPage() {
             range,
             theme,
             chartOnly,
+            locale: activeLocale,
           }),
         });
         const json = await res.json();
@@ -1647,13 +1668,19 @@ export default function InvestorDashboardPage() {
    * and triggers full comparison dossier hydration.
    */
   const runCohortScreen = useCallback(
-    async (rawQuery: string, forceRefresh = false) => {
+    async (
+      rawQuery: string,
+      forceRefresh = false,
+      targetLocale?: 'en' | 'ko'
+    ) => {
       const trimmed = rawQuery.trim();
       if (!trimmed) return;
 
+      const activeLocale = targetLocale ?? localeRef.current;
       logFunctionCall('InvestorDashboardPage.runCohortScreen', {
         query: trimmed,
         forceRefresh,
+        locale: activeLocale,
       });
 
       const seq = ++cohortScreenSeqRef.current;
@@ -1675,6 +1702,7 @@ export default function InvestorDashboardPage() {
             query: trimmed,
             range: cohortRange,
             forceRefresh,
+            locale: activeLocale,
           }),
         });
         const json = await res.json();
@@ -1708,7 +1736,8 @@ export default function InvestorDashboardPage() {
           result.preselectedIds,
           cohortRange,
           result.interpretedTheme,
-          false
+          false,
+          activeLocale
         );
       } catch (err) {
         if (seq !== cohortScreenSeqRef.current) return;
@@ -1789,6 +1818,7 @@ export default function InvestorDashboardPage() {
           action: 'validate',
           query: trimmed,
           range: '1M',
+          locale: localeRef.current,
         }),
       });
       const verifyJson = await verifyRes.json();
@@ -1804,6 +1834,7 @@ export default function InvestorDashboardPage() {
         query: verifiedPreset.value,
         entityType: verifiedPreset.entityType === 'ticker' ? 'ticker' : 'name',
         range: cohortRange,
+        locale: localeRef.current,
       });
       const res = await fetch(`/api/market/overview?${params.toString()}`);
       const json = await res.json();
@@ -2303,33 +2334,73 @@ export default function InvestorDashboardPage() {
     return () => window.removeEventListener('keydown', handleGlobalShortcut);
   }, []);
 
-  // Re-synthesize Daily Brief, Company AI Brief, and Headline Sentiment Rationales when language switches
+  // Re-synthesize Daily Brief, Watchlist Labels, Dual-Listed/KRX Market Overview, Related Ecosystem, and AI Briefs when language switches
   const prevLocaleRef = useRef(locale);
   const articlesRef = useRef<EnrichedNewsArticle[]>(articles);
   useEffect(() => {
     articlesRef.current = articles;
   }, [articles]);
   const entityValueRef = useRef<string>(searchState.entityValue);
+  const entityTypeRef = useRef<'auto' | 'name' | 'ticker'>(searchState.entityType);
   useEffect(() => {
     entityValueRef.current = searchState.entityValue;
-  }, [searchState.entityValue]);
+    entityTypeRef.current = searchState.entityType;
+  }, [searchState.entityValue, searchState.entityType]);
+  const chartRangeRef = useRef<ChartRange>(chartRange);
+  useEffect(() => {
+    chartRangeRef.current = chartRange;
+  }, [chartRange]);
+  const watchlistRangeRef = useRef<WatchlistSparklineRange>(watchlistRange);
+  useEffect(() => {
+    watchlistRangeRef.current = watchlistRange;
+  }, [watchlistRange]);
+  const workspaceModeRef = useRef<SearchWorkspaceMode>(workspaceMode);
+  useEffect(() => {
+    workspaceModeRef.current = workspaceMode;
+  }, [workspaceMode]);
+  const activeCohortQueryRef = useRef<string>(activeCohortQuery);
+  useEffect(() => {
+    activeCohortQueryRef.current = activeCohortQuery;
+  }, [activeCohortQuery]);
 
   useEffect(() => {
     if (prevLocaleRef.current === locale) return;
     prevLocaleRef.current = locale;
     void fetchWatchlistDigest(followedCompaniesRef.current, false, locale);
-    if (articlesRef.current.length > 0 && entityValueRef.current.trim()) {
-      void generateBriefForArticles(
+    void hydrateFollowedWatchlistQuotes(
+      followedCompaniesRef.current,
+      watchlistRangeRef.current,
+      false,
+      false,
+      locale
+    );
+    if (workspaceModeRef.current === 'cohort' && activeCohortQueryRef.current.trim()) {
+      void runCohortScreen(activeCohortQueryRef.current, false, locale);
+    } else if (entityValueRef.current.trim()) {
+      void fetchMarketOverview(
         entityValueRef.current,
-        articlesRef.current,
-        false,
+        entityTypeRef.current,
+        chartRangeRef.current,
         locale
       );
-      void enrichMissingSentiments(articlesRef.current, true, locale);
+      void fetchRelatedCompanies(entityValueRef.current, false, locale);
+      if (articlesRef.current.length > 0) {
+        void generateBriefForArticles(
+          entityValueRef.current,
+          articlesRef.current,
+          false,
+          locale
+        );
+        void enrichMissingSentiments(articlesRef.current, true, locale);
+      }
     }
   }, [
     locale,
     fetchWatchlistDigest,
+    hydrateFollowedWatchlistQuotes,
+    runCohortScreen,
+    fetchMarketOverview,
+    fetchRelatedCompanies,
     generateBriefForArticles,
     enrichMissingSentiments,
   ]);
@@ -2865,7 +2936,10 @@ export default function InvestorDashboardPage() {
                               ·
                             </span>
                             <span className="text-white font-semibold">
-                              ${marketData.price.toFixed(2)}
+                              {formatSharePriceByCurrency(
+                                marketData.price,
+                                marketData.currency
+                              )}
                             </span>
                             <span
                               className={

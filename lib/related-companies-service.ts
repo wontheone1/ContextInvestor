@@ -19,8 +19,9 @@
  */
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
-import { isAdrTicker } from './adr-directory';
+import { isAdrTicker, stripAdrSuffix } from './adr-directory';
 import { APP_CONFIG } from './config';
+import { isKrxSymbol } from './krx-directory';
 import { resolveFollowabilityForSuggestedCompany } from './watchlist-company-service';
 import { logFunctionCall, logGenAICall } from './logger';
 
@@ -123,11 +124,11 @@ function normalizeRelationshipCategory(
 
 /**
  * Validates that a ticker is a clean US-exchange symbol (e.g. "MSFT", "TSM", "BRK.B")
- * and rejects foreign-exchange suffixes (e.g. "005930.KS", "2330.TW", "SAP.DE") or placeholders.
+ * or Korea Exchange symbol ("005930.KS", "042700.KS", "196170.KQ"), rejecting unsupported suffixes.
  */
-function sanitizeUsTicker(rawTicker: unknown): string | null {
+function sanitizeSupportedTicker(rawTicker: unknown): string | null {
   if (typeof rawTicker !== 'string') return null;
-  const cleaned = rawTicker.trim().toUpperCase();
+  const cleaned = stripAdrSuffix(rawTicker).trim().toUpperCase();
   if (
     !cleaned ||
     cleaned === 'NONE' ||
@@ -137,14 +138,15 @@ function sanitizeUsTicker(rawTicker: unknown): string | null {
   ) {
     return null;
   }
+  if (/^[0-9A-Z]{6}\.(KS|KQ)$/.test(cleaned)) {
+    return cleaned;
+  }
   // Standard US equity symbols: 1-5 letters, optional .A / .B share class
   if (!/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(cleaned)) {
     return null;
   }
   const suffix = cleaned.split('.')[1];
   const foreignSuffixes = new Set([
-    'KS',
-    'KQ',
     'TW',
     'HK',
     'TO',
@@ -166,18 +168,20 @@ function sanitizeUsTicker(rawTicker: unknown): string | null {
 /**
  * Generates related company search suggestions grouped by relationship
  * (`Suppliers`, `Customers`, `Peers & Competitors`, `Strategic Partners`),
- * supporting multi-relationship membership per company.
+ * supporting multi-relationship membership per company and locale-aware KRX/ADR resolution.
  */
 export async function getRelatedCompanies(
   companyQuery: string,
-  forceRefresh = false
+  forceRefresh = false,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<RelatedCompaniesResponse> {
-  const trimmedQuery = companyQuery.trim();
-  const cacheKey = `v3::${trimmedQuery.toLowerCase()}`;
+  const trimmedQuery = stripAdrSuffix(companyQuery).trim();
+  const cacheKey = `v4::${trimmedQuery.toLowerCase()}::${locale}`;
 
   logFunctionCall('getRelatedCompanies', {
     companyQuery: trimmedQuery,
     forceRefresh,
+    locale,
   });
 
   if (!forceRefresh) {
@@ -205,18 +209,23 @@ export async function getRelatedCompanies(
 
   const model = APP_CONFIG.gemini.defaultModel;
 
-  const prompt = `For the searched company or US stock ticker "${trimmedQuery}", suggest 8 to 10 high-signal related companies that an institutional equity analyst should research next.
+  const tickerInstruction =
+    locale === 'ko'
+      ? `For "usTicker": provide a valid US ticker ("NVDA", "MSFT", "TSM", "ASML") OR Korea Exchange KOSPI/KOSDAQ ticker ("005930.KS" for 삼성전자, "000660.KS" for SK하이닉스, "042700.KS" for 한미반도체, "005380.KS" for 현대차, "058470.KQ" for 리노공업, "196170.KQ" for 알테오젠, "247540.KQ" for 에코프로비엠). Because UI language is Korean, ALWAYS prefer ".KS"/".KQ" primary Korean tickers for Korean companies over US ADRs, use Korean display names for Korean companies, and write "resolvedCompanyName" and every "rationale" in concise institutional Korean (45자 내외).`
+      : `For "usTicker": provide a valid US stock exchange or US ADR ticker ("MSFT", "TSM", "ASML", "ARM", "SKHY" for SK Hynix, "SSNLF" for Samsung Electronics, "HNHPF" for Foxconn, "TELWY" for Tokyo Electron), OR a Korea Exchange KOSPI/KOSDAQ ticker (e.g. "042700.KS" for HANMI Semiconductor, "005380.KS" for Hyundai Motor, "373220.KS" for LG Energy Solution, "196170.KQ" for Alteogen) when a Korean company has no US ADR. Set "usTicker" to "" ONLY if the company is privately held (OpenAI, Stripe, Anthropic) or listed outside the US and Korea without a US ADR.`;
+
+  const prompt = `For the searched company or stock ticker "${trimmedQuery}", suggest 8 to 10 high-signal related companies that an institutional equity analyst should research next.
 
 Requirements:
-1. Classify each related company into ONE OR MORE of these exact relationship categories:
-   - "Suppliers" (upstream component, foundry, chip, cloud, or infrastructure suppliers to "${trimmedQuery}")
+1. Classify each related company into ONE OR MORE of these exact relationship categories (keep category strings in English exactly as shown):
+   - "Suppliers" (upstream component, foundry, chip, equipment, cloud, or infrastructure suppliers to "${trimmedQuery}")
    - "Customers" (major enterprise customers, OEMs, or buyers of "${trimmedQuery}" products/services)
    - "Peers & Competitors" (direct industry peers or product competitors)
    - "Strategic Partners" (co-engineering, distribution, licensing, or major ecosystem partners)
-2. A company CAN AND SHOULD belong to multiple relationship categories whenever factually true (for example, a hyperscaler that is both one of "${trimmedQuery}"'s largest "Customers" AND one of its "Peers & Competitors" or "Strategic Partners"). Include at least 2-3 multi-relationship companies if accurate.
+2. A company CAN AND SHOULD belong to multiple relationship categories whenever factually true. Include at least 2-3 multi-relationship companies if accurate.
 3. Cover at least 3 of the 4 relationship categories with real, well-known companies. Do NOT include "${trimmedQuery}" itself.
-4. For "usTicker": provide a valid US stock exchange ticker OR US-traded ADR / US OTC ticker whenever the company trades in the United States (for example: "TSM" for TSMC, "ASML" for ASML, "ARM" for Arm, "SKHY" for SK Hynix, "SSNLF" for Samsung Electronics, "HNHPF" for Foxconn / Hon Hai, "TELWY" for Tokyo Electron, "ATEYY" for Advantest, "IFNNY" for Infineon, "SONY" for Sony, "SAP" for SAP, "SFTBY" for SoftBank, "TCEHY" for Tencent, "BYDDY" for BYD, "CYATY" for CATL). ONLY set "usTicker" to "" if the company is privately held (e.g. OpenAI, Stripe, Anthropic, Databricks, SpaceX) OR has zero US/ADR listing (e.g. MediaTek, Quanta Computer).
-5. Keep "rationale" to 1 crisp factual sentence (max 16 words) explaining all selected relationships.`;
+4. ${tickerInstruction}
+5. Keep "rationale" to 1 crisp factual sentence explaining all selected relationships.`;
 
   const config = {
     thinkingConfig: {
@@ -306,7 +315,7 @@ Requirements:
       const name = typeof rawItem.name === 'string' ? rawItem.name.trim() : '';
       if (!name) continue;
 
-      const ticker = sanitizeUsTicker(rawItem.usTicker);
+      const ticker = sanitizeSupportedTicker(rawItem.usTicker);
 
       // Exclude self-references
       if (
@@ -330,7 +339,9 @@ Requirements:
         normalizedRels.push('Peers & Competitors');
       }
 
-      const key = (ticker || name).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const key = (ticker || name)
+        .toLowerCase()
+        .replace(/[^a-z0-9가-힣]/g, '');
       if (!key) continue;
 
       const rationale =
@@ -361,18 +372,21 @@ Requirements:
 
     const rawCompanies = Array.from(mergedByKey.values());
 
-    // Verify followability & resolve ADR symbols (e.g. SK Hynix -> SKHY) in parallel across all suggestions
+    // Verify followability & resolve KRX / ADR symbols in parallel across all suggestions
     const verifiedCompanies = await Promise.all(
       rawCompanies.map(async (item): Promise<RelatedCompanyItem> => {
         const followCheck = await resolveFollowabilityForSuggestedCompany(
           item.name,
-          item.ticker
+          item.ticker,
+          locale
         );
         return {
           ...item,
           ticker: followCheck.ticker,
           isAdr: Boolean(
-            followCheck.ticker && isAdrTicker(followCheck.ticker, item.name)
+            followCheck.ticker &&
+              !isKrxSymbol(followCheck.ticker) &&
+              isAdrTicker(followCheck.ticker, item.name)
           ),
           entityType: followCheck.entityType,
           searchQuery: followCheck.searchQuery,
@@ -381,15 +395,16 @@ Requirements:
       })
     );
 
-    // Deduplicate again in case two entries resolved to the same canonical ADR ticker
+    // Deduplicate again in case two entries resolved to the same canonical KRX or ADR ticker
     const dedupedAfterVerify = new Map<string, RelatedCompanyItem>();
     for (const comp of verifiedCompanies) {
       const resolvedKey = (comp.ticker || comp.name)
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '');
+        .replace(/[^a-z0-9가-힣]/g, '');
       if (
-        resolvedKey === queryLower.replace(/[^a-z0-9]/g, '') ||
-        resolvedKey === resolvedLower.replace(/[^a-z0-9]/g, '')
+        !resolvedKey ||
+        resolvedKey === queryLower.replace(/[^a-z0-9가-힣]/g, '') ||
+        resolvedKey === resolvedLower.replace(/[^a-z0-9가-힣]/g, '')
       ) {
         continue;
       }

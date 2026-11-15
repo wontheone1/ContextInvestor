@@ -94,8 +94,33 @@ const newsPulseCache = new Map<
 export function extractNumericBoundsFromQuery(query: string): {
   minUsd: number | null;
   maxUsd: number | null;
+  krwConstraintSummary?: string | null;
 } {
   logFunctionCall('extractNumericBoundsFromQuery', { query });
+
+  // Check Korean KRW 조/억 bounds first (e.g., "시총 50조 이상", "10조원 초과", "5000억 이하")
+  const krwMinMatch = query.match(
+    /(\d+(?:\.\d+)?)\s*(조|억)\s*원?\s*(?:이상|초과|넘는)/
+  );
+  const krwMaxMatch = query.match(
+    /(\d+(?:\.\d+)?)\s*(조|억)\s*원?\s*(?:이하|미만)/
+  );
+  if (krwMinMatch || krwMaxMatch) {
+    const parseKrw = (m: RegExpMatchArray | null): number | null => {
+      if (!m) return null;
+      return parseCompactUsdString(`₩${m[1]}${m[2]}`);
+    };
+    const krwLabel = krwMinMatch
+      ? `시가총액 > ₩${krwMinMatch[1]}${krwMinMatch[2]}`
+      : krwMaxMatch
+        ? `시가총액 < ₩${krwMaxMatch[1]}${krwMaxMatch[2]}`
+        : null;
+    return {
+      minUsd: parseKrw(krwMinMatch),
+      maxUsd: parseKrw(krwMaxMatch),
+      krwConstraintSummary: krwLabel,
+    };
+  }
 
   const minMatch = query.match(
     /\b(?:over|above|more\s+than|greater\s+than|at\s+least|exceeding|>|>=)\s*\$?\s*(\d+(?:\.\d+)?)\s*(trillion|tn|t|billion|bn|b|million|mn|m)?\b/i
@@ -112,6 +137,7 @@ export function extractNumericBoundsFromQuery(query: string): {
   return {
     minUsd: parseBound(minMatch),
     maxUsd: parseBound(maxMatch),
+    krwConstraintSummary: null,
   };
 }
 
@@ -143,9 +169,10 @@ function buildCandidateId(
  * @returns Structured discovery payload
  */
 async function discoverCandidatesViaGroundedGemini(
-  query: string
+  query: string,
+  locale: 'en' | 'ko' = 'en'
 ): Promise<RawAiScreenDiscovery | null> {
-  logFunctionCall('discoverCandidatesViaGroundedGemini', { query });
+  logFunctionCall('discoverCandidatesViaGroundedGemini', { query, locale });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
@@ -162,19 +189,25 @@ async function discoverCandidatesViaGroundedGemini(
   });
 
   const model = APP_CONFIG.gemini.defaultModel;
-  const prompt = `You are an institutional equity and private-market screening engine.
+  const languageDirective =
+    locale === 'ko'
+      ? 'Write "interpretedTheme", "constraintSummary", and every candidate "matchReason" in natural, institutional Korean. For Korean companies, use their Korean name (e.g. "삼성전자", "SK하이닉스", "한미반도체", "알테오젠") and KRX ticker (".KS" for KOSPI, ".KQ" for KOSDAQ, e.g. "005930.KS", "000660.KS", "042700.KS", "196170.KQ"). For Korean won constraints, format "constraintSummary" in pure KRW 조/억 (e.g. "시가총액 > ₩50조").'
+      : 'Write "interpretedTheme", "constraintSummary", and "matchReason" in crisp institutional English. If the query specifically asks for Korean / KOSPI / KOSDAQ stocks, provide their Yahoo Finance KRX symbols (".KS" for KOSPI, ".KQ" for KOSDAQ, e.g. "005930.KS", "000660.KS", "005380.KS", "196170.KQ"). For general global English queries, prefer US/ADR tickers ("SKHY", "SSNLF", "TSM", "NVDA") for dual-listed names, while non-ADR Korean leaders may use ".KS"/".KQ".';
+
+  const prompt = `You are an institutional equity and private-market screening engine supporting US equities, US ADRs, Korea KOSPI (.KS) & KOSDAQ (.KQ) stocks, and private unicorns.
 Analyze the investor's natural-language query: "${query}"
 
 Instructions:
-1. Determine the core investment theme ("interpretedTheme") and any financial/scale filter ("constraintSummary", e.g. "Market Cap > $200B USD" or "Private Valuation > $10B USD", or null if none).
+1. Determine the core investment theme ("interpretedTheme") and any financial/scale filter ("constraintSummary", or null if none).
 2. Determine "targetKind":
-   - "public_only" if the query specifically asks for stocks, tickers, P/E, or public market cap (e.g. "market cap", "stocks").
-   - "private_only" if the query specifically asks for private companies, startups, or unicorns.
+   - "public_only" if the query specifically asks for stocks, tickers, KOSPI, KOSDAQ, P/E, or public market cap (시총/시가총액/주식/종목).
+   - "private_only" if the query specifically asks for private companies, startups, or unicorns (비상장/유니콘/스타트업).
    - "both" if the query asks broadly for companies/leaders in a sector without restricting to public or private.
 3. Propose up to 9 real, highest-relevance companies matching the theme and scale filter.
-   - For public companies, provide their primary US-listed stock ticker or US-traded ADR / OTC symbol (e.g. "NVDA", "AVGO", "TSM", "AMD", "ASML", "SKHY" for SK Hynix, "SSNLF" for Samsung Electronics, "TELWY" for Tokyo Electron, "IFNNY" for Infineon, "MSFT", "GOOGL", "AMZN", "META", "QCOM", "ARM", "MRVL").
-   - For private unicorns (e.g. "OpenAI", "Stripe", "SpaceX", "Databricks", "Anthropic", "xAI", "Anduril"), set "kind": "private" and "ticker": null.
-   - Use current live web knowledge to estimate "estimatedValuationUsd" in integer USD and write a crisp 1-sentence "matchReason" (max 18 words) explaining how the company fits the theme.
+   - Supported public tickers: US tickers ("NVDA", "AVGO", "MSFT"), US ADRs ("TSM", "ASML", "SKHY", "SSNLF"), and Korea Exchange 6-digit Yahoo tickers ("005930.KS", "000660.KS", "005380.KS", "373220.KS", "207940.KS", "012450.KS", "042700.KS", "267260.KS", "196170.KQ", "247540.KQ", "277810.KQ", "058470.KQ").
+   - For private unicorns (e.g. "OpenAI", "Stripe", "SpaceX", "Databricks", "Anthropic"), set "kind": "private" and "ticker": null.
+   - Estimate "estimatedValuationUsd" in integer USD equivalent (using ~1400 KRW = 1 USD for KRX stocks) and write a crisp 1-sentence "matchReason" (max 18 words).
+4. ${languageDirective}
 
 Return ONLY valid JSON (no markdown code fences) matching this exact structure:
 {
@@ -277,17 +310,20 @@ export async function screenNaturalCompanyCohort(options: {
   query: string;
   range?: ChartRange;
   forceRefresh?: boolean;
+  locale?: 'en' | 'ko';
 }): Promise<CohortScreenResponse> {
   const trimmedQuery = options.query.trim();
   const range: ChartRange = options.range ?? '1M';
+  const locale: 'en' | 'ko' = options.locale === 'ko' ? 'ko' : 'en';
 
   logFunctionCall('screenNaturalCompanyCohort', {
     query: trimmedQuery,
     range,
+    locale,
     forceRefresh: options.forceRefresh ?? false,
   });
 
-  const cacheKey = `v3::${trimmedQuery.toLowerCase()}::${range}`;
+  const cacheKey = `v4::${trimmedQuery.toLowerCase()}::${range}::${locale}`;
   if (!options.forceRefresh) {
     const cached = screenCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
@@ -299,7 +335,7 @@ export async function screenNaturalCompanyCohort(options: {
 
   // 1. Run grounded Gemini cohort discovery + Context.dev Company Search in parallel
   const [aiDiscovery, contextDevRecords] = await Promise.all([
-    discoverCandidatesViaGroundedGemini(trimmedQuery),
+    discoverCandidatesViaGroundedGemini(trimmedQuery, locale),
     discoverCandidatesViaContextDev(trimmedQuery),
   ]);
 
@@ -317,12 +353,14 @@ export async function screenNaturalCompanyCohort(options: {
       ? aiDiscovery.maxValuationUsd
       : null);
 
-  const queryAsksPublicMarketCap = /\b(market\s*cap|mkt\s*cap|stocks|tickers|p\/e)\b/i.test(
-    trimmedQuery
-  );
-  const queryAsksPrivateOnly = /\b(private\s+only|unicorns|startups|unlisted)\b/i.test(
-    trimmedQuery
-  ) && !/\bpublic\b/i.test(trimmedQuery);
+  const queryAsksPublicMarketCap =
+    /\b(market\s*cap|mkt\s*cap|stocks|tickers|p\/e|kospi|kosdaq)\b|(시총|시가총액|주식|종목|코스피|코스닥|관련주|대장주)/i.test(
+      trimmedQuery
+    );
+  const queryAsksPrivateOnly =
+    /\b(private\s+only|unicorns|startups|unlisted)\b|(비상장|유니콘|스타트업)/i.test(
+      trimmedQuery
+    ) && !/\bpublic\b|상장/i.test(trimmedQuery);
 
   const targetKind: 'public_only' | 'private_only' | 'both' = queryAsksPublicMarketCap
     ? 'public_only'
@@ -378,7 +416,10 @@ export async function screenNaturalCompanyCohort(options: {
     if (!name) continue;
     const firstSym = (rec.stock_symbols || [])
       .map((s) => String(s).toUpperCase().split(':').pop()?.trim() || '')
-      .find((s) => /^[A-Z]{1,5}(\.[A-Z])?$/.test(s));
+      .find(
+        (s) =>
+          /^[A-Z]{1,5}(\.[A-Z])?$/.test(s) || /^[0-9A-Z]{6}\.(KS|KQ)$/.test(s)
+      );
     const kind: 'public' | 'private' = firstSym ? 'public' : 'private';
 
     if (targetKind === 'public_only' && kind !== 'public') continue;
@@ -416,6 +457,7 @@ export async function screenNaturalCompanyCohort(options: {
           query: searchQuery,
           entityType,
           range,
+          locale,
         });
 
         const effectiveKind: 'public' | 'private' = overview.kind;
@@ -519,7 +561,8 @@ export async function screenNaturalCompanyCohort(options: {
     .slice(0, APP_CONFIG.cohortScreener.defaultPreselectedCount)
     .map((c) => c.id);
 
-  let constraintSummary = aiDiscovery?.constraintSummary ?? null;
+  let constraintSummary =
+    regexBounds.krwConstraintSummary ?? aiDiscovery?.constraintSummary ?? null;
   if (!constraintSummary && minThresholdUsd) {
     constraintSummary = `${
       targetKind === 'public_only' ? 'Market Cap' : 'Valuation'
@@ -674,7 +717,8 @@ async function fetchCompanyNewsPulse(
  */
 async function synthesizeComparativeSummary(
   theme: string,
-  dossiers: ComparedCompanyDossier[]
+  dossiers: ComparedCompanyDossier[],
+  locale: 'en' | 'ko' = 'en'
 ): Promise<string | null> {
   if (dossiers.length < 2) return null;
 
@@ -701,11 +745,12 @@ async function synthesizeComparativeSummary(
           m.companyName,
           m.isAdr
         )})`,
+        currency: m.currency,
         marketCap: m.metrics.marketCap,
         periodReturnPct: `${m.changePercent >= 0 ? '+' : ''}${m.changePercent.toFixed(2)}% (${m.range})`,
         trailingPE: m.metrics.trailingPE,
         forwardPE: m.metrics.forwardPE,
-        revenue: p?.revenueDisplay || m.metrics.totalRevenue,
+        revenue: m.currency === 'KRW' ? m.metrics.totalRevenue || p?.revenueDisplay : p?.revenueDisplay || m.metrics.totalRevenue,
         newsPosture: n?.netPosture || 'Neutral',
         topCatalyst: n?.topCatalyst?.title || null,
       };
@@ -720,10 +765,15 @@ async function synthesizeComparativeSummary(
   });
 
   const model = APP_CONFIG.gemini.defaultModel;
+  const langRule =
+    locale === 'ko'
+      ? '반드시 자연스럽고 전문적인 한국어(2문장 이내, 130자 내외)로 작성하며, 한국 주식 시가총액·매출은 제공된 원화(₩ 조/억) 단위를 그대로 인용하세요.'
+      : 'Write in crisp institutional English (maximum 55 words total), preserving pure ₩ 조/억 units for KRW equities and $ units for USD equities.';
+
   const prompt = `Compare these ${dossiers.length} companies screened for "${theme}":
 ${JSON.stringify(snapshot, null, 2)}
 
-Write a crisp, factual 2-sentence comparative takeaway (maximum 55 words total) contrasting their valuation scale/multiples, relative price momentum, and current news posture. Use exact numbers from the data provided.`;
+Write a crisp, factual 2-sentence comparative takeaway contrasting their valuation scale/multiples, relative price momentum, and current news posture. Use exact numbers from the data provided. ${langRule}`;
 
   const config = {
     thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
@@ -771,10 +821,13 @@ export async function hydrateCohortComparison(params: {
   range: ChartRange;
   theme?: string;
   chartOnly?: boolean;
+  locale?: 'en' | 'ko';
 }): Promise<CohortCompareResponse> {
+  const locale: 'en' | 'ko' = params.locale === 'ko' ? 'ko' : 'en';
   logFunctionCall('hydrateCohortComparison', {
     itemCount: params.items.length,
     range: params.range,
+    locale,
     chartOnly: params.chartOnly ?? false,
   });
 
@@ -790,6 +843,7 @@ export async function hydrateCohortComparison(params: {
           query: item.searchQuery,
           entityType: item.entityType,
           range: params.range,
+          locale,
         }).catch(() => null);
 
         return {
@@ -805,6 +859,7 @@ export async function hydrateCohortComparison(params: {
           query: item.searchQuery,
           entityType: item.entityType,
           range: params.range,
+          locale,
         }).catch(() => null),
         getCompanyProfileBySearch({
           query: item.searchQuery,
@@ -832,7 +887,8 @@ export async function hydrateCohortComparison(params: {
     ? null
     : await synthesizeComparativeSummary(
         params.theme || 'Selected Cohort',
-        hydratedList
+        hydratedList,
+        locale
       );
 
   return {

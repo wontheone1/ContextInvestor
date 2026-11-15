@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
       rawEntityType === 'name' || rawEntityType === 'ticker'
         ? rawEntityType
         : 'auto';
+    const locale: 'en' | 'ko' =
+      searchParams.get('locale') === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('GET /api/market/overview', {
       query,
@@ -53,6 +55,7 @@ export async function GET(req: NextRequest) {
       range,
       chartOnly,
       entityType,
+      locale,
     });
 
     if (chartOnly && symbol) {
@@ -75,6 +78,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         chartOnly: true,
         range,
+        currency: chart.currency,
         price: chart.price,
         previousClose: baseline,
         change,
@@ -94,6 +98,7 @@ export async function GET(req: NextRequest) {
       query,
       entityType,
       range,
+      locale,
     });
 
     return NextResponse.json({

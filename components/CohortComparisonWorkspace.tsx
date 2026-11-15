@@ -36,6 +36,10 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { formatTickerWithAdr, isAdrTicker } from '@/lib/adr-directory';
+import {
+  formatSharePriceByCurrency,
+  getKrxMarketFromSymbol,
+} from '@/lib/krx-directory';
 import { APP_CONFIG } from '@/lib/config';
 import type {
   ChartRange,
@@ -90,6 +94,7 @@ interface NormalizedSeriesItem {
   symbol: string;
   name: string;
   color: string;
+  currency: string;
   latestPrice: number;
   periodReturnPct: number;
   points: Array<{
@@ -143,16 +148,38 @@ function formatSignedPct(pct: number): string {
 }
 
 /**
+ * Formats a cohort EPS string cleanly in USD (`$2.95`) or pure KRW (`₩4,950`)
+ * without duplicating currency prefixes.
+ */
+function formatCohortEpsValue(
+  raw: string | null | undefined,
+  currency?: string | null
+): string {
+  if (!raw || !raw.trim()) return '—';
+  const trimmed = raw.trim();
+  if (/^[+-]?[₩$]/.test(trimmed)) return trimmed;
+  if ((currency || '').toUpperCase() === 'KRW') {
+    const parsed = Number(trimmed.replace(/,/g, ''));
+    return Number.isFinite(parsed)
+      ? formatSharePriceByCurrency(parsed, 'KRW')
+      : `₩${trimmed}`;
+  }
+  return `$${trimmed}`;
+}
+
+/**
  * Renders the 52-week low-to-high range bar and numeric endpoints for a public equity.
  */
 function FiftyTwoWeekBar({
   low,
   high,
   current,
+  currency,
 }: {
   low: number | null;
   high: number | null;
   current: number;
+  currency?: string | null;
 }) {
   if (
     low === null ||
@@ -169,8 +196,8 @@ function FiftyTwoWeekBar({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 text-[11px] text-slate-300 font-mono-tabular">
-        <span>${low.toFixed(2)}</span>
-        <span>${high.toFixed(2)}</span>
+        <span>{formatSharePriceByCurrency(low, currency)}</span>
+        <span>{formatSharePriceByCurrency(high, currency)}</span>
       </div>
       <div className="relative h-1.5 w-full rounded-full bg-[#091326] overflow-hidden">
         <div
@@ -274,6 +301,7 @@ export function CohortComparisonWorkspace({
             ),
             name: pubMarket.companyName || cand.name,
             color: colorBySelectedId.get(cand.id) || '#09a4ff',
+            currency: pubMarket.currency || 'USD',
             latestPrice: pubMarket.price,
             periodReturnPct: lastPct,
             points: normalizedPts,
@@ -401,6 +429,7 @@ export function CohortComparisonWorkspace({
           symbol: s.symbol,
           name: s.name,
           color: s.color,
+          currency: s.currency,
           close: pt.close,
           pct: pt.pct,
           timestamp: pt.timestamp,
@@ -530,16 +559,20 @@ export function CohortComparisonWorkspace({
           <span className="text-xs text-slate-400">
             {t.searchBar.trySamplePrompts}
           </span>
-          {APP_CONFIG.cohortScreener.sampleQueries.map((sq) => (
-            <button
-              key={sq.label}
-              type="button"
-              onClick={() => onRunSampleQuery(sq.query)}
-              className="px-3 py-1.5 text-xs font-medium text-[#49afe9] bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {translatePresetMetadata(sq.label, locale)}
-            </button>
-          ))}
+          {APP_CONFIG.cohortScreener.sampleQueries.map((sq) => {
+            const effectiveSample =
+              isKo && 'koQuery' in sq && sq.koQuery ? sq.koQuery : sq.query;
+            return (
+              <button
+                key={sq.label}
+                type="button"
+                onClick={() => onRunSampleQuery(effectiveSample)}
+                className="px-3 py-1.5 text-xs font-medium text-[#49afe9] bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {translatePresetMetadata(sq.label, locale)}
+              </button>
+            );
+          })}
         </div>
       </section>
     );
@@ -981,7 +1014,10 @@ export function CohortComparisonWorkspace({
                               {item.symbol}
                             </span>
                             <span className="text-slate-300">
-                              ${item.close.toFixed(2)}
+                              {formatSharePriceByCurrency(
+                                item.close,
+                                item.currency
+                              )}
                             </span>
                             <span
                               className={
@@ -1218,18 +1254,26 @@ export function CohortComparisonWorkspace({
                               </div>
                               <div className="text-xs text-slate-400 font-mono-tabular mt-0.5">
                                 {cand.ticker
-                                  ? `${formatTickerWithAdr(
-                                      cand.ticker,
-                                      cand.name,
-                                      cand.isAdr
-                                    )} · ${
-                                      cand.isAdr ||
-                                      isAdrTicker(cand.ticker, cand.name)
+                                  ? (() => {
+                                      const krxMkt = getKrxMarketFromSymbol(
+                                        cand.ticker
+                                      );
+                                      const marketSubLabel = krxMkt
                                         ? isKo
-                                          ? '미국 ADR 주식'
-                                          : 'US ADR Equity'
-                                        : t.common.publicEquity
-                                    }`
+                                          ? `${krxMkt} 상장 주식`
+                                          : `${krxMkt} Equity`
+                                        : cand.isAdr ||
+                                            isAdrTicker(cand.ticker, cand.name)
+                                          ? isKo
+                                            ? '미국 ADR 주식'
+                                            : 'US ADR Equity'
+                                          : t.common.publicEquity;
+                                      return `${formatTickerWithAdr(
+                                        cand.ticker,
+                                        cand.name,
+                                        cand.isAdr
+                                      )} · ${marketSubLabel}`;
+                                    })()
                                   : cand.canFollow === false
                                     ? t.common.foreignNoAdr
                                     : t.watchlist.privateUnlistedSubtext}
@@ -1356,7 +1400,10 @@ export function CohortComparisonWorkspace({
                         className="py-3 px-5 border-l border-[#212c42] text-slate-100 font-mono-tabular"
                       >
                         {m?.kind === 'public'
-                          ? `$${m.price.toFixed(2)} ${m.currency || 'USD'}`
+                          ? `${formatSharePriceByCurrency(
+                              m.price,
+                              m.currency
+                            )} ${m.currency || 'USD'}`
                           : t.watchlist.privateUnlistedSubtext}
                       </td>
                     );
@@ -1472,7 +1519,10 @@ export function CohortComparisonWorkspace({
                         className="py-3 px-5 border-l border-[#212c42] text-slate-200 font-mono-tabular"
                       >
                         {m?.kind === 'public'
-                          ? m.metrics.trailingEps || '—'
+                          ? formatCohortEpsValue(
+                              m.metrics.trailingEps,
+                              m.currency
+                            )
                           : isKo
                             ? '해당없음 (비상장)'
                             : 'N/A (Private)'}
@@ -1501,6 +1551,7 @@ export function CohortComparisonWorkspace({
                             low={m.metrics.fiftyTwoWeekLow}
                             high={m.metrics.fiftyTwoWeekHigh}
                             current={m.price}
+                            currency={m.currency}
                           />
                         ) : (
                           <span className="text-slate-500 font-mono-tabular">

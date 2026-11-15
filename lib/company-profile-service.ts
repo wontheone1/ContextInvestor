@@ -24,11 +24,17 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { stripAdrSuffix } from './adr-directory';
 import { APP_CONFIG } from './config';
 import {
   createContextDevClient,
   validateContextDevApiKey,
 } from './context-dev';
+import {
+  lookupHangulPrivateAlias,
+  lookupKrxDirectoryEntry,
+  resolveDynamicKrxAutocomplete,
+} from './krx-directory';
 import { logFunctionCall, logGenAICall } from './logger';
 
 /**
@@ -296,7 +302,35 @@ async function resolveSearchQueryForCompanyApi(
     companyNameHint,
   });
 
-  const trimmed = rawQuery.trim();
+  const trimmed = stripAdrSuffix(rawQuery.trim());
+  const hangulPrivate = lookupHangulPrivateAlias(trimmed);
+  if (hangulPrivate) {
+    return {
+      resolvedNameQuery: hangulPrivate,
+      normalizedTicker: null,
+    };
+  }
+
+  const krxEntry =
+    lookupKrxDirectoryEntry(trimmed) ||
+    (companyNameHint ? lookupKrxDirectoryEntry(companyNameHint) : null);
+  if (krxEntry) {
+    return {
+      resolvedNameQuery: krxEntry.enName,
+      normalizedTicker: krxEntry.code,
+    };
+  }
+
+  if (/^[0-9A-Z]{6}(\.(KS|KQ))?$/i.test(trimmed)) {
+    const dyn = await resolveDynamicKrxAutocomplete(trimmed.slice(0, 6), 'ko');
+    if (dyn) {
+      return {
+        resolvedNameQuery: dyn.enName,
+        normalizedTicker: trimmed.slice(0, 6).toUpperCase(),
+      };
+    }
+  }
+
   const looksLikeTicker = /^[A-Za-z]{1,5}(\.[A-Za-z]{1,2})?$/.test(trimmed);
   const upperTicker = looksLikeTicker ? trimmed.toUpperCase() : null;
 
