@@ -173,7 +173,7 @@ export const APP_CONFIG = {
       '6M': '6-Month',
       '1Y': '1-Year',
     } as Record<WatchlistSparklineRange, string>,
-    maxFollowedCompanies: 10,
+    maxFollowedCompanies: 20,
     sparklineMaxPoints: 24,
   },
 
@@ -254,6 +254,134 @@ export const APP_CONFIG = {
       sparkline: [],
     },
   ] as CompanyPreset[],
+
+  /**
+   * Step-by-Step Onboarding Curated Starter Companies & Storage Key
+   * Every entry is a verified listed US ticker or verified private unicorn
+   * (private companies strictly carry empty sparkline arrays).
+   */
+  onboarding: {
+    storageKey: 'contextual_investing_onboarding_completed_v1',
+    starterGroups: [
+      {
+        id: 'ai_chips',
+        title: 'AI & Semiconductors',
+        description: 'Compute accelerators, custom silicon, and foundry leaders',
+        companies: [
+          {
+            label: 'NVIDIA Corp',
+            value: 'NVDA',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'AI Accelerators',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'Broadcom',
+            value: 'AVGO',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Custom AI Silicon & Networking',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'AMD',
+            value: 'AMD',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Data Center GPUs & CPUs',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'TSMC',
+            value: 'TSM',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Leading-Edge Foundry',
+            hint: 'Public · NYSE',
+          },
+        ],
+      },
+      {
+        id: 'megacap_cloud',
+        title: 'Cloud, Platforms & Defense AI',
+        description: 'Hyperscalers, consumer ecosystems, and enterprise software',
+        companies: [
+          {
+            label: 'Microsoft',
+            value: 'MSFT',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Cloud & Enterprise AI',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'Apple Inc',
+            value: 'AAPL',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Consumer Hardware',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'Amazon',
+            value: 'AMZN',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'AWS Cloud & Commerce',
+            hint: 'Public · NASDAQ',
+          },
+          {
+            label: 'Palantir',
+            value: 'PLTR',
+            entityType: 'ticker' as const,
+            kind: 'public' as const,
+            sector: 'Defense & Data OS',
+            hint: 'Public · NASDAQ',
+          },
+        ],
+      },
+      {
+        id: 'private_unicorns',
+        title: 'Frontier Private Unicorns',
+        description: 'High-conviction unlisted leaders tracked by valuation & news',
+        companies: [
+          {
+            label: 'OpenAI',
+            value: 'OpenAI',
+            entityType: 'name' as const,
+            kind: 'private' as const,
+            sector: 'Frontier AI Models',
+            hint: 'Private · Est. $300B',
+          },
+          {
+            label: 'Stripe',
+            value: 'Stripe',
+            entityType: 'name' as const,
+            kind: 'private' as const,
+            sector: 'Fintech Infrastructure',
+            hint: 'Private · Est. $91.5B',
+          },
+          {
+            label: 'Anthropic',
+            value: 'Anthropic',
+            entityType: 'name' as const,
+            kind: 'private' as const,
+            sector: 'AI Safety & Foundation Models',
+            hint: 'Private · Est. $61.5B',
+          },
+          {
+            label: 'Databricks',
+            value: 'Databricks',
+            entityType: 'name' as const,
+            kind: 'private' as const,
+            sector: 'Data & AI Lakehouse',
+            hint: 'Private · Est. $62B',
+          },
+        ],
+      },
+    ] as const,
+  },
 } as const;
 
 /**

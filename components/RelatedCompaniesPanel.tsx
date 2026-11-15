@@ -3,23 +3,25 @@
  * FILE: components/RelatedCompaniesPanel.tsx
  * ============================================================================
  * FEATURE OVERVIEW:
- * Related Companies & Supply-Chain Ecosystem Suggestions Panel.
+ * Related Companies & Supply-Chain Ecosystem Suggestions Panel with Inline
+ * 1-Click Watchlist Follow Controls.
  *
  * USE CASES:
- * 1. Suggesting high-signal related companies to search next whenever a user
- *    searches a target company.
+ * 1. Suggesting high-signal related companies to explore or follow whenever a
+ *    user researches a target company.
  * 2. Grouping related companies by relationship (`Suppliers`, `Customers`,
  *    `Peers & Competitors`, `Strategic Partners`), where a single company can
  *    appear across multiple relationship groups simultaneously.
- * 3. Highlighting multi-relationship companies across columns on hover/focus
- *    and executing a 1-click full terminal search when any company is clicked.
+ * 3. Allowing investors to click `+ Follow` / `Following` on individual supply-chain
+ *    partners, customers, or competitors—or batch-follow unfollowed companies in
+ *    the active group—without losing their current company deep dive.
  * ============================================================================
  */
 
 'use client';
 
-import React, { useState } from 'react';
-import { ArrowUpRight, RefreshCw } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowUpRight, Check, Loader2, Plus, RefreshCw } from 'lucide-react';
 import type {
   RelatedCompaniesResponse,
   RelatedCompanyItem,
@@ -34,9 +36,47 @@ export interface RelatedCompaniesPanelProps {
   error: string | null;
   onSelectCompany: (company: RelatedCompanyItem) => void;
   onRefresh: () => void;
+  followedValuesLower: Set<string>;
+  pendingFollowValues: Set<string>;
+  onToggleFollowCompany: (company: RelatedCompanyItem) => void;
+  onBatchFollowCompanies?: (companies: RelatedCompanyItem[]) => void;
 }
 
 type GroupFilter = 'all' | RelationshipCategory;
+
+/**
+ * Checks whether a related company is already in the user's followed watchlist.
+ */
+function isRelatedItemFollowed(
+  company: RelatedCompanyItem,
+  followedValuesLower: Set<string>
+): boolean {
+  const qKey = company.searchQuery.trim().toLowerCase();
+  const nKey = company.name.trim().toLowerCase();
+  const tKey = company.ticker ? company.ticker.trim().toLowerCase() : '';
+  return (
+    followedValuesLower.has(qKey) ||
+    followedValuesLower.has(nKey) ||
+    (Boolean(tKey) && followedValuesLower.has(tKey))
+  );
+}
+
+/**
+ * Checks whether a related company currently has an active verification request in flight.
+ */
+function isRelatedItemPending(
+  company: RelatedCompanyItem,
+  pendingFollowValues: Set<string>
+): boolean {
+  const qKey = company.searchQuery.trim().toLowerCase();
+  const nKey = company.name.trim().toLowerCase();
+  const tKey = company.ticker ? company.ticker.trim().toLowerCase() : '';
+  return (
+    pendingFollowValues.has(qKey) ||
+    pendingFollowValues.has(nKey) ||
+    (Boolean(tKey) && pendingFollowValues.has(tKey))
+  );
+}
 
 function GroupHeadingWithTooltip({
   title,
@@ -69,7 +109,8 @@ function GroupHeadingWithTooltip({
 }
 
 /**
- * Renders suggested related companies grouped by business relationship.
+ * Renders suggested related companies grouped by business relationship with
+ * non-destructive inline `+ Follow` / `Following` controls.
  */
 export function RelatedCompaniesPanel({
   searchedQuery,
@@ -78,6 +119,10 @@ export function RelatedCompaniesPanel({
   error,
   onSelectCompany,
   onRefresh,
+  followedValuesLower,
+  pendingFollowValues,
+  onToggleFollowCompany,
+  onBatchFollowCompanies,
 }: RelatedCompaniesPanelProps) {
   const [selectedGroup, setSelectedGroup] = useState<GroupFilter>('all');
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
@@ -96,6 +141,26 @@ export function RelatedCompaniesPanel({
 
   const multiRelCount =
     data?.companies.filter((c) => c.relationships.length > 1).length ?? 0;
+
+  // Deduplicate visible unfollowed companies for 1-click batch follow
+  const visibleUnfollowed = useMemo(() => {
+    const seen = new Set<string>();
+    const list: RelatedCompanyItem[] = [];
+    for (const grp of visibleGroups) {
+      for (const comp of grp.companies) {
+        if (seen.has(comp.key)) continue;
+        seen.add(comp.key);
+        if (!isRelatedItemFollowed(comp, followedValuesLower)) {
+          list.push(comp);
+        }
+      }
+    }
+    return list;
+  }, [visibleGroups, followedValuesLower]);
+
+  const anyBatchPending = visibleUnfollowed.some((c) =>
+    isRelatedItemPending(c, pendingFollowValues)
+  );
 
   return (
     <section
@@ -121,7 +186,9 @@ export function RelatedCompaniesPanel({
             )}
           </div>
           <p className="text-xs text-slate-400">
-            Click any supplier, customer, peer, or partner to switch research coverage. Companies with multiple ties appear in each relevant group.
+            Click <span className="text-slate-200 font-medium">+ Follow</span>{' '}
+            to add suppliers, customers, or peers to your watchlist in place, or
+            click a company name to open its full deep dive.
           </p>
         </div>
 
@@ -161,6 +228,45 @@ export function RelatedCompaniesPanel({
               })}
             </div>
           )}
+
+          {!isLoading &&
+            onBatchFollowCompanies &&
+            visibleUnfollowed.length > 0 && (
+              <button
+                type="button"
+                disabled={anyBatchPending}
+                onClick={() => {
+                  const batchSlice = visibleUnfollowed.slice(0, 4);
+                  logFunctionCall(
+                    'RelatedCompaniesPanel.onBatchFollowCompanies',
+                    {
+                      activeFilter,
+                      count: batchSlice.length,
+                    }
+                  );
+                  onBatchFollowCompanies(batchSlice);
+                }}
+                title="Verify and add unfollowed companies in this view to your watchlist"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#49afe9] hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#09a4ff]/40 disabled:opacity-50 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {anyBatchPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Following...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>
+                      Follow{' '}
+                      {activeFilter === 'all'
+                        ? `Top ${Math.min(4, visibleUnfollowed.length)}`
+                        : `${activeFilter} (${Math.min(4, visibleUnfollowed.length)})`}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
 
           <button
             type="button"
@@ -255,36 +361,47 @@ export function RelatedCompaniesPanel({
                       (rel) => rel !== group.category
                     );
                     const isCrossHighlighted = hoveredKey === company.key;
+                    const isFollowed = isRelatedItemFollowed(
+                      company,
+                      followedValuesLower
+                    );
+                    const isPending = isRelatedItemPending(
+                      company,
+                      pendingFollowValues
+                    );
 
                     return (
-                      <button
+                      <div
                         key={`${group.category}-${company.key}`}
-                        type="button"
                         onMouseEnter={() => setHoveredKey(company.key)}
                         onMouseLeave={() => setHoveredKey(null)}
-                        onFocus={() => setHoveredKey(company.key)}
-                        onBlur={() => setHoveredKey(null)}
-                        onClick={() => {
-                          logFunctionCall(
-                            'RelatedCompaniesPanel.onSelectCompany',
-                            {
-                              fromQuery: searchedQuery,
-                              selectedName: company.name,
-                              selectedQuery: company.searchQuery,
-                              entityType: company.entityType,
-                              relationships: company.relationships,
-                            }
-                          );
-                          onSelectCompany(company);
-                        }}
-                        className={`w-full text-left py-2.5 px-2.5 -mx-2.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[#09a4ff] ${
+                        className={`py-2.5 px-2.5 -mx-2.5 rounded-lg transition-colors flex items-start justify-between gap-2.5 ${
                           isCrossHighlighted
                             ? 'bg-[#12264a]'
                             : 'hover:bg-[#10203d]'
                         }`}
                       >
-                        <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                          <div className="flex items-baseline gap-2 min-w-0">
+                        {/* Left Sibling Button: Pivot Research Deep Dive */}
+                        <button
+                          type="button"
+                          onFocus={() => setHoveredKey(company.key)}
+                          onBlur={() => setHoveredKey(null)}
+                          onClick={() => {
+                            logFunctionCall(
+                              'RelatedCompaniesPanel.onSelectCompany',
+                              {
+                                fromQuery: searchedQuery,
+                                selectedName: company.name,
+                                selectedQuery: company.searchQuery,
+                                entityType: company.entityType,
+                                relationships: company.relationships,
+                              }
+                            );
+                            onSelectCompany(company);
+                          }}
+                          className="flex-1 min-w-0 text-left cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-[#09a4ff] rounded"
+                        >
+                          <div className="flex items-baseline gap-1.5 mb-0.5 min-w-0">
                             <span className="text-sm font-semibold text-white truncate">
                               {company.name}
                             </span>
@@ -293,27 +410,71 @@ export function RelatedCompaniesPanel({
                                 {company.ticker}
                               </span>
                             )}
+                            <ArrowUpRight
+                              className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                                isCrossHighlighted
+                                  ? 'text-[#09a4ff]'
+                                  : 'text-slate-500'
+                              }`}
+                              aria-hidden="true"
+                            />
                           </div>
-                          <ArrowUpRight
-                            className={`w-3.5 h-3.5 shrink-0 transition-colors ${
-                              isCrossHighlighted
-                                ? 'text-[#09a4ff]'
-                                : 'text-slate-500'
-                            }`}
-                            aria-hidden="true"
-                          />
-                        </div>
 
-                        <p className="text-xs text-slate-300 leading-snug line-clamp-2">
-                          {company.rationale}
-                        </p>
+                          <p className="text-xs text-slate-300 leading-snug line-clamp-2">
+                            {company.rationale}
+                          </p>
 
-                        {otherRelationships.length > 0 && (
-                          <div className="mt-1 text-[11px] text-amber-300/90 font-mono-tabular truncate">
-                            Also in: {otherRelationships.join(' · ')}
-                          </div>
-                        )}
-                      </button>
+                          {otherRelationships.length > 0 && (
+                            <div className="mt-1 text-[11px] text-amber-300/90 font-mono-tabular truncate">
+                              Also in: {otherRelationships.join(' · ')}
+                            </div>
+                          )}
+                        </button>
+
+                        {/* Right Sibling Button: Independent 1-Click Follow / Unfollow */}
+                        <button
+                          type="button"
+                          disabled={isPending}
+                          onFocus={() => setHoveredKey(company.key)}
+                          onBlur={() => setHoveredKey(null)}
+                          onClick={() => {
+                            logFunctionCall(
+                              'RelatedCompaniesPanel.onToggleFollowCompany',
+                              {
+                                fromQuery: searchedQuery,
+                                companyName: company.name,
+                                searchQuery: company.searchQuery,
+                                nextAction: isFollowed ? 'unfollow' : 'follow',
+                              }
+                            );
+                            onToggleFollowCompany(company);
+                          }}
+                          title={
+                            isFollowed
+                              ? `Unfollow ${company.name}`
+                              : `Add ${company.name} to your Watchlist without leaving ${searchedQuery}`
+                          }
+                          className={`mt-0.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                            isFollowed
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                              : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
+                          }`}
+                        >
+                          {isPending ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                          ) : isFollowed ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span>Following</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3 h-3 text-[#49afe9]" />
+                              <span>Follow</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     );
                   })}
                 </div>

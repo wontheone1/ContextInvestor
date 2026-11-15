@@ -31,6 +31,7 @@ import {
   ArrowRight,
   Check,
   ExternalLink,
+  Loader2,
   Plus,
   RotateCcw,
 } from 'lucide-react';
@@ -67,11 +68,13 @@ export interface CohortComparisonWorkspaceProps {
   onSwitchToSingleMode: () => void;
   onOpenDeepDive: (searchQuery: string, entityType: 'ticker' | 'name') => void;
   followedValuesLower: Set<string>;
+  pendingFollowValues?: Set<string>;
   onToggleFollowCompany: (
     value: string,
     label: string,
     sector?: string | null
   ) => void;
+  onBatchFollowCompanies?: (candidates: ScreenedCandidateItem[]) => void;
   onRunSampleQuery: (sampleQuery: string) => void;
 }
 
@@ -189,7 +192,9 @@ export function CohortComparisonWorkspace({
   onOpenDeepDive,
   onSwitchToSingleMode,
   followedValuesLower,
+  pendingFollowValues,
   onToggleFollowCompany,
+  onBatchFollowCompanies,
   onRunSampleQuery,
 }: CohortComparisonWorkspaceProps) {
   const [customTickerInput, setCustomTickerInput] = useState<string>('');
@@ -577,19 +582,75 @@ export function CohortComparisonWorkspace({
           </div>
         </div>
 
-        {/* Candidate Picker Toolbar + Custom Add Input */}
-        <div className="px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0a162b]">
-          <div className="text-xs text-slate-300 font-mono-tabular">
-            <span>
-              Comparing {selectedIds.length} of{' '}
-              {APP_CONFIG.cohortScreener.maxCompareColumns} max companies
-            </span>
-            <span className="mx-2 text-slate-500" aria-hidden="true">
-              ·
-            </span>
-            <span className="text-slate-400">
-              Top 3 verified matches pre-selected — check or uncheck any peer below
-            </span>
+        {/* Candidate Picker Toolbar + Batch Follow Selected + Custom Add Input */}
+        <div className="px-6 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-[#0a162b]">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-xs text-slate-300 font-mono-tabular">
+              <span>
+                Comparing {selectedIds.length} of{' '}
+                {APP_CONFIG.cohortScreener.maxCompareColumns} max companies
+              </span>
+              <span className="mx-2 text-slate-500" aria-hidden="true">
+                ·
+              </span>
+              <span className="text-slate-400">
+                Follow individual matches or batch-follow checked peers
+              </span>
+            </div>
+
+            {(() => {
+              const unfollowedSelected = selectedCandidates.filter((c) => {
+                const qKey = c.searchQuery.trim().toLowerCase();
+                const nKey = c.name.trim().toLowerCase();
+                return (
+                  !followedValuesLower.has(qKey) &&
+                  !followedValuesLower.has(nKey)
+                );
+              });
+              if (!onBatchFollowCompanies || unfollowedSelected.length === 0) {
+                return null;
+              }
+              const isBatchPending = unfollowedSelected.some((c) => {
+                const qKey = c.searchQuery.trim().toLowerCase();
+                const nKey = c.name.trim().toLowerCase();
+                return Boolean(
+                  pendingFollowValues?.has(qKey) ||
+                    pendingFollowValues?.has(nKey)
+                );
+              });
+
+              return (
+                <button
+                  type="button"
+                  disabled={isBatchPending}
+                  onClick={() => {
+                    logFunctionCall(
+                      'CohortComparisonWorkspace.onBatchFollowSelected',
+                      {
+                        count: unfollowedSelected.length,
+                        companies: unfollowedSelected.map((c) => c.searchQuery),
+                      }
+                    );
+                    onBatchFollowCompanies(unfollowedSelected);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#49afe9] hover:text-white bg-[#091326] hover:bg-[#102344] border border-[#09a4ff]/40 disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {isBatchPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Following...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>
+                        Follow Selected ({unfollowedSelected.length})
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </div>
 
           <form
@@ -627,6 +688,15 @@ export function CohortComparisonWorkspace({
             const isSelected = selectedIds.includes(cand.id);
             const seriesColor = colorBySelectedId.get(cand.id);
             const disableCheck = !isSelected && maxReached;
+            const followKey = cand.searchQuery.trim().toLowerCase();
+            const nameKey = cand.name.trim().toLowerCase();
+            const isCandFollowed =
+              followedValuesLower.has(followKey) ||
+              followedValuesLower.has(nameKey);
+            const isCandPending = Boolean(
+              pendingFollowValues?.has(followKey) ||
+                pendingFollowValues?.has(nameKey)
+            );
 
             return (
               <div
@@ -687,9 +757,14 @@ export function CohortComparisonWorkspace({
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-slate-400">
-                  <div className="truncate">
-                    <span>{cand.sector || (cand.kind === 'private' ? 'Private Growth' : 'Public Equity')}</span>
+                <div className="flex items-center justify-between gap-2 pt-1.5 text-[11px] text-slate-400">
+                  <div className="truncate min-w-0">
+                    <span>
+                      {cand.sector ||
+                        (cand.kind === 'private'
+                          ? 'Private Growth'
+                          : 'Public Equity')}
+                    </span>
                     {!cand.passesThreshold && (
                       <>
                         <span className="mx-1.5" aria-hidden="true">
@@ -700,16 +775,57 @@ export function CohortComparisonWorkspace({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onOpenDeepDive(cand.searchQuery, cand.entityType)
-                    }
-                    className="inline-flex items-center gap-1 text-xs font-medium text-[#49afe9] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <span>Deep Dive</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isCandPending}
+                      onClick={() => {
+                        logFunctionCall(
+                          'CohortComparisonWorkspace.candidateCardFollow',
+                          {
+                            searchQuery: cand.searchQuery,
+                            name: cand.name,
+                            nextAction: isCandFollowed ? 'unfollow' : 'follow',
+                          }
+                        );
+                        onToggleFollowCompany(
+                          cand.searchQuery,
+                          cand.name,
+                          cand.sector
+                        );
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                        isCandFollowed
+                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                          : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
+                      }`}
+                    >
+                      {isCandPending ? (
+                        <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                      ) : isCandFollowed ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-400" />
+                          <span>Following</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3 h-3 text-[#49afe9]" />
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onOpenDeepDive(cand.searchQuery, cand.entityType)
+                      }
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[#49afe9] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <span>Deep Dive</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -1011,6 +1127,10 @@ export function CohortComparisonWorkspace({
                     const isFollowed =
                       followedValuesLower.has(followKey) ||
                       followedValuesLower.has(cand.name.trim().toLowerCase());
+                    const isMatrixPending = Boolean(
+                      pendingFollowValues?.has(followKey) ||
+                        pendingFollowValues?.has(cand.name.trim().toLowerCase())
+                    );
 
                     return (
                       <th
@@ -1040,6 +1160,7 @@ export function CohortComparisonWorkspace({
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
+                              disabled={isMatrixPending}
                               onClick={() =>
                                 onToggleFollowCompany(
                                   cand.searchQuery,
@@ -1047,13 +1168,15 @@ export function CohortComparisonWorkspace({
                                   cand.sector
                                 )
                               }
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
                                 isFollowed
                                   ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
                                   : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff]'
                               }`}
                             >
-                              {isFollowed ? (
+                              {isMatrixPending ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                              ) : isFollowed ? (
                                 <>
                                   <Check className="w-3 h-3 text-emerald-400" />
                                   <span>Following</span>

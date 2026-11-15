@@ -26,6 +26,9 @@ import {
   Minus,
   ExternalLink,
   RefreshCw,
+  Check,
+  Plus,
+  Loader2,
 } from 'lucide-react';
 import type {
   ChartRange,
@@ -43,6 +46,9 @@ export interface CompanyMarketOverviewProps {
   onRangeChange: (range: ChartRange) => void;
   onRetry: () => void;
   searchedQuery: string;
+  isFollowed?: boolean;
+  isFollowPending?: boolean;
+  onToggleFollow?: () => void;
 }
 
 const CHART_RANGES: ChartRange[] = ['1D', '5D', '1M', '6M', 'YTD', '1Y', '5Y'];
@@ -506,6 +512,9 @@ export function CompanyMarketOverview({
   onRangeChange,
   onRetry,
   searchedQuery,
+  isFollowed = false,
+  isFollowPending = false,
+  onToggleFollow,
 }: CompanyMarketOverviewProps) {
   if (isLoading) {
     return (
@@ -605,20 +614,61 @@ export function CompanyMarketOverview({
       >
         <div className="lg:col-span-8 rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 flex flex-col justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mb-1">
-              <span className="text-[#49afe9] font-medium">
-                Private / Unlisted Company
-              </span>
-              {data.sector && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>{data.sector}</span>
-                </>
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mb-1">
+                  <span className="text-[#49afe9] font-medium">
+                    Private / Unlisted Company
+                  </span>
+                  {data.sector && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>{data.sector}</span>
+                    </>
+                  )}
+                </div>
+                <h2 className="text-xl font-bold text-white">
+                  {data.companyName}
+                </h2>
+              </div>
+
+              {onToggleFollow && (
+                <button
+                  type="button"
+                  disabled={isFollowPending}
+                  onClick={() => {
+                    logFunctionCall('CompanyMarketOverview.onToggleFollow', {
+                      companyName: data.companyName,
+                      kind: 'private',
+                      nextState: isFollowed ? 'unfollow' : 'follow',
+                    });
+                    onToggleFollow();
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                    isFollowed
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                      : 'bg-[#091326] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#102344] hover:text-white'
+                  }`}
+                >
+                  {isFollowPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verifying...</span>
+                    </>
+                  ) : isFollowed ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Following</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Follow {data.companyName}</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
-            <h2 className="text-xl font-bold text-white mb-3">
-              {data.companyName}
-            </h2>
             <p className="text-sm text-slate-300 leading-relaxed max-w-3xl mb-5">
               {data.summary}
             </p>
@@ -822,9 +872,47 @@ export function CompanyMarketOverview({
                 )}
               </div>
 
-              <h2 className="text-lg sm:text-xl font-bold text-white mb-2">
-                {data.companyName}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2.5 mb-2">
+                <h2 className="text-lg sm:text-xl font-bold text-white">
+                  {data.companyName}
+                </h2>
+                {onToggleFollow && (
+                  <button
+                    type="button"
+                    disabled={isFollowPending}
+                    onClick={() => {
+                      logFunctionCall('CompanyMarketOverview.onToggleFollow', {
+                        symbol: data.symbol,
+                        kind: 'public',
+                        nextState: isFollowed ? 'unfollow' : 'follow',
+                      });
+                      onToggleFollow();
+                    }}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                      isFollowed
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                        : 'bg-[#091326] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#102344] hover:text-white'
+                    }`}
+                  >
+                    {isFollowPending ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : isFollowed ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-400" />
+                        <span>Following</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3 h-3" />
+                        <span>Follow {data.symbol}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
 
               <div className="flex flex-wrap items-baseline gap-3 font-mono-tabular">
                 <span className="text-2xl sm:text-3xl font-bold text-white">

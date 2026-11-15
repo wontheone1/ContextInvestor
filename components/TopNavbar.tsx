@@ -8,8 +8,8 @@
  * USE CASES:
  * 1. Enforcing the strict 3-zone Top Bar Contract:
  *    - Zone 1: Single-line Brand Wordmark (`Contextual Investing`).
- *    - Zone 2: Concise single-line section navigation links (`Watchlist Pulse`,
- *      `Company Search`, `Price & Metrics`, `News Terminal`, `Saved Articles`).
+ *    - Zone 2: 4 concise single-line stage navigation links (`Watchlist`,
+ *      `Morning Brief`, `Research & Compare`, `Saved Library`).
  *    - Zone 3: Single primary action button (Google Sign-In / Account status for
  *      personal Firestore article bookmarking and watchlist persistence).
  * ============================================================================
@@ -20,120 +20,93 @@
 import React from 'react';
 import { logFunctionCall } from '@/lib/logger';
 
-export type NavSectionId =
-  | 'pulse'
-  | 'research'
-  | 'market'
-  | 'terminal'
-  | 'watchlist';
+export type WorkspaceStageId = 'watchlist' | 'pulse' | 'research' | 'saved';
 
 export interface TopNavbarProps {
-  activeSection: NavSectionId;
-  onSelectSection: (section: NavSectionId) => void;
+  activeStage: WorkspaceStageId;
+  onSelectStage: (stage: WorkspaceStageId) => void;
   userEmail: string | null;
   onAuthAction: () => void;
 }
 
 /**
- * Renders the top navigation header adhering to the Kamino / OpticOdds deep navy
- * palette and 3-zone Top Bar Contract.
+ * Renders the top navigation header adhering to the deep navy palette
+ * and strict 3-zone Top Bar Contract.
  */
 export function TopNavbar({
-  activeSection,
-  onSelectSection,
+  activeStage,
+  onSelectStage,
   userEmail,
   onAuthAction,
 }: TopNavbarProps) {
   /**
-   * Handles navigation section selection, scrolls smoothly to the section, and logs the interaction.
+   * Switches the active workspace stage and scrolls cleanly to the top of the workspace.
    */
-  const handleNavClick = (section: NavSectionId) => {
-    logFunctionCall('TopNavbar.handleNavClick', { section });
-    onSelectSection(section);
-    const targetId =
-      section === 'pulse'
-        ? 'watchlist-pulse'
-        : section === 'research'
-          ? 'company-research'
-          : section === 'market'
-            ? 'market-overview'
-            : section;
-    const el = document.getElementById(targetId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+  const handleNavClick = (stage: WorkspaceStageId) => {
+    logFunctionCall('TopNavbar.handleNavClick', { stage });
+    onSelectStage(stage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-4 bg-[#091326]/95 backdrop-blur-md border-b border-[#212c42]">
       {/* Zone 1: Single text element wordmark */}
       <a
-        href="#watchlist-pulse"
+        href="#workspace-top"
         onClick={(e) => {
           e.preventDefault();
-          handleNavClick('pulse');
+          handleNavClick('research');
         }}
         className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-[#49afe9] transition-colors"
       >
         Contextual Investing
       </a>
 
-      {/* Zone 2: Clean single-line text navigation links */}
+      {/* Zone 2: 4 clean single-line text navigation links */}
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
-        <button
-          type="button"
-          onClick={() => handleNavClick('pulse')}
-          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'pulse'
-              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
-              : 'hover:text-white'
-          }`}
-        >
-          Watchlist Pulse
-        </button>
         <button
           type="button"
           onClick={() => handleNavClick('research')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'research'
+            activeStage === 'research'
               ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
               : 'hover:text-white'
           }`}
         >
-          Company Search
+          Research &amp; Compare
         </button>
         <button
           type="button"
-          onClick={() => handleNavClick('market')}
+          onClick={() => handleNavClick('pulse')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'market'
+            activeStage === 'pulse'
               ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
               : 'hover:text-white'
           }`}
         >
-          Price &amp; Metrics
-        </button>
-        <button
-          type="button"
-          onClick={() => handleNavClick('terminal')}
-          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'terminal'
-              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
-              : 'hover:text-white'
-          }`}
-        >
-          News Terminal
+          Morning Brief
         </button>
         <button
           type="button"
           onClick={() => handleNavClick('watchlist')}
           className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-            activeSection === 'watchlist'
+            activeStage === 'watchlist'
               ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
               : 'hover:text-white'
           }`}
         >
-          Saved Articles
+          Watchlist
+        </button>
+        <button
+          type="button"
+          onClick={() => handleNavClick('saved')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeStage === 'saved'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          Saved Library
         </button>
       </nav>
 

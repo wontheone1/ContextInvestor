@@ -1,30 +1,18 @@
 /**
  * ============================================================================
- * FEATURE: Watchlist News Summary & Top Conviction Movers Landing Section
+ * FILE: components/WatchlistLandingBrief.tsx
  * ============================================================================
+ * FEATURE OVERVIEW:
+ * Stage 02 — Morning Brief: Cross-Watchlist Synthesis & Ranked Conviction Movers.
  *
- * Detailed Feature Overview:
- * Renders the primary landing intelligence experience at the very top of the
- * Contextual Investing dashboard. Before diving into a single company's deep-dive metrics,
- * investors immediately see:
- * 1. An executive cross-watchlist news synthesis covering all companies they
- *    are currently following (`NVDA`, `Stripe`, `AAPL`, `MSFT`, `PLTR`, `OpenAI`,
- *    plus any custom companies added to their watchlist).
- * 2. A scannable company-by-company digest strip with article counts, net
- *    sentiment posture (`Bullish` / `Bearish` / `Mixed` / `Neutral`), and a
- *    1-sentence digest that pivots the deep-dive research view with a single click.
- * 3. Side-by-side (or filterable) **Top Bullish Catalysts** and **Top Bearish
- *    Risks & Headwinds** across any company in the user's watchlist, ranked by
- *    AI conviction/materiality score (`1-100%`) with 1-sentence rationale and
- *    1-click bookmarking.
- *
- * Design & Aesthetic Adherence:
- * - Precision Financial Editorial (`#0A0D12` obsidian canvas, `#11161F` slate
- *   surface, `1px solid #1E2736` exposed structural hairlines).
- * - Zero-pill discipline on static status/sentiment labels (`rounded-[3px]`
- *   uppercase micro-badges with `1px` border).
- * - Single-elevation card discipline (no nested cards inside cards; uses
- *   clean hairline grid dividers).
+ * USE CASES:
+ * 1. Distilling news across all followed companies into a single calm executive
+ *    takeaway so users read signal before raw headlines.
+ * 2. Presenting a scannable company-by-company posture strip where clicking any
+ *    company advances directly to Stage 03 (`Research & Compare`) for that company.
+ * 3. Ranking the highest-conviction **Bullish Catalysts** and **Bearish Risks**
+ *    across the watchlist with clean unboxed metadata (`·` separators), tabular
+ *    conviction scores, and 1-click article bookmarking.
  * ============================================================================
  */
 
@@ -32,15 +20,14 @@
 
 import React, { useState } from 'react';
 import {
-  Activity,
+  ArrowRight,
   ArrowUpRight,
   Bookmark,
   BookmarkCheck,
-  Building2,
-  Flame,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
   ShieldAlert,
-  Sparkles,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
@@ -87,11 +74,44 @@ function formatRelativeAge(isoTimestamp: string): string {
 }
 
 /**
- * Renders the top-of-dashboard Watchlist News Summary & Top Bullish/Bearish
- * Conviction Signals section.
- *
- * @param props - Watchlist digest data, loading state, and action callbacks
- * @returns React element
+ * Renders unboxed inline sentiment text paired with an icon for color-blind accessibility
+ * (adhering strictly to Zero-Pill metadata discipline).
+ */
+function renderInlineStance(
+  sentiment: 'Bullish' | 'Bearish' | 'Mixed' | 'Neutral'
+) {
+  if (sentiment === 'Bullish') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400 whitespace-nowrap shrink-0">
+        <TrendingUp className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>Bullish</span>
+      </span>
+    );
+  }
+  if (sentiment === 'Bearish') {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-semibold text-rose-400 whitespace-nowrap shrink-0">
+        <TrendingDown className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>Bearish</span>
+      </span>
+    );
+  }
+  if (sentiment === 'Mixed') {
+    return (
+      <span className="text-xs font-semibold text-amber-300 whitespace-nowrap shrink-0">
+        Mixed
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs font-medium text-slate-400 whitespace-nowrap shrink-0">
+      Neutral
+    </span>
+  );
+}
+
+/**
+ * Renders the Morning Brief watchlist summary and ranked Bullish/Bearish conviction movers.
  */
 export function WatchlistLandingBrief({
   digest,
@@ -104,6 +124,7 @@ export function WatchlistLandingBrief({
   savedArticleIds,
 }: WatchlistLandingBriefProps) {
   const [signalFilter, setSignalFilter] = useState<SignalFilterMode>('ALL');
+  const [showAllCompanyCards, setShowAllCompanyCards] = useState<boolean>(true);
 
   const handleSelectCompany = (
     companyValue: string,
@@ -121,39 +142,6 @@ export function WatchlistLandingBrief({
     setSignalFilter(mode);
   };
 
-  const renderSentimentBadge = (
-    sentiment: 'Bullish' | 'Bearish' | 'Mixed' | 'Neutral'
-  ) => {
-    if (sentiment === 'Bullish') {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 whitespace-nowrap shrink-0">
-          <TrendingUp className="w-3 h-3" />
-          Bullish
-        </span>
-      );
-    }
-    if (sentiment === 'Bearish') {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/25 whitespace-nowrap shrink-0">
-          <TrendingDown className="w-3 h-3" />
-          Bearish
-        </span>
-      );
-    }
-    if (sentiment === 'Mixed') {
-      return (
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/25 whitespace-nowrap shrink-0">
-          Mixed
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-[#181F2C] text-[#8E9BB0] border border-[#263246] whitespace-nowrap shrink-0">
-        Neutral
-      </span>
-    );
-  };
-
   const renderMoverRow = (article: WatchlistMoverArticle, rank: number) => {
     const isBullish = article.sentiment === 'Bullish';
     const isSaved = savedArticleIds.has(article.id);
@@ -161,22 +149,21 @@ export function WatchlistLandingBrief({
     return (
       <div
         key={`${article.sentiment}-${article.id}-${rank}`}
-        className="p-4 sm:p-5 border-b border-[#1E2736] last:border-b-0 hover:bg-[#151C28]/75 transition-colors flex flex-col justify-between gap-3"
+        className="p-5 border-b border-[#212c42] last:border-b-0 hover:bg-[#10203d] transition-colors flex flex-col justify-between gap-3"
       >
         <div className="space-y-2.5">
-          {/* Top metadata row: Rank + Company button + Conviction Score + Relative Time */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+          {/* Clean Unboxed Metadata Line */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono-tabular">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <span
-                className={`inline-flex items-center justify-center w-5 h-5 rounded-[3px] text-[11px] font-mono-tabular font-semibold border ${
+                className={
                   isBullish
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                }`}
+                    ? 'font-semibold text-emerald-400'
+                    : 'font-semibold text-rose-400'
+                }
               >
-                #{rank}
+                0{rank}.
               </span>
-
               <button
                 type="button"
                 onClick={() =>
@@ -185,34 +172,31 @@ export function WatchlistLandingBrief({
                     article.companyEntityType
                   )
                 }
-                title={`Click to open full deep-dive research for ${article.companyLabel}`}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#181F2C] hover:bg-[#1E2736] border border-[#2A364B] text-[#F1F5F9] text-xs font-medium transition-colors cursor-pointer whitespace-nowrap"
+                title={`Open Step 3 deep-dive research for ${article.companyLabel}`}
+                className="font-sans font-semibold text-white hover:text-[#49afe9] transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
-                <span className="font-semibold">{article.companyLabel}</span>
-                {article.companyEntityType === 'ticker' && (
-                  <span className="font-mono-tabular text-[11px] text-emerald-400">
-                    {article.companyValue}
-                  </span>
-                )}
+                {article.companyLabel}
+                {article.companyEntityType === 'ticker'
+                  ? ` (${article.companyValue})`
+                  : ''}
               </button>
-
-              {renderSentimentBadge(article.sentiment)}
+              <span className="text-slate-500" aria-hidden="true">
+                ·
+              </span>
+              {renderInlineStance(article.sentiment)}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 text-slate-400 shrink-0">
               <span
-                title="AI Conviction & Materiality Score (1-100): Measures how strongly this news event impacts the company's near-term valuation or growth trajectory."
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider border cursor-help ${
-                  isBullish
-                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                    : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                title="Conviction & Materiality Score (1-100): Estimates how strongly this news impacts near-term fundamentals or valuation."
+                className={`cursor-help ${
+                  isBullish ? 'text-emerald-300' : 'text-rose-300'
                 }`}
               >
-                Conviction {article.convictionScore}%
+                {article.convictionScore}% conviction
               </span>
-              <span className="text-[11px] font-mono-tabular text-[#5A667A]">
-                {formatRelativeAge(article.publishedAt)}
-              </span>
+              <span aria-hidden="true">·</span>
+              <span>{formatRelativeAge(article.publishedAt)}</span>
             </div>
           </div>
 
@@ -222,44 +206,36 @@ export function WatchlistLandingBrief({
               href={article.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm sm:text-[15px] font-semibold text-[#F1F5F9] hover:text-emerald-400 transition-colors leading-snug inline-flex items-start gap-1.5 group"
+              className="text-sm sm:text-[15px] font-semibold text-white hover:text-[#49afe9] transition-colors leading-snug inline-flex items-start gap-1.5 group"
             >
               <span>{article.title}</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-[#5A667A] group-hover:text-emerald-400 shrink-0 mt-0.5 transition-colors" />
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#49afe9] shrink-0 mt-0.5 transition-colors" />
             </a>
             {article.isTranslated && article.translatedFromLanguage && (
-              <p className="mt-1 text-[11px] text-[#5A667A] line-clamp-1">
-                Auto-translated from {article.translatedFromLanguage} → English
+              <p className="mt-1 text-xs text-slate-400 line-clamp-1">
+                Auto-translated from {article.translatedFromLanguage} to English
               </p>
             )}
           </div>
 
-          {/* AI Sentiment Rationale */}
-          <div
-            className={`pl-3 py-1 border-l-2 text-xs leading-relaxed ${
-              isBullish
-                ? 'border-emerald-500/50 text-[#C8D3E3]'
-                : 'border-rose-500/50 text-[#C8D3E3]'
-            }`}
-          >
+          {/* Sentiment Rationale (subtle all-around surface box — no thick left border) */}
+          <div className="p-3 rounded-lg bg-[#091326] border border-[#212c42] text-xs text-slate-200 leading-relaxed">
             <span
-              className={`font-mono-tabular text-[10px] uppercase tracking-wider mr-1.5 font-semibold ${
+              className={`font-semibold mr-1.5 ${
                 isBullish ? 'text-emerald-400' : 'text-rose-400'
               }`}
             >
               Why {article.sentiment}:
             </span>
-            {article.rationale}
+            <span>{article.rationale}</span>
           </div>
         </div>
 
-        {/* Footer row: Publisher + Deep-Dive Pivot + Save button */}
-        <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-[#8E9BB0]">
-          <div className="flex items-center gap-2 min-w-0 truncate">
-            <span className="font-medium text-[#8E9BB0] truncate">
-              {article.sourceName}
-            </span>
-            <span className="text-[#2A364B]">•</span>
+        {/* Footer Actions: Source + Deep Dive Pivot + Save */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs text-slate-400">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate">{article.sourceName}</span>
+            <span aria-hidden="true">·</span>
             <button
               type="button"
               onClick={() =>
@@ -268,30 +244,31 @@ export function WatchlistLandingBrief({
                   article.companyEntityType
                 )
               }
-              className="text-[11px] text-[#8E9BB0] hover:text-emerald-400 transition-colors underline underline-offset-2 cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1 text-[#49afe9] hover:text-white font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
-              Inspect {article.companyLabel} metrics &amp; chart
+              <span>Inspect {article.companyLabel}</span>
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
 
           <button
             type="button"
             onClick={() => onBookmarkArticle(article)}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-[3px] text-[11px] font-mono-tabular border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               isSaved
-                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                : 'bg-[#181F2C] text-[#8E9BB0] border-[#263246] hover:text-[#F1F5F9] hover:border-[#35445E]'
+                ? 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/50'
+                : 'bg-[#091326] text-slate-300 border-[#212c42] hover:text-white hover:border-slate-500'
             }`}
           >
             {isSaved ? (
               <>
-                <BookmarkCheck className="w-3 h-3 text-emerald-400" />
-                Saved
+                <BookmarkCheck className="w-3.5 h-3.5 text-[#49afe9]" />
+                <span>Saved</span>
               </>
             ) : (
               <>
-                <Bookmark className="w-3 h-3" />
-                Save
+                <Bookmark className="w-3.5 h-3.5" />
+                <span>Save</span>
               </>
             )}
           </button>
@@ -303,39 +280,37 @@ export function WatchlistLandingBrief({
   return (
     <section
       id="watchlist-pulse"
-      className="mb-8 bg-[#11161F] border border-[#1E2736] rounded-md overflow-hidden"
+      className="rounded-xl bg-[#0d1b33] border border-[#212c42] overflow-hidden"
     >
-      {/* Top Header Strip */}
-      <div className="px-4 sm:px-6 py-4 border-b border-[#1E2736] bg-[#0D121A] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      {/* Header Bar */}
+      <div className="px-6 py-5 border-b border-[#212c42] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-              <Sparkles className="w-3 h-3" />
-              Watchlist Intelligence Pulse
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-mono-tabular">
+            <span className="text-[#49afe9] font-medium">
+              Daily Watchlist Synthesis
             </span>
-            <span className="text-[11px] font-mono-tabular text-[#8E9BB0]">
-              Following {followedCount}{' '}
-              {followedCount === 1 ? 'Company' : 'Companies'}
+            <span aria-hidden="true">·</span>
+            <span>
+              {followedCount} {followedCount === 1 ? 'company' : 'companies'} tracked
             </span>
             {digest && (
               <>
-                <span className="text-[#263246]">•</span>
-                <span className="text-[11px] font-mono-tabular text-[#8E9BB0]">
-                  {digest.sentimentCounts.totalArticles} Live Articles Scanned
+                <span aria-hidden="true">·</span>
+                <span>{digest.sentimentCounts.totalArticles} articles scanned</span>
+                <span aria-hidden="true">·</span>
+                <span className="text-emerald-400">
+                  {digest.sentimentCounts.bullish} bullish
                 </span>
-                <span className="text-[#263246]">•</span>
-                <span className="text-[11px] font-mono-tabular text-emerald-400">
-                  {digest.sentimentCounts.bullish} Bullish
-                </span>
-                <span className="text-[11px] font-mono-tabular text-rose-400">
-                  {digest.sentimentCounts.bearish} Bearish
+                <span aria-hidden="true">·</span>
+                <span className="text-rose-400">
+                  {digest.sentimentCounts.bearish} bearish
                 </span>
               </>
             )}
           </div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-[#F1F5F9]">
-            Your Watchlist News Summary &amp; Top Conviction Signals
-          </h1>
+          <h2 className="text-xl font-bold tracking-tight text-white text-balance">
+            Your Personalized Morning Brief
+          </h2>
         </div>
 
         <div className="flex items-center gap-2 self-start lg:self-center">
@@ -343,270 +318,264 @@ export function WatchlistLandingBrief({
             type="button"
             onClick={onRefresh}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#181F2C] hover:bg-[#1E2736] text-xs font-medium text-[#F1F5F9] border border-[#263246] transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#091326] hover:bg-[#102344] text-xs font-semibold text-white border border-[#212c42] transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-emerald-400 ${
+              className={`w-3.5 h-3.5 text-[#49afe9] ${
                 isLoading ? 'animate-spin' : ''
               }`}
             />
-            {isLoading ? 'Synthesizing Watchlist...' : 'Refresh Briefing'}
+            <span>{isLoading ? 'Synthesizing...' : 'Refresh Brief'}</span>
           </button>
         </div>
       </div>
 
-      {/* Loading Skeleton State */}
+      {/* Loading Skeleton */}
       {isLoading && !digest && (
         <div className="p-6 space-y-6 animate-pulse">
           <div className="space-y-2.5">
-            <div className="h-4 w-64 bg-[#181F2C] rounded" />
-            <div className="h-3.5 w-full bg-[#181F2C] rounded" />
-            <div className="h-3.5 w-5/6 bg-[#181F2C] rounded" />
+            <div className="h-4 w-56 bg-[#162747] rounded" />
+            <div className="h-4 w-full bg-[#162747] rounded" />
+            <div className="h-4 w-5/6 bg-[#162747] rounded" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[1, 2, 3].map((n) => (
               <div
                 key={n}
-                className="h-20 bg-[#181F2C]/70 border border-[#1E2736] rounded p-3"
+                className="h-24 bg-[#091326] border border-[#212c42] rounded-lg p-4"
               />
             ))}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
-            <div className="h-56 bg-[#181F2C]/60 border border-[#1E2736] rounded" />
-            <div className="h-56 bg-[#181F2C]/60 border border-[#1E2736] rounded" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="h-56 bg-[#091326] border border-[#212c42] rounded-lg" />
+            <div className="h-56 bg-[#091326] border border-[#212c42] rounded-lg" />
           </div>
         </div>
       )}
 
       {/* Error State */}
       {error && !digest && (
-        <div className="p-6 text-sm text-rose-400 flex items-center justify-between gap-4">
+        <div className="p-6 text-sm text-rose-300 flex flex-wrap items-center justify-between gap-4">
           <span>{error}</span>
           <button
             type="button"
             onClick={onRefresh}
-            className="px-3 py-1.5 rounded bg-rose-500/10 border border-rose-500/30 text-xs font-mono-tabular text-rose-300 hover:bg-rose-500/20 cursor-pointer whitespace-nowrap"
+            className="px-3.5 py-2 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs font-semibold text-rose-200 hover:bg-rose-950/60 cursor-pointer whitespace-nowrap shrink-0"
           >
-            Retry Watchlist Pulse
+            Retry Morning Brief
           </button>
         </div>
       )}
 
-      {/* Main Content */}
+      {/* Main Populated Content */}
       {digest && (
         <div>
-          {/* PART 1: Executive Cross-Watchlist Narrative + Per-Company Digest Grid */}
-          <div className="p-4 sm:p-6 border-b border-[#1E2736] space-y-5">
-            <div className="space-y-2.5">
+          {/* 1. Executive Summary + Themes */}
+          <div className="p-6 border-b border-[#212c42] space-y-5">
+            <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-400" />
-                  <h2 className="text-xs font-mono-tabular uppercase tracking-wider text-[#F1F5F9] font-semibold">
-                    Executive Summary Across Followed Companies
-                  </h2>
-                </div>
+                <h3 className="text-sm font-semibold text-[#49afe9]">
+                  Executive Takeaway Across Your Watchlist
+                </h3>
                 {digest.keyThemes.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-mono-tabular uppercase tracking-wider text-[#5A667A] mr-1">
-                      Dominant Themes:
-                    </span>
-                    {digest.keyThemes.map((theme) => (
-                      <span
-                        key={theme}
-                        className="px-2 py-0.5 rounded-[3px] text-[10px] font-mono-tabular uppercase tracking-wider bg-[#181F2C] text-[#C8D3E3] border border-[#263246]"
-                      >
-                        {theme}
-                      </span>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span className="text-slate-500">Key themes:</span>
+                    <span>{digest.keyThemes.join(' · ')}</span>
                   </div>
                 )}
               </div>
 
-              <p className="text-sm sm:text-[15px] text-[#E2E8F0] leading-relaxed">
+              <p className="text-sm sm:text-base text-slate-200 leading-relaxed max-w-5xl">
                 {digest.executiveSummary}
               </p>
             </div>
 
-            {/* Per-Company Watchlist Digest Strip */}
-            <div className="border border-[#1E2736] rounded bg-[#0A0D12]">
-              <div className="px-3.5 py-2 border-b border-[#1E2736] flex items-center justify-between">
-                <span className="text-[10px] font-mono-tabular uppercase tracking-wider text-[#8E9BB0] flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-[#5A667A]" />
-                  Company-by-Company Watchlist Digest (Click any company to load deep-dive below)
-                </span>
-                <span className="text-[10px] font-mono-tabular text-[#5A667A]">
-                  {digest.companyDigests.length} Tracked
-                </span>
+            {/* 2. Collapsible Company-by-Company Posture Strip */}
+            <div className="pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="text-xs font-medium text-slate-300">
+                  Company-by-Company Posture — Click any company to open full research
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllCompanyCards((prev) => !prev)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[#49afe9] hover:text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <span>
+                    {showAllCompanyCards
+                      ? 'Hide Company Breakdown'
+                      : `Show All ${digest.companyDigests.length} Companies`}
+                  </span>
+                  {showAllCompanyCards ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[#1E2736]">
-                {digest.companyDigests.map(
-                  (company: WatchlistCompanyDigest, idx: number) => (
-                    <button
-                      key={company.value}
-                      type="button"
-                      onClick={() =>
-                        handleSelectCompany(company.value, company.entityType)
-                      }
-                      className={`p-3.5 text-left hover:bg-[#141B26] transition-colors flex flex-col justify-between gap-2 cursor-pointer group ${
-                        idx >= 3 ? 'lg:border-t lg:border-[#1E2736]' : ''
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 w-full">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs font-semibold text-[#F1F5F9] group-hover:text-emerald-400 transition-colors truncate">
-                            {company.label}
+              {showAllCompanyCards && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border border-[#212c42] rounded-lg bg-[#091326] divide-y md:divide-y-0 md:divide-x divide-[#212c42] overflow-hidden">
+                  {digest.companyDigests.map(
+                    (company: WatchlistCompanyDigest, idx: number) => (
+                      <button
+                        key={company.value}
+                        type="button"
+                        onClick={() =>
+                          handleSelectCompany(company.value, company.entityType)
+                        }
+                        className={`p-4 text-left hover:bg-[#10203d] transition-colors flex flex-col justify-between gap-2.5 cursor-pointer group ${
+                          idx >= 3 ? 'lg:border-t lg:border-[#212c42]' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2 w-full">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-semibold text-white group-hover:text-[#49afe9] transition-colors truncate">
+                              {company.label}
+                            </span>
+                            {company.entityType === 'ticker' ? (
+                              <span className="font-mono-tabular text-xs text-[#49afe9] shrink-0">
+                                {company.value}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400 shrink-0">
+                                Private
+                              </span>
+                            )}
+                          </div>
+                          {renderInlineStance(company.stance)}
+                        </div>
+
+                        <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                          {company.summary}
+                        </p>
+
+                        <div className="flex items-center justify-between text-xs text-slate-400 font-mono-tabular pt-0.5">
+                          <span className="truncate">
+                            {company.sector || 'Tracked Company'}
                           </span>
-                          {company.entityType === 'ticker' ? (
-                            <span className="font-mono-tabular text-[11px] text-emerald-400 shrink-0">
-                              {company.value}
-                            </span>
-                          ) : (
-                            <span className="font-mono-tabular text-[10px] uppercase tracking-wider text-[#5A667A] shrink-0">
-                              Unlisted
-                            </span>
-                          )}
+                          <span className="text-[#49afe9] group-hover:text-white transition-colors whitespace-nowrap shrink-0">
+                            Inspect ({company.articleCount}) →
+                          </span>
                         </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {renderSentimentBadge(company.stance)}
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-[#8E9BB0] line-clamp-2 leading-relaxed">
-                        {company.summary}
-                      </p>
-
-                      <div className="flex items-center justify-between text-[10px] font-mono-tabular text-[#5A667A] pt-0.5">
-                        <span>{company.sector || 'US Market'}</span>
-                        <span className="text-[#8E9BB0] group-hover:text-emerald-400 transition-colors">
-                          {company.articleCount} articles →
-                        </span>
-                      </div>
-                    </button>
-                  )
-                )}
-              </div>
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* PART 2: Top Most Bullish & Top Most Bearish News Across Your Watchlist */}
+          {/* 3. Ranked Top Bullish Catalysts vs. Top Bearish Risks */}
           <div>
-            {/* Subheader + Filter Control Bar */}
-            <div className="px-4 sm:px-6 py-3.5 border-b border-[#1E2736] bg-[#0D121A] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-amber-400 shrink-0" />
-                <div>
-                  <h2 className="text-xs sm:text-sm font-semibold text-[#F1F5F9]">
-                    Top Bullish &amp; Bearish News Across Your Watchlist
-                  </h2>
-                  <p className="text-[11px] text-[#8E9BB0]">
-                    Highest-conviction upside catalysts and downside risk stories across any company you follow, ranked by materiality.
-                  </p>
-                </div>
+            <div className="px-6 py-4 border-b border-[#212c42] bg-[#091326]/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  Highest-Conviction Catalysts &amp; Risks
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Ranked by materiality across your followed companies
+                </p>
               </div>
 
-              {/* Filter Tabs */}
-              <div className="inline-flex items-center rounded bg-[#0A0D12] p-0.5 border border-[#1E2736] self-start sm:self-center shrink-0">
+              {/* Segmented Filter Control */}
+              <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#091326] border border-[#212c42] self-start sm:self-center shrink-0">
                 <button
                   type="button"
                   onClick={() => handleFilterChange('ALL')}
-                  className={`px-2.5 py-1 rounded-[3px] text-xs font-mono-tabular transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                     signalFilter === 'ALL'
-                      ? 'bg-[#1E2736] text-[#F1F5F9] font-medium'
-                      : 'text-[#8E9BB0] hover:text-[#F1F5F9]'
+                      ? 'bg-[#09a4ff] text-white'
+                      : 'text-slate-300 hover:text-white'
                   }`}
                 >
-                  Bullish &amp; Bearish
+                  Both Sides
                 </button>
                 <button
                   type="button"
                   onClick={() => handleFilterChange('BULLISH')}
-                  className={`px-2.5 py-1 rounded-[3px] text-xs font-mono-tabular transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
                     signalFilter === 'BULLISH'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium'
-                      : 'text-[#8E9BB0] hover:text-emerald-400'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : 'text-slate-300 hover:text-emerald-300'
                   }`}
                 >
-                  <TrendingUp className="w-3 h-3" />
-                  Top Bullish ({digest.topBullish.length})
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span>Upside ({digest.topBullish.length})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleFilterChange('BEARISH')}
-                  className={`px-2.5 py-1 rounded-[3px] text-xs font-mono-tabular transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 inline-flex items-center gap-1 ${
                     signalFilter === 'BEARISH'
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 font-medium'
-                      : 'text-[#8E9BB0] hover:text-rose-400'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      : 'text-slate-300 hover:text-rose-300'
                   }`}
                 >
-                  <TrendingDown className="w-3 h-3" />
-                  Top Bearish ({digest.topBearish.length})
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  <span>Risks ({digest.topBearish.length})</span>
                 </button>
               </div>
             </div>
 
-            {/* Columns Grid */}
             <div
               className={`grid grid-cols-1 ${
                 signalFilter === 'ALL'
                   ? 'lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x'
                   : ''
-              } divide-[#1E2736]`}
+              } divide-[#212c42]`}
             >
-              {/* Bullish Column */}
               {(signalFilter === 'ALL' || signalFilter === 'BULLISH') && (
                 <div className="flex flex-col">
-                  <div className="px-4 sm:px-5 py-3 border-b border-[#1E2736] bg-emerald-500/[0.04] flex items-center justify-between">
+                  <div className="px-5 py-3 border-b border-[#212c42] bg-emerald-500/[0.04] flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-emerald-400" />
-                      <span className="text-xs font-mono-tabular uppercase tracking-wider font-semibold text-emerald-400">
-                        Most Bullish Watchlist Catalysts
+                      <span className="text-xs font-semibold text-emerald-400">
+                        Top Bullish Catalysts
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono-tabular text-[#8E9BB0]">
-                      Top {digest.topBullish.length} Upside Signals
+                    <span className="text-xs font-mono-tabular text-slate-400">
+                      {digest.topBullish.length} signals
                     </span>
                   </div>
 
                   {digest.topBullish.length > 0 ? (
-                    <div className="divide-y divide-[#1E2736]">
+                    <div className="divide-y divide-[#212c42]">
                       {digest.topBullish.map((article, idx) =>
                         renderMoverRow(article, idx + 1)
                       )}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-xs text-[#8E9BB0]">
-                      No strongly bullish catalysts detected across your followed companies in the current window.
+                    <div className="p-8 text-center text-xs text-slate-400">
+                      No strongly bullish catalysts detected across your followed companies right now.
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Bearish Column */}
               {(signalFilter === 'ALL' || signalFilter === 'BEARISH') && (
                 <div className="flex flex-col">
-                  <div className="px-4 sm:px-5 py-3 border-b border-[#1E2736] bg-rose-500/[0.04] flex items-center justify-between">
+                  <div className="px-5 py-3 border-b border-[#212c42] bg-rose-500/[0.04] flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="w-4 h-4 text-rose-400" />
-                      <span className="text-xs font-mono-tabular uppercase tracking-wider font-semibold text-rose-400">
-                        Most Bearish Watchlist Risks &amp; Headwinds
+                      <span className="text-xs font-semibold text-rose-400">
+                        Top Bearish Risks &amp; Headwinds
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono-tabular text-[#8E9BB0]">
-                      Top {digest.topBearish.length} Downside Signals
+                    <span className="text-xs font-mono-tabular text-slate-400">
+                      {digest.topBearish.length} signals
                     </span>
                   </div>
 
                   {digest.topBearish.length > 0 ? (
-                    <div className="divide-y divide-[#1E2736]">
+                    <div className="divide-y divide-[#212c42]">
                       {digest.topBearish.map((article, idx) =>
                         renderMoverRow(article, idx + 1)
                       )}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-xs text-[#8E9BB0]">
-                      No material bearish risk events detected across your followed companies in the current window.
+                    <div className="p-8 text-center text-xs text-slate-400">
+                      No material bearish risk events detected across your followed companies right now.
                     </div>
                   )}
                 </div>
