@@ -12,7 +12,7 @@
 - **Cross-Watchlist Executive Summary**: The moment an investor opens Contextual Investing, they receive a unified briefing synthesizing breaking coverage across every company they follow (e.g., `NVDA`, `AAPL`, `MSFT`, `PLTR`, alongside key ecosystem benchmarks).
 - **Company-by-Company Digest Strip**: A scannable grid condenses each followed company's latest news posture (`Bullish`, `Bearish`, `Mixed`, or `Neutral`) into a single actionable sentence, allowing one-click pivoting into deep research.
 - **Top Most Bullish & Bearish Movers**: Surfaces the highest-impact upside catalysts and downside risks across the entire watchlist—scored by materiality (`1–100%` Conviction)—with a one-sentence explanation of *why* the story moves the needle.
-- **Live Follow / Unfollow Customization**: Investors can add or remove any US-listed ticker or benchmark company on the fly and immediately regenerate the watchlist pulse.
+- **Verified Live Follow / Unfollow Customization**: Investors can follow or unfollow any verified US-listed ticker or real private company (with live `1D–1Y` sparklines for public equities and disclosed valuations for private companies) and immediately regenerate the watchlist pulse.
 
 ### 2. Universal Company Search & Precision Filtering
 - **Zero-Friction Ticker or Company Name Lookup**: Search seamlessly by stock symbol (`NVDA`, `TSLA`) or company name (`Microsoft`, `Palantir`) with automatic entity disambiguation across US exchanges.

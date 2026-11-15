@@ -20,15 +20,19 @@ import { logFunctionCall } from './logger.ts';
 
 export type EntityType = 'name' | 'ticker' | 'domain' | 'isin';
 
+export type WatchlistSparklineRange = '1D' | '5D' | '1M' | '6M' | '1Y';
+
 export interface CompanyPreset {
   label: string;
   name?: string;
   entityType: EntityType;
   value: string;
+  kind?: 'public' | 'private';
   exchange?: 'NASDAQ' | 'NYSE' | 'LSE' | 'XETRA' | 'JPX' | 'HKSE';
   sector: string;
   price: string;
   changePct: string;
+  timeframe?: WatchlistSparklineRange;
   positive: boolean;
   sparkline: number[];
 }
@@ -157,16 +161,37 @@ export const APP_CONFIG = {
   },
 
   /**
+   * Followed Watchlist Validation & Live Sparkline Configuration
+   */
+  watchlist: {
+    defaultSparklineRange: '1M' as WatchlistSparklineRange,
+    supportedRanges: ['1D', '5D', '1M', '6M', '1Y'] as const,
+    rangeDescriptions: {
+      '1D': '1-Day',
+      '5D': '5-Day',
+      '1M': '1-Month',
+      '6M': '6-Month',
+      '1Y': '1-Year',
+    } as Record<WatchlistSparklineRange, string>,
+    maxFollowedCompanies: 10,
+    sparklineMaxPoints: 24,
+  },
+
+  /**
    * Featured Institutional Watchlist Presets
+   * Public equities hydrate live price, % change, and real historical sparklines on load;
+   * private companies display disclosed private-market valuation without share price graphs.
    */
   featuredCompanies: [
     {
       label: 'NVIDIA Corp',
       entityType: 'ticker',
       value: 'NVDA',
+      kind: 'public',
       sector: 'Semiconductors & AI',
       price: '$138.60',
       changePct: '+3.42%',
+      timeframe: '1M',
       positive: true,
       sparkline: [124, 126, 125, 129, 132, 131, 135, 138.6],
     },
@@ -174,19 +199,22 @@ export const APP_CONFIG = {
       label: 'Stripe',
       entityType: 'name',
       value: 'Stripe',
+      kind: 'private',
       sector: 'Fintech Infrastructure',
-      price: 'Private · $70B',
-      changePct: '+7.69%',
+      price: 'Privately Held',
+      changePct: 'Est. $91.5B Valuation',
       positive: true,
-      sparkline: [62, 63, 64, 65, 65, 67, 69, 70],
+      sparkline: [],
     },
     {
       label: 'Apple Inc',
       entityType: 'ticker',
       value: 'AAPL',
+      kind: 'public',
       sector: 'Consumer Hardware',
       price: '$229.40',
       changePct: '+1.18%',
+      timeframe: '1M',
       positive: true,
       sparkline: [222, 224, 223, 225, 227, 226, 228, 229.4],
     },
@@ -194,9 +222,11 @@ export const APP_CONFIG = {
       label: 'Microsoft',
       entityType: 'ticker',
       value: 'MSFT',
+      kind: 'public',
       sector: 'Cloud & Enterprise AI',
       price: '$446.85',
       changePct: '+0.94%',
+      timeframe: '1M',
       positive: true,
       sparkline: [438, 440, 439, 442, 444, 443, 445, 446.85],
     },
@@ -204,9 +234,11 @@ export const APP_CONFIG = {
       label: 'Palantir',
       entityType: 'ticker',
       value: 'PLTR',
+      kind: 'public',
       sector: 'Defense & Data OS',
       price: '$61.20',
       changePct: '-0.85%',
+      timeframe: '1M',
       positive: false,
       sparkline: [64, 63.5, 63, 62.8, 62.1, 61.9, 61.5, 61.2],
     },
@@ -214,11 +246,12 @@ export const APP_CONFIG = {
       label: 'OpenAI',
       entityType: 'name',
       value: 'OpenAI',
+      kind: 'private',
       sector: 'Frontier AI Models',
-      price: 'Private · $157B',
-      changePct: '+12.10%',
+      price: 'Privately Held',
+      changePct: 'Est. $300B Valuation',
       positive: true,
-      sparkline: [110, 118, 125, 130, 140, 148, 152, 157],
+      sparkline: [],
     },
   ] as CompanyPreset[],
 } as const;

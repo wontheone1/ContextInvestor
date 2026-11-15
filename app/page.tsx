@@ -33,7 +33,7 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import { Check, MessageSquare, Plus } from 'lucide-react';
+import { AlertCircle, Check, Loader2, MessageSquare, Plus, X } from 'lucide-react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
 import type { EnrichedNewsArticle } from '@/lib/translation-service';
@@ -102,21 +102,26 @@ import {
   type SavedArticleRecord,
 } from '@/lib/firebase-client';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
-import { APP_CONFIG, type CompanyPreset } from '@/lib/config';
+import {
+  APP_CONFIG,
+  type CompanyPreset,
+  type WatchlistSparklineRange,
+} from '@/lib/config';
 import { logFunctionCall } from '@/lib/logger';
 
 const FOLLOWED_STORAGE_KEY = 'contextual_investing_followed_companies_v1';
 
 /**
- * Infers whether a user-entered string is a US ticker symbol or company name
- * and constructs a `CompanyPreset` for the watchlist strip.
+ * Constructs a provisional `CompanyPreset` skeleton (with NO fabricated sparklines)
+ * from a stored Firestore record prior to live server quote & existence hydration.
  */
-function buildCustomPresetFromInput(
-  rawInput: string,
+function buildProvisionalPresetFromStoredRecord(
+  rawValue: string,
+  entityType: 'name' | 'ticker',
   customLabel?: string,
   customSector?: string
 ): CompanyPreset {
-  const trimmed = rawInput.trim();
+  const trimmed = rawValue.trim();
   const knownPreset = APP_CONFIG.featuredCompanies.find(
     (c) =>
       c.value.toLowerCase() === trimmed.toLowerCase() ||
@@ -126,22 +131,20 @@ function buildCustomPresetFromInput(
     return knownPreset;
   }
 
-  const isLikelyTicker =
-    /^[A-Z]{1,5}(\.[A-Z])?$/.test(trimmed) ||
-    (/^[a-zA-Z]{1,5}$/.test(trimmed) &&
-      !['stripe', 'openai', 'spacex'].includes(trimmed.toLowerCase()));
-
-  const normalizedValue = isLikelyTicker ? trimmed.toUpperCase() : trimmed;
+  const isTicker = entityType === 'ticker';
+  const normalizedValue = isTicker ? trimmed.toUpperCase() : trimmed;
   return {
     label: customLabel || normalizedValue,
-    entityType: isLikelyTicker ? 'ticker' : 'name',
+    entityType,
     value: normalizedValue,
+    kind: isTicker ? 'public' : 'private',
     sector:
-      customSector || (isLikelyTicker ? 'US Listed Equity' : 'Private / Growth'),
-    price: isLikelyTicker ? 'Tracked' : 'Private',
-    changePct: 'Following',
+      customSector || (isTicker ? 'US Listed Equity' : 'Privately Held'),
+    price: isTicker ? 'Loading...' : 'Privately Held',
+    changePct: isTicker ? '...' : 'Verifying...',
+    timeframe: APP_CONFIG.watchlist.defaultSparklineRange,
     positive: true,
-    sparkline: [50, 52, 51, 54, 56, 55, 58, 60],
+    sparkline: [],
   };
 }
 
@@ -189,12 +192,22 @@ function resolveDateBounds(state: NewsSearchControlState): {
 export default function InvestorDashboardPage() {
   const [activeSection, setActiveSection] = useState<NavSectionId>('pulse');
 
-  // Followed Watchlist Companies State
+  // Followed Watchlist Companies, Sparkline Timeframe & Verification State
   const [followedCompanies, setFollowedCompanies] = useState<CompanyPreset[]>(
     () => [...APP_CONFIG.featuredCompanies]
   );
   const [isWatchlistCustomized, setIsWatchlistCustomized] =
     useState<boolean>(false);
+  const [watchlistRange, setWatchlistRange] = useState<WatchlistSparklineRange>(
+    APP_CONFIG.watchlist.defaultSparklineRange
+  );
+  const [isHydratingWatchlistQuotes, setIsHydratingWatchlistQuotes] =
+    useState<boolean>(false);
+  const [isVerifyingFollow, setIsVerifyingFollow] = useState<boolean>(false);
+  const [followValidationError, setFollowValidationError] = useState<
+    string | null
+  >(null);
+  const watchlistQuotesSeqRef = useRef<number>(0);
 
   // Watchlist Cross-Company Landing Brief & Top Bullish/Bearish Movers State
   const [watchlistDigest, setWatchlistDigest] =
@@ -367,19 +380,104 @@ export default function InvestorDashboardPage() {
     []
   );
 
-  // Hydrate custom followed companies from localStorage on mount & fetch Watchlist Digest
+  /**
+   * Hydrates live public stock prices, period `%` returns, and real historical
+   * sparklines for `targetRange`, strips fake sparklines from private companies,
+   * and prunes any previously stored non-existent company entries.
+   */
+  const hydrateFollowedWatchlistQuotes = useCallback(
+    async (
+      itemsToHydrate: CompanyPreset[],
+      targetRange: WatchlistSparklineRange,
+      persistToLocalStorage: boolean,
+      refreshDigestOnPrune = false
+    ) => {
+      const seq = ++watchlistQuotesSeqRef.current;
+      setIsHydratingWatchlistQuotes(true);
+
+      try {
+        const res = await fetch('/api/market/watchlist-quotes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'hydrate',
+            companies: itemsToHydrate,
+            range: targetRange,
+          }),
+        });
+        const json = await res.json();
+        if (seq !== watchlistQuotesSeqRef.current) return;
+        if (!res.ok || !json.ok || !Array.isArray(json.companies)) {
+          return;
+        }
+
+        const hydratedCompanies = json.companies as CompanyPreset[];
+        const invalidValues = Array.isArray(json.invalidValues)
+          ? (json.invalidValues as string[])
+          : [];
+
+        setFollowedCompanies(hydratedCompanies);
+
+        if (persistToLocalStorage || invalidValues.length > 0) {
+          try {
+            window.localStorage.setItem(
+              FOLLOWED_STORAGE_KEY,
+              JSON.stringify(hydratedCompanies)
+            );
+          } catch {
+            // ignore storage quota errors
+          }
+        }
+
+        if (invalidValues.length > 0) {
+          if (auth.currentUser) {
+            for (const badVal of invalidValues) {
+              const matchedOld = itemsToHydrate.find(
+                (it) => it.value.toLowerCase() === badVal.toLowerCase()
+              );
+              if (matchedOld) {
+                unfollowCompanyForUser(
+                  matchedOld.entityType === 'ticker' ? 'ticker' : 'name',
+                  matchedOld.value
+                ).catch(() => undefined);
+              }
+            }
+          }
+          if (refreshDigestOnPrune) {
+            void fetchWatchlistDigest(hydratedCompanies, false);
+          }
+        }
+      } catch (err) {
+        console.warn('Watchlist live quote hydration warning:', err);
+      } finally {
+        if (seq === watchlistQuotesSeqRef.current) {
+          setIsHydratingWatchlistQuotes(false);
+        }
+      }
+    },
+    [fetchWatchlistDigest]
+  );
+
+  // Hydrate custom followed companies from localStorage on mount, fetch live quotes & Watchlist Digest
   useEffect(() => {
     const timer = setTimeout(() => {
       let initialCompanies: CompanyPreset[] = [
         ...APP_CONFIG.featuredCompanies,
       ];
+      let customized = false;
       try {
         const rawSaved = window.localStorage.getItem(FOLLOWED_STORAGE_KEY);
         if (rawSaved) {
           const parsed = JSON.parse(rawSaved) as CompanyPreset[];
           if (Array.isArray(parsed) && parsed.length > 0) {
-            initialCompanies = parsed;
-            setFollowedCompanies(parsed);
+            // Sanitize any legacy fake private sparklines immediately before network hydration
+            initialCompanies = parsed.map((p) =>
+              p.entityType !== 'ticker' || p.kind === 'private'
+                ? { ...p, kind: 'private', sparkline: [] }
+                : p
+            );
+            customized = true;
+            setFollowedCompanies(initialCompanies);
             setIsWatchlistCustomized(true);
           }
         }
@@ -388,9 +486,15 @@ export default function InvestorDashboardPage() {
       }
 
       void fetchWatchlistDigest(initialCompanies, false);
+      void hydrateFollowedWatchlistQuotes(
+        initialCompanies,
+        APP_CONFIG.watchlist.defaultSparklineRange,
+        customized,
+        true
+      );
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchWatchlistDigest]);
+  }, [fetchWatchlistDigest, hydrateFollowedWatchlistQuotes]);
 
   // Validate Firestore connection and listen to Auth state on mount
   useEffect(() => {
@@ -407,19 +511,22 @@ export default function InvestorDashboardPage() {
 
           if (remoteFollowed.length > 0) {
             const mappedPresets = remoteFollowed.map((f) =>
-              buildCustomPresetFromInput(f.value, f.label, f.sector)
+              buildProvisionalPresetFromStoredRecord(
+                f.value,
+                f.entityType,
+                f.label,
+                f.sector
+              )
             );
             setFollowedCompanies(mappedPresets);
             setIsWatchlistCustomized(true);
-            try {
-              window.localStorage.setItem(
-                FOLLOWED_STORAGE_KEY,
-                JSON.stringify(mappedPresets)
-              );
-            } catch {
-              // ignore storage quota errors
-            }
             void fetchWatchlistDigest(mappedPresets, false);
+            void hydrateFollowedWatchlistQuotes(
+              mappedPresets,
+              APP_CONFIG.watchlist.defaultSparklineRange,
+              true,
+              true
+            );
           }
         } catch (err) {
           console.error('Failed to load user Firestore data:', err);
@@ -429,52 +536,131 @@ export default function InvestorDashboardPage() {
       }
     });
     return () => unsub();
-  }, [fetchWatchlistDigest]);
+  }, [fetchWatchlistDigest, hydrateFollowedWatchlistQuotes]);
 
   /**
-   * Adds a new company to the user's followed watchlist and refreshes the
-   * Watchlist News Summary & Top Movers briefing.
+   * Switches the sparkline & `%` return timeframe (`1D`, `5D`, `1M`, `6M`, `1Y`)
+   * across `"Companies You Are Following"` and hydrates real historical closes.
+   */
+  const handleWatchlistRangeChange = (nextRange: WatchlistSparklineRange) => {
+    setWatchlistRange(nextRange);
+    void hydrateFollowedWatchlistQuotes(
+      followedCompanies,
+      nextRange,
+      isWatchlistCustomized,
+      false
+    );
+  };
+
+  /**
+   * Verifies that a user-entered ticker or company name is a genuinely existing
+   * company (`POST /api/market/watchlist-quotes` `action: "validate"`) before
+   * adding it to `followedCompanies`, `localStorage`, and Firestore.
+   *
+   * @returns `true` if verified and added (or already followed), `false` if invalid
    */
   const handleAddFollowedCompany = async (
     rawInput: string,
     customLabel?: string,
     customSector?: string
-  ) => {
-    const preset = buildCustomPresetFromInput(
-      rawInput,
-      customLabel,
-      customSector
-    );
-    const exists = followedCompanies.some(
-      (c) => c.value.toLowerCase() === preset.value.toLowerCase()
-    );
-    if (exists) return;
+  ): Promise<boolean> => {
+    const trimmed = rawInput.trim();
+    if (!trimmed) return false;
 
-    const updated = [...followedCompanies, preset].slice(0, 10);
-    setFollowedCompanies(updated);
-    setIsWatchlistCustomized(true);
-    try {
-      window.localStorage.setItem(
-        FOLLOWED_STORAGE_KEY,
-        JSON.stringify(updated)
-      );
-    } catch {
-      // ignore localStorage write errors
+    const alreadyDirect = followedCompanies.some(
+      (c) =>
+        c.value.toLowerCase() === trimmed.toLowerCase() ||
+        c.label.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (alreadyDirect) {
+      setFollowValidationError(null);
+      return true;
     }
 
-    void fetchWatchlistDigest(updated, false);
+    setIsVerifyingFollow(true);
+    setFollowValidationError(null);
 
-    if (currentUser) {
-      try {
-        await followCompanyForUser({
-          label: preset.label,
-          entityType: preset.entityType === 'ticker' ? 'ticker' : 'name',
-          value: preset.value,
-          sector: preset.sector,
-        });
-      } catch (err) {
-        console.warn('Firestore follow sync skipped:', err);
+    try {
+      const res = await fetch('/api/market/watchlist-quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'validate',
+          query: trimmed,
+          range: watchlistRange,
+        }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.ok || !json.valid || !json.preset) {
+        setFollowValidationError(
+          json.error ||
+            `Could not find a verified public ticker or real company matching "${trimmed}".`
+        );
+        return false;
       }
+
+      const verifiedPreset = json.preset as CompanyPreset;
+      const finalPreset: CompanyPreset = {
+        ...verifiedPreset,
+        sector:
+          verifiedPreset.sector && verifiedPreset.sector !== 'US Listed Equity'
+            ? verifiedPreset.sector
+            : customSector || verifiedPreset.sector,
+        label: verifiedPreset.label || customLabel || verifiedPreset.value,
+      };
+
+      const alreadyCanonical = followedCompanies.some(
+        (c) =>
+          c.value.toLowerCase() === finalPreset.value.toLowerCase() ||
+          c.label.toLowerCase() === finalPreset.label.toLowerCase()
+      );
+      if (alreadyCanonical) {
+        setFollowValidationError(null);
+        return true;
+      }
+
+      const updated = [...followedCompanies, finalPreset].slice(
+        0,
+        APP_CONFIG.watchlist.maxFollowedCompanies
+      );
+      setFollowedCompanies(updated);
+      setIsWatchlistCustomized(true);
+      try {
+        window.localStorage.setItem(
+          FOLLOWED_STORAGE_KEY,
+          JSON.stringify(updated)
+        );
+      } catch {
+        // ignore localStorage write errors
+      }
+
+      void fetchWatchlistDigest(updated, false);
+
+      if (currentUser) {
+        try {
+          await followCompanyForUser({
+            label: finalPreset.label,
+            entityType:
+              finalPreset.entityType === 'ticker' ? 'ticker' : 'name',
+            value: finalPreset.value,
+            sector: finalPreset.sector,
+          });
+        } catch (err) {
+          console.warn('Firestore follow sync skipped:', err);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      setFollowValidationError(
+        err instanceof Error
+          ? err.message
+          : `Unable to verify "${trimmed}". Please try again.`
+      );
+      return false;
+    } finally {
+      setIsVerifyingFollow(false);
     }
   };
 
@@ -485,10 +671,14 @@ export default function InvestorDashboardPage() {
   const handleRemoveFollowedCompany = async (valueToRemove: string) => {
     if (followedCompanies.length <= 1) return;
     const target = followedCompanies.find(
-      (c) => c.value.toLowerCase() === valueToRemove.toLowerCase()
+      (c) =>
+        c.value.toLowerCase() === valueToRemove.toLowerCase() ||
+        c.label.toLowerCase() === valueToRemove.toLowerCase()
     );
     const updated = followedCompanies.filter(
-      (c) => c.value.toLowerCase() !== valueToRemove.toLowerCase()
+      (c) =>
+        c.value.toLowerCase() !== valueToRemove.toLowerCase() &&
+        c.label.toLowerCase() !== valueToRemove.toLowerCase()
     );
     setFollowedCompanies(updated);
     setIsWatchlistCustomized(true);
@@ -516,18 +706,21 @@ export default function InvestorDashboardPage() {
   };
 
   /**
-   * Resets the followed watchlist back to the default institutional companies.
+   * Resets the followed watchlist back to the default institutional companies
+   * and hydrates live quotes for the active `watchlistRange`.
    */
   const handleResetDefaultWatchlist = () => {
     const defaults = [...APP_CONFIG.featuredCompanies];
     setFollowedCompanies(defaults);
     setIsWatchlistCustomized(false);
+    setFollowValidationError(null);
     try {
       window.localStorage.removeItem(FOLLOWED_STORAGE_KEY);
     } catch {
       // ignore
     }
     void fetchWatchlistDigest(defaults, false);
+    void hydrateFollowedWatchlistQuotes(defaults, watchlistRange, false, false);
   };
 
   /**
@@ -1306,9 +1499,28 @@ export default function InvestorDashboardPage() {
     setCustomCompareError(null);
 
     try {
+      // Verify that the custom comparison input corresponds to a real company/ticker first
+      const verifyRes = await fetch('/api/market/watchlist-quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'validate',
+          query: trimmed,
+          range: '1M',
+        }),
+      });
+      const verifyJson = await verifyRes.json();
+      if (!verifyRes.ok || !verifyJson.valid || !verifyJson.preset) {
+        throw new Error(
+          verifyJson.error ||
+            `Could not find a verified company or ticker matching "${trimmed}".`
+        );
+      }
+
+      const verifiedPreset = verifyJson.preset as CompanyPreset;
       const params = new URLSearchParams({
-        query: trimmed,
-        entityType: 'auto',
+        query: verifiedPreset.value,
+        entityType: verifiedPreset.entityType === 'ticker' ? 'ticker' : 'name',
         range: cohortRange,
       });
       const res = await fetch(`/api/market/overview?${params.toString()}`);
@@ -1934,8 +2146,14 @@ export default function InvestorDashboardPage() {
           companies={followedCompanies}
           activeValue={workspaceMode === 'single' ? searchState.entityValue : ''}
           activeEntityType={searchState.entityType}
+          sparklineRange={watchlistRange}
+          onSparklineRangeChange={handleWatchlistRangeChange}
+          isHydratingQuotes={isHydratingWatchlistQuotes}
           onSelectPreset={handleSelectPreset}
-          onAddCompany={(rawInput) => void handleAddFollowedCompany(rawInput)}
+          onAddCompany={(rawInput) => handleAddFollowedCompany(rawInput)}
+          isAddingCompany={isVerifyingFollow}
+          followError={followValidationError}
+          onClearFollowError={() => setFollowValidationError(null)}
           onRemoveCompany={(val) => void handleRemoveFollowedCompany(val)}
           onResetDefaults={handleResetDefaultWatchlist}
           isCustomized={isWatchlistCustomized}
@@ -1956,109 +2174,139 @@ export default function InvestorDashboardPage() {
         {/* Research & Screening Section Divider */}
         <div
           id="company-research"
-          className="mb-6 pt-4 flex flex-col lg:flex-row lg:items-end justify-between gap-4 pb-5 border-b border-[#212c42]"
+          className="mb-6 pt-4 flex flex-col gap-3 pb-5 border-b border-[#212c42]"
         >
-          <div>
-            <p className="text-xs font-medium text-[#49afe9] mb-1">
-              {workspaceMode === 'cohort'
-                ? 'Natural-Language Cohort Screening · Normalized % Chart · Side-by-Side Comparison'
-                : 'Single-Company Deep Dive · Price Chart & Metrics · Supply Chain & Peer Ecosystem'}
-            </p>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-balance">
-              {workspaceMode === 'cohort' ? (
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-[#49afe9] mb-1">
+                {workspaceMode === 'cohort'
+                  ? 'Natural-Language Cohort Screening · Normalized % Chart · Side-by-Side Comparison'
+                  : 'Single-Company Deep Dive · Price Chart & Metrics · Supply Chain & Peer Ecosystem'}
+              </p>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white text-balance">
+                {workspaceMode === 'cohort' ? (
+                  <>
+                    Cohort Comparison Desk:{' '}
+                    <span className="text-[#49afe9]">
+                      {activeCohortQuery || searchState.entityValue}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Company Research Terminal:{' '}
+                    <span className="text-[#49afe9]">
+                      {searchState.entityValue}
+                    </span>
+                  </>
+                )}
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {workspaceMode === 'single' && (
                 <>
-                  Cohort Comparison Desk:{' '}
-                  <span className="text-[#49afe9]">
-                    {activeCohortQuery || searchState.entityValue}
-                  </span>
-                </>
-              ) : (
-                <>
-                  Company Research Terminal:{' '}
-                  <span className="text-[#49afe9]">
-                    {searchState.entityValue}
-                  </span>
+                  <button
+                    type="button"
+                    disabled={isVerifyingFollow}
+                    onClick={() => {
+                      if (isCurrentCompanyFollowed) {
+                        void handleRemoveFollowedCompany(
+                          searchState.entityValue.trim()
+                        );
+                      } else {
+                        const label =
+                          marketData?.companyName ||
+                          searchState.entityValue.trim();
+                        const sector = marketData?.sector || undefined;
+                        void handleAddFollowedCompany(
+                          searchState.entityValue.trim(),
+                          label,
+                          sector
+                        );
+                      }
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+                      isCurrentCompanyFollowed
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                        : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c]'
+                    }`}
+                  >
+                    {isCurrentCompanyFollowed ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Following in Watchlist</span>
+                      </>
+                    ) : isVerifyingFollow ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Verifying Company...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>
+                          Follow {searchState.entityValue} in Watchlist
+                        </span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center gap-3 text-xs text-slate-300 font-mono-tabular">
+                    <span>Coverage: {searchState.entityValue}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>
+                      Sort:{' '}
+                      {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
+                    </span>
+                  </div>
                 </>
               )}
-            </h2>
+
+              <button
+                type="button"
+                onClick={() => {
+                  logFunctionCall('InvestorDashboardPage.toggleResearchChat', {
+                    nextOpen: !isChatOpen,
+                  });
+                  setIsChatOpen((prev) => !prev);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  isChatOpen
+                    ? 'bg-[#09a4ff] text-white border-[#09a4ff]'
+                    : 'bg-[#0d1b33] text-white border-[#09a4ff]/50 hover:bg-[#102344]'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>
+                  {isChatOpen
+                    ? 'Hide Research Assistant'
+                    : chatMessages.length > 0
+                      ? `Ask Research Assistant (${Math.ceil(chatMessages.length / 2)})`
+                      : 'Ask Research Assistant'}
+                </span>
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {workspaceMode === 'single' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isCurrentCompanyFollowed) {
-                      void handleRemoveFollowedCompany(
-                        searchState.entityValue.trim()
-                      );
-                    } else {
-                      const label =
-                        marketData?.companyName ||
-                        searchState.entityValue.trim();
-                      const sector = marketData?.sector || undefined;
-                      void handleAddFollowedCompany(
-                        searchState.entityValue.trim(),
-                        label,
-                        sector
-                      );
-                    }
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                    isCurrentCompanyFollowed
-                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
-                      : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c]'
-                  }`}
-                >
-                  {isCurrentCompanyFollowed ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      Following in Watchlist
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      Follow {searchState.entityValue} in Watchlist
-                    </>
-                  )}
-                </button>
-
-                <div className="flex items-center gap-3 text-xs text-slate-300 font-mono-tabular">
-                  <span>Coverage: {searchState.entityValue}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>
-                    Sort:{' '}
-                    {searchState.sortBy === 'newest' ? 'Newest' : 'Relevance'}
-                  </span>
-                </div>
-              </>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                logFunctionCall('InvestorDashboardPage.toggleResearchChat', {
-                  nextOpen: !isChatOpen,
-                });
-                setIsChatOpen((prev) => !prev);
-              }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                isChatOpen
-                  ? 'bg-[#09a4ff] text-white border-[#09a4ff]'
-                  : 'bg-[#0d1b33] text-white border-[#09a4ff]/50 hover:bg-[#102344]'
-              }`}
+          {followValidationError && workspaceMode === 'single' && (
+            <div
+              role="alert"
+              className="px-3.5 py-2 rounded-lg bg-rose-950/35 border border-rose-500/40 flex items-center justify-between gap-3 text-xs text-rose-200"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>
-                {isChatOpen
-                  ? 'Hide Research Assistant'
-                  : chatMessages.length > 0
-                    ? `Ask Research Assistant (${Math.ceil(chatMessages.length / 2)})`
-                    : 'Ask Research Assistant'}
-              </span>
-            </button>
-          </div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{followValidationError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFollowValidationError(null)}
+                aria-label="Dismiss follow validation message"
+                className="p-0.5 text-rose-300 hover:text-white transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Collapsible Company Profile Bar (shown in Single-Company mode) */}
