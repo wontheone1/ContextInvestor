@@ -618,7 +618,7 @@ export function CompanyMarketOverview({
               <div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mb-1">
                   <span className="text-[#49afe9] font-medium">
-                    Private / Unlisted Company
+                    {data.listingNote || 'Privately Held'}
                   </span>
                   {data.sector && (
                     <>
@@ -632,7 +632,7 @@ export function CompanyMarketOverview({
                 </h2>
               </div>
 
-              {onToggleFollow && (
+              {onToggleFollow && (isFollowed || data.canFollow !== false) && (
                 <button
                   type="button"
                   disabled={isFollowPending}

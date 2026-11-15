@@ -171,7 +171,7 @@ Instructions:
    - "private_only" if the query specifically asks for private companies, startups, or unicorns.
    - "both" if the query asks broadly for companies/leaders in a sector without restricting to public or private.
 3. Propose up to 9 real, highest-relevance companies matching the theme and scale filter.
-   - For public companies, provide their primary US-listed stock ticker (e.g. "NVDA", "AVGO", "TSM", "AMD", "ASML", "MSFT", "GOOGL", "AMZN", "META", "QCOM", "ARM", "MRVL", "CRWD", "PANW", "NET"). Use US ADR tickers like "TSM" or "ASML" when traded on NYSE/NASDAQ.
+   - For public companies, provide their primary US-listed stock ticker or US-traded ADR / OTC symbol (e.g. "NVDA", "AVGO", "TSM", "AMD", "ASML", "SKHY" for SK Hynix, "SSNLF" for Samsung Electronics, "TELWY" for Tokyo Electron, "IFNNY" for Infineon, "MSFT", "GOOGL", "AMZN", "META", "QCOM", "ARM", "MRVL").
    - For private unicorns (e.g. "OpenAI", "Stripe", "SpaceX", "Databricks", "Anthropic", "xAI", "Anduril"), set "kind": "private" and "ticker": null.
    - Use current live web knowledge to estimate "estimatedValuationUsd" in integer USD and write a crisp 1-sentence "matchReason" (max 18 words) explaining how the company fits the theme.
 
@@ -286,7 +286,7 @@ export async function screenNaturalCompanyCohort(options: {
     forceRefresh: options.forceRefresh ?? false,
   });
 
-  const cacheKey = `${trimmedQuery.toLowerCase()}::${range}`;
+  const cacheKey = `v2::${trimmedQuery.toLowerCase()}::${range}`;
   if (!options.forceRefresh) {
     const cached = screenCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
@@ -469,6 +469,7 @@ export async function screenNaturalCompanyCohort(options: {
             (liveValUsd ? formatUsdCompact(liveValUsd) : 'Unlisted'),
           passesThreshold,
           matchReason: cand.matchReason,
+          canFollow: overview.canFollow,
         };
       } catch {
         return null;

@@ -23,6 +23,7 @@ import type {
   NewsSearchParams,
   NewsSearchResponse,
 } from 'context.dev/resources/news';
+import { lookupCompanyNameForAdrTicker } from './adr-directory.ts';
 import { APP_CONFIG } from './config.ts';
 import { logFunctionCall } from './logger.ts';
 
@@ -420,20 +421,75 @@ export async function searchCompanyNews(
   const client = createContextDevClient(clientOverrides);
 
   if (input.entityType !== 'auto') {
-    const result = await executeSingleEntityTypeSearch(client, {
-      ...input,
-      entityType: input.entityType,
-    });
-    logFunctionCall('searchCompanyNews:completed', {
-      requestId: result.response.request_id,
-      articleCount: result.response.data?.length ?? 0,
-      hasMore: result.response.has_more,
-      nextCursor: result.response.next_cursor,
-      creditsConsumed: result.response.key_metadata?.credits_consumed,
-      resolvedEntityType: result.resolvedEntityType,
-      resolvedExchange: result.resolvedExchange,
-    });
-    return result;
+    let primaryExplicitError: unknown = null;
+    let explicitResult: {
+      response: NewsSearchResponse;
+      requestPayload: NewsSearchParams;
+      resolvedEntityType: ResolvedEntityLookupType;
+      resolvedExchange?: NewsSearchParams.NewsSearchByEntity.NewsSearchEntityByTicker['exchange'];
+    } | null = null;
+
+    try {
+      explicitResult = await executeSingleEntityTypeSearch(client, {
+        ...input,
+        entityType: input.entityType,
+      });
+    } catch (err) {
+      primaryExplicitError = err;
+    }
+
+    // ADR / US OTC ticker fallback: if searching by an ADR ticker (e.g. SKHY, SSNLF, HNHPF, TELWY)
+    // yields 0 articles or an unknown-ticker error, seamlessly fall back to canonical company name!
+    if (
+      input.entityType === 'ticker' &&
+      !input.cursor &&
+      (!explicitResult ||
+        !explicitResult.response.data ||
+        explicitResult.response.data.length === 0)
+    ) {
+      const adrCompanyName = lookupCompanyNameForAdrTicker(input.entityValue);
+      if (adrCompanyName) {
+        try {
+          const adrNameResult = await executeSingleEntityTypeSearch(client, {
+            ...input,
+            entityType: 'name',
+            entityValue: adrCompanyName,
+            exchange: undefined,
+          });
+          if (
+            adrNameResult.response.data &&
+            adrNameResult.response.data.length > 0
+          ) {
+            logFunctionCall('searchCompanyNews:adr_name_fallback', {
+              adrTicker: input.entityValue,
+              adrCompanyName,
+              articleCount: adrNameResult.response.data.length,
+            });
+            return adrNameResult;
+          }
+          if (!explicitResult) {
+            return adrNameResult;
+          }
+        } catch {
+          // Ignore fallback error if primary returned a valid empty payload
+        }
+      }
+    }
+
+    if (explicitResult) {
+      logFunctionCall('searchCompanyNews:completed', {
+        requestId: explicitResult.response.request_id,
+        articleCount: explicitResult.response.data?.length ?? 0,
+        hasMore: explicitResult.response.has_more,
+        nextCursor: explicitResult.response.next_cursor,
+        creditsConsumed: explicitResult.response.key_metadata?.credits_consumed,
+        resolvedEntityType: explicitResult.resolvedEntityType,
+        resolvedExchange: explicitResult.resolvedExchange,
+      });
+      return explicitResult;
+    }
+
+    throw primaryExplicitError;
   }
 
   const candidateOrder = inferEntitySearchOrder(input.entityValue);

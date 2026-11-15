@@ -37,6 +37,11 @@ import {
   humanizeSnakeLabel,
   type ContextDevCompanyRecord,
 } from './company-profile-service';
+import {
+  lookupAdrOrBrandAlias,
+  lookupCompanyNameForAdrTicker,
+  rankUsAndAdrEquityQuotes,
+} from './adr-directory';
 import { fetchChartData } from './market-data-service';
 import { detectSearchQueryIntent } from './query-intent';
 import { logFunctionCall, logGenAICall } from './logger';
@@ -248,8 +253,30 @@ const quotePresetCache = new Map<
   { preset: CompanyPreset; expiresAt: number }
 >();
 
+const followabilityCache = new Map<
+  string,
+  {
+    result: {
+      canFollow: boolean;
+      ticker: string | null;
+      entityType: 'ticker' | 'name';
+      searchQuery: string;
+    };
+    expiresAt: number;
+  }
+>();
+
+const foreignOnlyPublicCache = new Map<string, number>();
+
 const QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
 const VALIDATION_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function isKnownForeignOnlyPublic(nameOrQuery: string): boolean {
+  const key = normalizeCoreCompanyName(nameOrQuery);
+  if (!key) return false;
+  const exp = foreignOnlyPublicCache.get(key);
+  return typeof exp === 'number' && Date.now() < exp;
+}
 
 /**
  * Normalizes a requested sparkline timeframe against `APP_CONFIG.watchlist.supportedRanges`.
@@ -403,13 +430,16 @@ export async function buildLivePublicPreset(
       f.value.toUpperCase() === normalizedSymbol
   );
 
+  const adrDisplayName = lookupCompanyNameForAdrTicker(normalizedSymbol);
+
   const resolvedLabel =
     labelHint?.trim() ||
     knownFeatured?.label ||
+    adrDisplayName ||
     cleanDisplayCompanyLabel(chart.companyName || normalizedSymbol);
 
   const resolvedSector =
-    sectorHint?.trim() || knownFeatured?.sector || 'US Listed Equity';
+    sectorHint?.trim() || knownFeatured?.sector || 'US / ADR Equity';
 
   const preset: CompanyPreset = {
     label: resolvedLabel,
@@ -451,9 +481,23 @@ async function resolveVerifiedPublicPreset(
     return null;
   }
 
+  // Fast-path for curated US-listed ADRs, OTC international leaders, and brand aliases (e.g. SK Hynix -> SKHY)
+  const adrHit = lookupAdrOrBrandAlias(cleaned);
+  if (adrHit) {
+    const adrPreset = await buildLivePublicPreset(
+      adrHit.symbol,
+      range,
+      adrHit.canonicalName,
+      adrHit.sector
+    );
+    if (adrPreset) {
+      return adrPreset;
+    }
+  }
+
   const normalizedUpper = cleaned.toUpperCase().replace(/\./g, '-');
   const cleanInputName = normalizeCoreCompanyName(cleaned);
-  const inputWords = cleanInputName.split(/\s+/).filter((w) => w.length >= 2);
+  const inputWords = cleanInputName.split(/\s+/).filter(Boolean);
 
   let matchedSymbol: string | null = null;
   let matchedName: string | null = null;
@@ -463,7 +507,7 @@ async function resolveVerifiedPublicPreset(
   try {
     const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
       cleaned
-    )}&quotesCount=10&newsCount=0&enableFuzzyQuery=false`;
+    )}&quotesCount=12&newsCount=0&enableFuzzyQuery=false`;
     const res = await fetch(searchUrl, {
       headers: YAHOO_SEARCH_HEADERS,
       signal: AbortSignal.timeout(5500),
@@ -474,9 +518,11 @@ async function resolveVerifiedPublicPreset(
       const json = (await res.json()) as {
         quotes?: Array<Record<string, unknown>>;
       };
-      const usEquities = (json.quotes ?? []).filter(isSupportedUsEquityQuote);
+      const usEquities = rankUsAndAdrEquityQuotes(
+        (json.quotes ?? []).filter(isSupportedUsEquityQuote)
+      );
 
-      // 1. Exact ticker symbol match (e.g., NVDA, TSLA, V, BRK-B)
+      // 1. Exact ticker symbol match (e.g., NVDA, TSLA, SKHY, TSM, BRK-B)
       const exactSymbolQuote = usEquities.find(
         (q) => String(q.symbol ?? '').toUpperCase() === normalizedUpper
       );
@@ -497,7 +543,7 @@ async function resolveVerifiedPublicPreset(
               ? exactSymbolQuote.industryDisp.trim()
               : null;
       } else if (cleanInputName.length >= 3) {
-        // 2. Strict company-name match (all tokens must match real words on the equity name)
+        // 2. Strict company-name match (supports 2-char leading brand tokens like "SK Hynix", "LG Display")
         const nameMatchQuote = usEquities.find((q) => {
           const fullRawName = `${String(q.longname ?? '')} ${String(
             q.shortname ?? ''
@@ -535,6 +581,38 @@ async function resolveVerifiedPublicPreset(
                   nameMatchQuote.industryDisp.trim()
                 ? nameMatchQuote.industryDisp.trim()
                 : null;
+        } else {
+          // Check if Yahoo matched a foreign-only public equity (e.g. MediaTek 2454.TW, Quanta 2382.TW) with zero US/ADR quotes
+          const foreignEquityHit = (json.quotes ?? []).find((q) => {
+            if (String(q.quoteType ?? '').toUpperCase() !== 'EQUITY') {
+              return false;
+            }
+            if (isSupportedUsEquityQuote(q)) return false;
+            const fullRawName = `${String(q.longname ?? '')} ${String(
+              q.shortname ?? ''
+            )}`;
+            const candCore = normalizeCoreCompanyName(fullRawName);
+            if (!candCore) return false;
+            if (
+              candCore === cleanInputName ||
+              candCore.startsWith(`${cleanInputName} `)
+            ) {
+              return true;
+            }
+            const candWords = candCore.split(/\s+/).filter(Boolean);
+            return (
+              inputWords.length > 0 &&
+              candWords[0] === inputWords[0] &&
+              inputWords.every((tok) => candWords.includes(tok))
+            );
+          });
+
+          if (foreignEquityHit && cleanInputName) {
+            foreignOnlyPublicCache.set(
+              cleanInputName,
+              Date.now() + VALIDATION_CACHE_TTL_MS
+            );
+          }
         }
       }
     }
@@ -690,26 +768,80 @@ async function resolveViaContextDevStrict(
       return null;
     }
 
-    // If Context.dev indicates the company has a US public stock ticker, hydrate live public chart!
-    if (Array.isArray(strictMatch.stock_symbols)) {
-      for (const rawSym of strictMatch.stock_symbols) {
-        const extracted = String(rawSym)
-          .toUpperCase()
-          .split(':')
-          .pop()
-          ?.trim();
-        if (extracted && /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(extracted)) {
-          const publicPreset = await buildLivePublicPreset(
-            extracted,
-            range,
-            cleanDisplayCompanyLabel(strictMatch.name),
-            strictMatch.industries?.[0] || null
-          );
-          if (publicPreset) {
-            return publicPreset;
+    const hasPublicStockSymbols =
+      Array.isArray(strictMatch.stock_symbols) &&
+      strictMatch.stock_symbols.length > 0;
+    const isPubliclyListedEntity =
+      hasPublicStockSymbols ||
+      /public/i.test(String(strictMatch.organization_type || '')) ||
+      /public|ipo/i.test(String(strictMatch.funding?.stage || '')) ||
+      isKnownForeignOnlyPublic(cleaned) ||
+      isKnownForeignOnlyPublic(strictMatch.name);
+
+    // If Context.dev indicates the company is publicly listed, try resolving a US or ADR ticker!
+    if (isPubliclyListedEntity) {
+      const adrMatch =
+        lookupAdrOrBrandAlias(strictMatch.name) ||
+        lookupAdrOrBrandAlias(cleaned);
+      if (adrMatch) {
+        const adrPreset = await buildLivePublicPreset(
+          adrMatch.symbol,
+          range,
+          adrMatch.canonicalName,
+          strictMatch.industries?.[0] || adrMatch.sector
+        );
+        if (adrPreset) {
+          return adrPreset;
+        }
+      }
+
+      if (Array.isArray(strictMatch.stock_symbols)) {
+        const US_EXCHANGE_PREFIXES = new Set([
+          'NASDAQ',
+          'NYSE',
+          'AMEX',
+          'ARCA',
+          'BATS',
+          'OTC',
+          'OTCMKTS',
+          'US',
+        ]);
+        for (const rawSym of strictMatch.stock_symbols) {
+          const upperRaw = String(rawSym).trim().toUpperCase();
+          const parts = upperRaw.split(':');
+          const prefix = parts.length > 1 ? parts[0].trim() : null;
+          const extracted = parts[parts.length - 1]?.trim();
+
+          // Skip explicit foreign exchange prefixes (e.g. TPE:2454, KRX:000660) so they don't collide with unrelated US tickers
+          if (prefix && !US_EXCHANGE_PREFIXES.has(prefix)) {
+            continue;
+          }
+
+          if (extracted && /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(extracted)) {
+            const publicPreset = await buildLivePublicPreset(
+              extracted,
+              range,
+              cleanDisplayCompanyLabel(strictMatch.name),
+              strictMatch.industries?.[0] || null
+            );
+            if (publicPreset) {
+              return publicPreset;
+            }
           }
         }
       }
+
+      // Try resolving the canonical company name on Yahoo Finance for any US ADR / OTC quote
+      const nameResolvedPublic = await resolveVerifiedPublicPreset(
+        strictMatch.name,
+        range
+      );
+      if (nameResolvedPublic) {
+        return nameResolvedPublic;
+      }
+
+      // Foreign-only public equity with NO US listing and NO US ADR — do NOT misclassify as private!
+      return null;
     }
 
     return {
@@ -753,11 +885,14 @@ async function verifyCompanyViaGroundedSearch(
   const cleaned = rawQuery.trim();
   const model = APP_CONFIG.gemini.defaultModel;
 
-  const prompt = `Verify via Google Search whether "${cleaned}" is an ACTUALLY EXISTING, real-world operating company or publicly traded corporation.
+  const prompt = `Verify via Google Search whether "${cleaned}" is an ACTUALLY EXISTING, real-world operating company or publicly traded corporation, and classify its US tradability.
 CRITICAL RULES:
 - If "${cleaned}" is gibberish, random keyboard letters (e.g. "asgadsgasd", "qwerty123", "zzzzzz"), a person's name alone, a generic common noun, or a non-existent company, you MUST set "exists": false.
 - Do NOT guess or match a vaguely similar-sounding company if "${cleaned}" itself is not a recognized company name, brand alias, or stock ticker.
-- Only set "exists": true when "${cleaned}" unmistakably refers to a verifiable real company with an official website domain.
+- Set "listingType" accurately:
+  * "us_or_adr": Publicly traded on NYSE, NASDAQ, or US OTC / ADR markets (including international leaders with US ADRs/OTC tickers such as SK Hynix -> "SKHY", TSMC -> "TSM", ASML -> "ASML", Samsung Electronics -> "SSNLF", Foxconn / Hon Hai -> "HNHPF", Tokyo Electron -> "TELWY", Infineon -> "IFNNY", SoftBank -> "SFTBY", Tencent -> "TCEHY", BYD -> "BYDDY", CATL -> "CYATY"). Put that US or ADR ticker in "usOrAdrTicker".
+  * "foreign_public_no_us_adr": Publicly traded ONLY on a non-US stock exchange (e.g. Taiwan, Korea, Europe, Saudi Arabia) with NO US-traded ADR or US OTC equity ticker (e.g. MediaTek 2454.TW, Quanta Computer 2382.TW). Set "usOrAdrTicker": null.
+  * "private": Genuinely privately held operating company not listed on any public stock exchange (e.g. Stripe, OpenAI, SpaceX, Anthropic, Databricks, Anduril). Set "usOrAdrTicker": null.
 
 Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
 {
@@ -765,8 +900,8 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
   "confidence": "high" | "medium" | "low",
   "officialName": string | null,
   "domain": string | null,
-  "isPublicUsEquity": boolean,
-  "usTicker": string | null,
+  "listingType": "us_or_adr" | "foreign_public_no_us_adr" | "private",
+  "usOrAdrTicker": string | null,
   "sector": string | null,
   "latestValuationOrFunding": string | null
 }`;
@@ -814,8 +949,8 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
       confidence?: string;
       officialName?: string | null;
       domain?: string | null;
-      isPublicUsEquity?: boolean;
-      usTicker?: string | null;
+      listingType?: 'us_or_adr' | 'foreign_public_no_us_adr' | 'private';
+      usOrAdrTicker?: string | null;
       sector?: string | null;
       latestValuationOrFunding?: string | null;
     };
@@ -831,14 +966,13 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
       return null;
     }
 
-    // If it resolves to a US public equity (e.g., "Google" -> GOOGL, "Meta" -> META), verify on Yahoo Finance!
+    // 1. If it resolves to a US public equity or US-traded ADR, verify live chart on Yahoo Finance!
     if (
-      parsed.isPublicUsEquity &&
-      typeof parsed.usTicker === 'string' &&
-      /^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(parsed.usTicker.trim())
+      typeof parsed.usOrAdrTicker === 'string' &&
+      /^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(parsed.usOrAdrTicker.trim())
     ) {
       const pubPreset = await buildLivePublicPreset(
-        parsed.usTicker.trim(),
+        parsed.usOrAdrTicker.trim(),
         range,
         cleanDisplayCompanyLabel(parsed.officialName),
         parsed.sector || null
@@ -846,6 +980,19 @@ Return ONLY a valid JSON object (no markdown fences) matching this exact schema:
       if (pubPreset) {
         return pubPreset;
       }
+    }
+
+    // Also check if officialName resolves to a US/ADR preset via Yahoo or ADR directory
+    if (parsed.listingType !== 'private') {
+      const fallbackPub = await resolveVerifiedPublicPreset(
+        parsed.officialName,
+        range
+      );
+      if (fallbackPub) {
+        return fallbackPub;
+      }
+      // Foreign-only public company with no US/ADR listing cannot be followed
+      return null;
     }
 
     // For private companies, require lexical correspondence between user input and officialName or domain
@@ -1011,7 +1158,7 @@ export async function validateAndResolveFollowCompany(
 
   const notFoundResult: ValidateFollowResult = {
     valid: false,
-    error: `Could not find a verified public ticker or real company matching "${trimmed}". Only existing companies can be followed.`,
+    error: `Cannot follow "${trimmed}" — only US-listed equities, US-traded ADRs, and verified privately held companies are supported.`,
   };
 
   validationCache.set(cacheKey, {
@@ -1020,6 +1167,165 @@ export async function validateAndResolveFollowCompany(
   });
 
   return notFoundResult;
+}
+
+/**
+ * Fast, cached server-side check used by Related Companies and discovery panels
+ * to determine whether a suggested company can be followed in Contextual Investing
+ * (resolving ADR symbols like `SKHY` for `"SK Hynix"` automatically, and setting
+ * `canFollow: false` for foreign-only public stocks without a US ADR so UI surfaces
+ * never render a broken `+ Follow` button).
+ *
+ * @param name - Suggested company name
+ * @param tickerHint - Optional US/ADR ticker hint
+ * @returns Followability metadata and canonical search identifiers
+ */
+export async function resolveFollowabilityForSuggestedCompany(
+  name: string,
+  tickerHint?: string | null
+): Promise<{
+  canFollow: boolean;
+  ticker: string | null;
+  entityType: 'ticker' | 'name';
+  searchQuery: string;
+}> {
+  const cleanName = name.trim();
+  const cleanTicker = tickerHint?.trim().toUpperCase() || null;
+  const cacheKey = `${cleanName.toLowerCase()}::${cleanTicker || ''}`;
+
+  const cached = followabilityCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.result;
+  }
+
+  // 1. Curated verified private companies
+  const knownPriv =
+    VERIFIED_PRIVATE_COMPANIES[cleanName.toLowerCase()] ||
+    (cleanTicker
+      ? VERIFIED_PRIVATE_COMPANIES[cleanTicker.toLowerCase()]
+      : undefined);
+  if (knownPriv) {
+    const res = {
+      canFollow: true,
+      ticker: null,
+      entityType: 'name' as const,
+      searchQuery: knownPriv.label,
+    };
+    followabilityCache.set(cacheKey, {
+      result: res,
+      expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+    });
+    return res;
+  }
+
+  // 2. Curated US ADR / OTC / brand alias directory (e.g. SK Hynix -> SKHY, Samsung -> SSNLF, Foxconn -> HNHPF)
+  const adrHit =
+    lookupAdrOrBrandAlias(cleanName) ||
+    (cleanTicker ? lookupAdrOrBrandAlias(cleanTicker) : null);
+  if (adrHit) {
+    const adrPreset = await buildLivePublicPreset(
+      adrHit.symbol,
+      '1M',
+      adrHit.canonicalName,
+      adrHit.sector
+    );
+    if (adrPreset) {
+      const res = {
+        canFollow: true,
+        ticker: adrPreset.value,
+        entityType: 'ticker' as const,
+        searchQuery: adrPreset.value,
+      };
+      followabilityCache.set(cacheKey, {
+        result: res,
+        expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+      });
+      return res;
+    }
+  }
+
+  // 3. Explicit US/ADR ticker hint verified against live Yahoo Finance chart
+  if (cleanTicker && /^[A-Z]{1,5}([.-][A-Z]{1,2})?$/.test(cleanTicker)) {
+    const pubFromHint = await buildLivePublicPreset(
+      cleanTicker,
+      '1M',
+      cleanName
+    );
+    if (pubFromHint) {
+      const res = {
+        canFollow: true,
+        ticker: pubFromHint.value,
+        entityType: 'ticker' as const,
+        searchQuery: pubFromHint.value,
+      };
+      followabilityCache.set(cacheKey, {
+        result: res,
+        expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+      });
+      return res;
+    }
+  }
+
+  // 4. Strict Yahoo Finance US/ADR search by company name
+  const pubByName = await resolveVerifiedPublicPreset(cleanName, '1M');
+  if (pubByName) {
+    const res = {
+      canFollow: true,
+      ticker: pubByName.value,
+      entityType: 'ticker' as const,
+      searchQuery: pubByName.value,
+    };
+    followabilityCache.set(cacheKey, {
+      result: res,
+      expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+    });
+    return res;
+  }
+
+  // If Yahoo Finance just confirmed this is a foreign-only public stock with zero US/ADR quotes, mark unfollowable immediately
+  if (isKnownForeignOnlyPublic(cleanName)) {
+    const unfollowableForeign = {
+      canFollow: false,
+      ticker: null,
+      entityType: 'name' as const,
+      searchQuery: cleanName,
+    };
+    followabilityCache.set(cacheKey, {
+      result: unfollowableForeign,
+      expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+    });
+    return unfollowableForeign;
+  }
+
+  // 5. Strict Context.dev verification (catches genuine private companies; rejects foreign-only public stocks)
+  const ctxPreset = await resolveViaContextDevStrict(cleanName, '1M');
+  if (ctxPreset) {
+    const isTicker = ctxPreset.entityType === 'ticker';
+    const res = {
+      canFollow: true,
+      ticker: isTicker ? ctxPreset.value : null,
+      entityType: (isTicker ? 'ticker' : 'name') as 'ticker' | 'name',
+      searchQuery: ctxPreset.value,
+    };
+    followabilityCache.set(cacheKey, {
+      result: res,
+      expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+    });
+    return res;
+  }
+
+  // 6. Unfollowable in current app (e.g. foreign-only stock without a US ADR like MediaTek / Quanta Computer)
+  const unfollowableRes = {
+    canFollow: false,
+    ticker: null,
+    entityType: 'name' as const,
+    searchQuery: cleanName,
+  };
+  followabilityCache.set(cacheKey, {
+    result: unfollowableRes,
+    expiresAt: Date.now() + VALIDATION_CACHE_TTL_MS,
+  });
+  return unfollowableRes;
 }
 
 /**

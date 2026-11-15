@@ -18,6 +18,10 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
+import {
+  lookupAdrOrBrandAlias,
+  rankUsAndAdrEquityQuotes,
+} from './adr-directory';
 import { APP_CONFIG } from './config';
 import { logFunctionCall, logGenAICall } from './logger';
 
@@ -57,6 +61,7 @@ export interface KeyInvestmentMetrics {
 
 export interface PublicCompanyMarketOverview {
   kind: 'public';
+  canFollow: boolean;
   query: string;
   symbol: string;
   companyName: string;
@@ -74,6 +79,8 @@ export interface PublicCompanyMarketOverview {
 
 export interface PrivateCompanyMarketOverview {
   kind: 'private';
+  canFollow: boolean;
+  listingNote?: string | null;
   query: string;
   companyName: string;
   sector: string | null;
@@ -135,9 +142,23 @@ const KNOWN_PRIVATE_COMPANIES = new Set([
   'chime',
   'plaid',
   'anduril',
+  'anduril industries',
   'scale ai',
   'perplexity',
+  'perplexity ai',
   'xai',
+  'deepseek',
+  'figma',
+  'discord',
+  'epic games',
+  'ramp',
+  'rippling',
+  'deel',
+  'mistral',
+  'mistral ai',
+  'cohere',
+  'waymo',
+  'klarna',
 ]);
 
 // Short-lived in-memory caches on server
@@ -253,13 +274,22 @@ async function resolveUsEquitySymbol(
     return null;
   }
 
+  // Fast-path resolution for US ADRs, US OTC international leaders, and brand aliases (e.g. "SK Hynix" -> SKHY)
+  const adrAlias = lookupAdrOrBrandAlias(trimmed);
+  if (adrAlias) {
+    return {
+      symbol: adrAlias.symbol,
+      shortName: adrAlias.canonicalName,
+    };
+  }
+
   const normalizedUpper = normalizeYahooSymbol(trimmed);
   const looksLikeSymbol = /^[A-Z]{1,5}(-[A-Z]{1,2})?$/.test(normalizedUpper);
 
   try {
     const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
       trimmed
-    )}&quotesCount=8&newsCount=0&enableFuzzyQuery=false`;
+    )}&quotesCount=10&newsCount=0&enableFuzzyQuery=false`;
     const res = await fetch(searchUrl, {
       headers: YAHOO_HEADERS,
       signal: AbortSignal.timeout(6000),
@@ -268,7 +298,9 @@ async function resolveUsEquitySymbol(
       const json = (await res.json()) as {
         quotes?: Array<Record<string, unknown>>;
       };
-      const usEquities = (json.quotes ?? []).filter(isUsEquityQuote);
+      const usEquities = rankUsAndAdrEquityQuotes(
+        (json.quotes ?? []).filter(isUsEquityQuote)
+      );
 
       // 1. Exact ticker match
       const exactTicker = usEquities.find(
@@ -283,21 +315,24 @@ async function resolveUsEquitySymbol(
         };
       }
 
-      // 2. Company name match (verify name relevance so unrelated tickers aren't returned)
+      // 2. Company name / ADR name match (preserving short prefixes like "SK", "LG", "JD", "3M")
       const lowerQuery = trimmed.toLowerCase();
       const queryTokens = lowerQuery
         .replace(/[^a-z0-9\s]/g, ' ')
         .split(/\s+/)
-        .filter((t) => t.length >= 2);
+        .filter(Boolean);
 
       const nameMatch = usEquities.find((q) => {
         const candidateName = `${String(q.longname ?? '')} ${String(
           q.shortname ?? ''
-        )}`.toLowerCase();
+        )}`
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, ' ');
         if (candidateName.includes(lowerQuery)) return true;
+        const candidateWords = candidateName.split(/\s+/).filter(Boolean);
         return (
           queryTokens.length > 0 &&
-          queryTokens.every((tok) => candidateName.includes(tok))
+          queryTokens.every((tok) => candidateWords.includes(tok))
         );
       });
 
@@ -332,7 +367,8 @@ async function resolveUsEquitySymbol(
   // Fallback direct chart check ONLY when input is clearly a ticker format
   if (
     entityType === 'ticker' ||
-    (/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(trimmed) && trimmed === trimmed.toUpperCase())
+    (/^[A-Z]{1,5}(\.[A-Z]{1,2})?$/.test(trimmed) &&
+      trimmed === trimmed.toUpperCase())
   ) {
     return {
       symbol: normalizedUpper,
@@ -608,15 +644,21 @@ async function fetchQuoteSummaryMetrics(
  */
 async function fetchPrivateCompanyMetrics(
   companyName: string
-): Promise<PrivateCompanyMarketOverview> {
+): Promise<{
+  overview: PrivateCompanyMarketOverview;
+  discoveredUsAdrTicker: string | null;
+}> {
   const cacheKey = companyName.trim().toLowerCase();
+  const isKnownPrivate = KNOWN_PRIVATE_COMPANIES.has(cacheKey);
   const cached = privateOverviewCache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
-    return cached.data;
+    return { overview: cached.data, discoveredUsAdrTicker: null };
   }
 
   const fallback: PrivateCompanyMarketOverview = {
     kind: 'private',
+    canFollow: isKnownPrivate,
+    listingNote: isKnownPrivate ? 'Privately Held' : 'Unlisted / Non-US Entity',
     query: companyName,
     companyName,
     sector: null,
@@ -627,19 +669,27 @@ async function fetchPrivateCompanyMetrics(
     headquarters: null,
     ceo: null,
     summary:
-      'Privately held or non-US-listed entity. Public exchange price charts and trading multiples are available for US-listed stocks.',
+      'Privately held or non-US-listed entity. Public exchange price charts and trading multiples are available for US-listed and US ADR stocks.',
     sources: [],
   };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-    return fallback;
+    return { overview: fallback, discoveredUsAdrTicker: null };
   }
 
   const model = APP_CONFIG.gemini.defaultModel;
-  const prompt = `Look up the latest verified private-market investment facts for the company "${companyName}".
+  const prompt = `Look up the latest verified corporate & market listing facts for "${companyName}".
+Determine its exact status:
+- "public_us_or_adr": publicly traded AND has a US stock listing or US ADR / US OTC ticker (e.g. TSM, ASML, SKHY, SSNLF, TELWY, IFNNY, HNHPF, SFTBY, TCEHY, BYDDY, NTDOY). Provide that US/ADR symbol in "usAdrTicker".
+- "public_foreign_only": publicly traded ONLY on non-US exchanges with NO US listing and NO US ADR (e.g. MediaTek 2454.TW, Quanta Computer 2382.TW, Saudi Aramco 2222.SR). Set "usAdrTicker": null.
+- "private": genuinely privately held operating company or startup (e.g. Stripe, OpenAI, SpaceX, Anthropic, Databricks, Anduril). Set "usAdrTicker": null.
+- "non_existent": gibberish, random letters, or not a real company.
+
 Return ONLY a valid JSON object (no markdown commentary outside JSON) with these exact keys:
 {
+  "entityStatus": "public_us_or_adr" | "public_foreign_only" | "private" | "non_existent",
+  "usAdrTicker": string | null,
   "companyName": string,
   "sector": string | null,
   "latestValuation": string | null (e.g. "$157B (Oct 2024)" or "$70B"),
@@ -648,7 +698,7 @@ Return ONLY a valid JSON object (no markdown commentary outside JSON) with these
   "estimatedRevenue": string | null (e.g. "$3.7B est. ARR"),
   "headquarters": string | null,
   "ceo": string | null,
-  "summary": string (1-2 concise institutional sentences about the company's business and private capital status)
+  "summary": string (1-2 concise institutional sentences about the company's business and market status)
 }
 If a figure is unknown or uncertain, set it to null. Never invent numbers.`;
 
@@ -685,6 +735,13 @@ If a figure is unknown or uncertain, set it to null. Never invent numbers.`;
       ? (JSON.parse(jsonMatch[0]) as Record<string, unknown>)
       : {};
 
+    const entityStatus = String(parsed.entityStatus ?? '').toLowerCase();
+    const rawAdr =
+      typeof parsed.usAdrTicker === 'string' &&
+      /^[A-Za-z]{1,5}([.-][A-Za-z]{1,2})?$/.test(parsed.usAdrTicker.trim())
+        ? normalizeYahooSymbol(parsed.usAdrTicker.trim())
+        : null;
+
     const chunks =
       response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
     const sources: Array<{ title: string; uri: string }> = [];
@@ -695,8 +752,18 @@ If a figure is unknown or uncertain, set it to null. Never invent numbers.`;
       }
     }
 
+    const isVerifiedPrivate =
+      isKnownPrivate || (entityStatus === 'private' && chunks.length > 0);
+    const listingNote = isVerifiedPrivate
+      ? 'Privately Held'
+      : entityStatus === 'public_foreign_only'
+        ? 'Foreign-Listed Public Equity · No US ADR'
+        : 'Unverified Entity';
+
     const result: PrivateCompanyMarketOverview = {
       kind: 'private',
+      canFollow: isVerifiedPrivate,
+      listingNote,
       query: companyName,
       companyName:
         typeof parsed.companyName === 'string' && parsed.companyName.trim()
@@ -724,14 +791,16 @@ If a figure is unknown or uncertain, set it to null. Never invent numbers.`;
       sources,
     };
 
-    privateOverviewCache.set(cacheKey, {
-      data: result,
-      expiresAt: Date.now() + 60 * 60 * 1000,
-    });
-    return result;
+    if (!rawAdr) {
+      privateOverviewCache.set(cacheKey, {
+        data: result,
+        expiresAt: Date.now() + 60 * 60 * 1000,
+      });
+    }
+    return { overview: result, discoveredUsAdrTicker: rawAdr };
   } catch (err) {
     logGenAICall({ model, prompt, config, error: err });
-    return fallback;
+    return { overview: fallback, discoveredUsAdrTicker: null };
   }
 }
 
@@ -753,13 +822,23 @@ export async function getCompanyMarketOverview(options: {
     range,
   });
 
-  const resolved = await resolveUsEquitySymbol(
+  let resolved = await resolveUsEquitySymbol(
     query,
     options.entityType ?? 'auto'
   );
+  let fallbackPrivate: PrivateCompanyMarketOverview | null = null;
 
   if (!resolved) {
-    return fetchPrivateCompanyMetrics(query);
+    const privateLookup = await fetchPrivateCompanyMetrics(query);
+    if (privateLookup.discoveredUsAdrTicker) {
+      resolved = {
+        symbol: privateLookup.discoveredUsAdrTicker,
+        shortName: privateLookup.overview.companyName || query,
+      };
+      fallbackPrivate = privateLookup.overview;
+    } else {
+      return privateLookup.overview;
+    }
   }
 
   const [chart, summary] = await Promise.all([
@@ -768,7 +847,11 @@ export async function getCompanyMarketOverview(options: {
   ]);
 
   if (!chart) {
-    return fetchPrivateCompanyMetrics(query);
+    if (fallbackPrivate) {
+      return fallbackPrivate;
+    }
+    const privateLookup = await fetchPrivateCompanyMetrics(query);
+    return privateLookup.overview;
   }
 
   const price = summary?.price ?? chart.price;
@@ -791,6 +874,7 @@ export async function getCompanyMarketOverview(options: {
 
   return {
     kind: 'public',
+    canFollow: true,
     query,
     symbol: resolved.symbol,
     companyName: summary?.companyName || chart.companyName || resolved.shortName,

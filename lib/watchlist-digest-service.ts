@@ -150,7 +150,24 @@ async function fetchRecentArticlesForCompany(
         sortBy: 'newest',
         limit: 4,
       });
-      const articles = response.data || [];
+      let articles = response.data || [];
+
+      if (
+        articles.length === 0 &&
+        effectiveType === 'ticker' &&
+        company.label.trim() &&
+        company.label.trim().toLowerCase() !==
+          company.value.trim().toLowerCase()
+      ) {
+        const fallbackNameSearch = await searchCompanyNews({
+          entityType: 'name',
+          entityValue: company.label.trim(),
+          sortBy: 'newest',
+          limit: 4,
+        });
+        articles = fallbackNameSearch.response.data || [];
+      }
+
       companyRawNewsCache.set(key, {
         articles,
         expiresAt: Date.now() + CACHE_TTL_MS,

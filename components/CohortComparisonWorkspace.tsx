@@ -600,6 +600,7 @@ export function CohortComparisonWorkspace({
 
             {(() => {
               const unfollowedSelected = selectedCandidates.filter((c) => {
+                if (c.canFollow === false) return false;
                 const qKey = c.searchQuery.trim().toLowerCase();
                 const nKey = c.name.trim().toLowerCase();
                 return (
@@ -742,7 +743,11 @@ export function CohortComparisonWorkspace({
                           {cand.name}
                         </span>
                         <span className="ml-1.5 text-xs text-slate-400 font-mono-tabular">
-                          {cand.ticker ? cand.ticker : 'Private'}
+                          {cand.ticker
+                            ? cand.ticker
+                            : cand.canFollow === false
+                              ? 'Non-US Exchange'
+                              : 'Private'}
                         </span>
                       </div>
                     </button>
@@ -776,54 +781,56 @@ export function CohortComparisonWorkspace({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      disabled={isCandPending}
-                      onClick={() => {
-                        logFunctionCall(
-                          'CohortComparisonWorkspace.candidateCardFollow',
-                          {
-                            searchQuery: cand.searchQuery,
-                            name: cand.name,
-                            nextAction: isCandFollowed ? 'unfollow' : 'follow',
-                          }
-                        );
-                        onToggleFollowCompany(
-                          cand.searchQuery,
-                          cand.name,
-                          cand.sector
-                        );
-                      }}
-                      title={
-                        isCandFollowed
-                          ? `Unfollow ${cand.name}`
-                          : `Follow ${cand.name}`
-                      }
-                      className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
-                        isCandFollowed
-                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
-                          : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
-                      }`}
-                    >
-                      {isCandPending ? (
-                        <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
-                      ) : isCandFollowed ? (
-                        <span className="inline-grid items-center justify-items-center">
-                          <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
-                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                            <span>Following</span>
+                    {(isCandFollowed || cand.canFollow !== false) && (
+                      <button
+                        type="button"
+                        disabled={isCandPending}
+                        onClick={() => {
+                          logFunctionCall(
+                            'CohortComparisonWorkspace.candidateCardFollow',
+                            {
+                              searchQuery: cand.searchQuery,
+                              name: cand.name,
+                              nextAction: isCandFollowed ? 'unfollow' : 'follow',
+                            }
+                          );
+                          onToggleFollowCompany(
+                            cand.searchQuery,
+                            cand.name,
+                            cand.sector
+                          );
+                        }}
+                        title={
+                          isCandFollowed
+                            ? `Unfollow ${cand.name}`
+                            : `Follow ${cand.name}`
+                        }
+                        className={`group inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                          isCandFollowed
+                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
+                            : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
+                        }`}
+                      >
+                        {isCandPending ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                        ) : isCandFollowed ? (
+                          <span className="inline-grid items-center justify-items-center">
+                            <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                              <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span>Following</span>
+                            </span>
+                            <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                              Unfollow
+                            </span>
                           </span>
-                          <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                            Unfollow
-                          </span>
-                        </span>
-                      ) : (
-                        <>
-                          <Plus className="w-3 h-3 text-[#49afe9]" />
-                          <span>Follow</span>
-                        </>
-                      )}
-                    </button>
+                        ) : (
+                          <>
+                            <Plus className="w-3 h-3 text-[#49afe9]" />
+                            <span>Follow</span>
+                          </>
+                        )}
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -1162,52 +1169,56 @@ export function CohortComparisonWorkspace({
                               <div className="text-xs text-slate-400 font-mono-tabular mt-0.5">
                                 {cand.ticker
                                   ? `${cand.ticker} · Public Equity`
-                                  : 'Privately Held'}
+                                  : cand.canFollow === false
+                                    ? 'Foreign-Listed Equity · No US ADR'
+                                    : 'Privately Held'}
                               </div>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              disabled={isMatrixPending}
-                              onClick={() =>
-                                onToggleFollowCompany(
-                                  cand.searchQuery,
-                                  cand.name,
-                                  cand.sector
-                                )
-                              }
-                              title={
-                                isFollowed
-                                  ? `Unfollow ${cand.name}`
-                                  : `Follow ${cand.name}`
-                              }
-                              className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
-                                isFollowed
-                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
-                                  : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff]'
-                              }`}
-                            >
-                              {isMatrixPending ? (
-                                <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
-                              ) : isFollowed ? (
-                                <span className="inline-grid items-center justify-items-center">
-                                  <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
-                                    <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                    <span>Following</span>
+                            {(isFollowed || cand.canFollow !== false) && (
+                              <button
+                                type="button"
+                                disabled={isMatrixPending}
+                                onClick={() =>
+                                  onToggleFollowCompany(
+                                    cand.searchQuery,
+                                    cand.name,
+                                    cand.sector
+                                  )
+                                }
+                                title={
+                                  isFollowed
+                                    ? `Unfollow ${cand.name}`
+                                    : `Follow ${cand.name}`
+                                }
+                                className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                                  isFollowed
+                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
+                                    : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff]'
+                                }`}
+                              >
+                                {isMatrixPending ? (
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                                ) : isFollowed ? (
+                                  <span className="inline-grid items-center justify-items-center">
+                                    <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                                      <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                      <span>Following</span>
+                                    </span>
+                                    <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                      Unfollow
+                                    </span>
                                   </span>
-                                  <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                    Unfollow
-                                  </span>
-                                </span>
-                              ) : (
-                                <>
-                                  <Plus className="w-3 h-3" />
-                                  <span>Follow</span>
-                                </>
-                              )}
-                            </button>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3 h-3" />
+                                    <span>Follow</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
 
                             <button
                               type="button"

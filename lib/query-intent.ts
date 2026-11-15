@@ -50,6 +50,8 @@ export interface ScreenedCandidateItem {
   passesThreshold: boolean;
   /** Concise 1-sentence reason explaining why the company matches the query */
   matchReason: string;
+  /** Whether this company can currently be followed in Watchlist (US/ADR equity or verified private company) */
+  canFollow?: boolean;
 }
 
 export interface ComparedCompanyNewsPulse {

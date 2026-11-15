@@ -1816,6 +1816,7 @@ export default function InvestorDashboardPage() {
         valuationDisplay: valDisplay || 'Unlisted',
         passesThreshold,
         matchReason: 'Custom peer added for side-by-side comparison.',
+        canFollow: overview.canFollow,
       };
 
       const existsInCandidates = cohortScreen.candidates.some(
@@ -2451,6 +2452,10 @@ export default function InvestorDashboardPage() {
     pendingFollowValues.has(activeCanonicalSymbol.trim().toLowerCase()) ||
     pendingFollowValues.has(activeCanonicalLabel.trim().toLowerCase());
 
+  const canFollowCurrentSearchedCompany =
+    isCurrentCompanyFollowed ||
+    (!isLoadingMarket && marketData !== null && marketData.canFollow !== false);
+
   const handleToggleCurrentSearchedCompanyFollow = () => {
     if (isCurrentCompanyFollowed) {
       void handleRemoveFollowedCompany(
@@ -2776,52 +2781,56 @@ export default function InvestorDashboardPage() {
                         )}
                         {marketData?.kind === 'private' && (
                           <span className="text-xs text-slate-400 font-mono-tabular">
-                            Privately Held ·{' '}
-                            {marketData.latestValuation || 'Unlisted'}
+                            {marketData.listingNote || 'Privately Held'}
+                            {marketData.latestValuation
+                              ? ` · ${marketData.latestValuation}`
+                              : ''}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <button
-                        type="button"
-                        disabled={isCurrentCompanyFollowPending}
-                        onClick={handleToggleCurrentSearchedCompanyFollow}
-                        title={
-                          isCurrentCompanyFollowed
-                            ? `Unfollow ${marketData?.companyName || activeCanonicalSymbol}`
-                            : `Follow ${marketData?.companyName || activeCanonicalSymbol}`
-                        }
-                        className={`group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
-                          isCurrentCompanyFollowed
-                            ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
-                            : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c] hover:text-white'
-                        }`}
-                      >
-                        {isCurrentCompanyFollowPending ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Verifying...</span>
-                          </>
-                        ) : isCurrentCompanyFollowed ? (
-                          <span className="inline-grid items-center justify-items-center">
-                            <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
-                              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Following in Watchlist</span>
+                    {canFollowCurrentSearchedCompany && (
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <button
+                          type="button"
+                          disabled={isCurrentCompanyFollowPending}
+                          onClick={handleToggleCurrentSearchedCompanyFollow}
+                          title={
+                            isCurrentCompanyFollowed
+                              ? `Unfollow ${marketData?.companyName || activeCanonicalSymbol}`
+                              : `Follow ${marketData?.companyName || activeCanonicalSymbol}`
+                          }
+                          className={`group inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 ${
+                            isCurrentCompanyFollowed
+                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
+                              : 'bg-[#102344] text-[#49afe9] border-[#09a4ff]/40 hover:bg-[#16305c] hover:text-white'
+                          }`}
+                        >
+                          {isCurrentCompanyFollowPending ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Verifying...</span>
+                            </>
+                          ) : isCurrentCompanyFollowed ? (
+                            <span className="inline-grid items-center justify-items-center">
+                              <span className="col-start-1 row-start-1 inline-flex items-center gap-1.5 transition-opacity duration-150 group-hover:opacity-0">
+                                <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span>Following in Watchlist</span>
+                              </span>
+                              <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                Unfollow
+                              </span>
                             </span>
-                            <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                              Unfollow
-                            </span>
-                          </span>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Follow {activeCanonicalSymbol}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Follow {activeCanonicalSymbol}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Collapsible 1-Line Corporate Profile Summary */}
@@ -2919,7 +2928,11 @@ export default function InvestorDashboardPage() {
                         searchedQuery={searchState.entityValue}
                         isFollowed={isCurrentCompanyFollowed}
                         isFollowPending={isCurrentCompanyFollowPending}
-                        onToggleFollow={handleToggleCurrentSearchedCompanyFollow}
+                        onToggleFollow={
+                          canFollowCurrentSearchedCompany
+                            ? handleToggleCurrentSearchedCompanyFollow
+                            : undefined
+                        }
                       />
 
                       <RelatedCompaniesPanel

@@ -20,6 +20,7 @@
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { APP_CONFIG } from './config';
+import { resolveFollowabilityForSuggestedCompany } from './watchlist-company-service';
 import { logFunctionCall, logGenAICall } from './logger';
 
 export type RelationshipCategory =
@@ -60,12 +61,14 @@ export interface RelatedCompanyItem {
   key: string;
   /** Clean display name of the company (e.g. "Microsoft", "TSMC", "OpenAI") */
   name: string;
-  /** US stock ticker if listed on a US exchange (e.g. "MSFT", "TSM"), otherwise null */
+  /** US stock or US ADR/OTC ticker if traded in the US (e.g. "MSFT", "TSM", "SKHY", "SSNLF"), otherwise null */
   ticker: string | null;
-  /** Search mode to use when clicked ('ticker' for US-listed, 'name' for private/non-US) */
+  /** Search mode to use when clicked ('ticker' for US/ADR-listed, 'name' for private/non-US) */
   entityType: 'ticker' | 'name';
-  /** Query string to populate in search ('MSFT' or 'OpenAI') */
+  /** Query string to populate in search ('MSFT', 'SKHY', or 'OpenAI') */
   searchQuery: string;
+  /** Whether this company can currently be followed in the app (US/ADR equity or verified private company) */
+  canFollow: boolean;
   /** One or more relationship categories this company belongs to */
   relationships: RelationshipCategory[];
   /** Concise 1-sentence explanation of how this company relates to the searched company */
@@ -167,7 +170,7 @@ export async function getRelatedCompanies(
   forceRefresh = false
 ): Promise<RelatedCompaniesResponse> {
   const trimmedQuery = companyQuery.trim();
-  const cacheKey = trimmedQuery.toLowerCase();
+  const cacheKey = `v2::${trimmedQuery.toLowerCase()}`;
 
   logFunctionCall('getRelatedCompanies', {
     companyQuery: trimmedQuery,
@@ -209,7 +212,7 @@ Requirements:
    - "Strategic Partners" (co-engineering, distribution, licensing, or major ecosystem partners)
 2. A company CAN AND SHOULD belong to multiple relationship categories whenever factually true (for example, a hyperscaler that is both one of "${trimmedQuery}"'s largest "Customers" AND one of its "Peers & Competitors" or "Strategic Partners"). Include at least 2-3 multi-relationship companies if accurate.
 3. Cover at least 3 of the 4 relationship categories with real, well-known companies. Do NOT include "${trimmedQuery}" itself.
-4. For "usTicker": provide ONLY a valid US stock exchange ticker (including US-listed ADRs like TSM, ASML, ARM, SONY, SAP, SHOP) if the company trades on a US exchange. If the company is privately held (e.g. OpenAI, Stripe, Anthropic, Databricks, SpaceX) OR only trades on non-US exchanges (e.g. SK Hynix, Samsung Electronics, Foxconn), set "usTicker" to "".
+4. For "usTicker": provide a valid US stock exchange ticker OR US-traded ADR / US OTC ticker whenever the company trades in the United States (for example: "TSM" for TSMC, "ASML" for ASML, "ARM" for Arm, "SKHY" for SK Hynix, "SSNLF" for Samsung Electronics, "HNHPF" for Foxconn / Hon Hai, "TELWY" for Tokyo Electron, "ATEYY" for Advantest, "IFNNY" for Infineon, "SONY" for Sony, "SAP" for SAP, "SFTBY" for SoftBank, "TCEHY" for Tencent, "BYDDY" for BYD, "CYATY" for CATL). ONLY set "usTicker" to "" if the company is privately held (e.g. OpenAI, Stripe, Anthropic, Databricks, SpaceX) OR has zero US/ADR listing (e.g. MediaTek, Quanta Computer).
 5. Keep "rationale" to 1 crisp factual sentence (max 16 words) explaining all selected relationships.`;
 
   const config = {
@@ -346,13 +349,60 @@ Requirements:
           ticker,
           entityType: ticker ? 'ticker' : 'name',
           searchQuery: ticker || name,
+          canFollow: true,
           relationships: normalizedRels,
           rationale,
         });
       }
     }
 
-    const companies = Array.from(mergedByKey.values());
+    const rawCompanies = Array.from(mergedByKey.values());
+
+    // Verify followability & resolve ADR symbols (e.g. SK Hynix -> SKHY) in parallel across all suggestions
+    const verifiedCompanies = await Promise.all(
+      rawCompanies.map(async (item): Promise<RelatedCompanyItem> => {
+        const followCheck = await resolveFollowabilityForSuggestedCompany(
+          item.name,
+          item.ticker
+        );
+        return {
+          ...item,
+          ticker: followCheck.ticker,
+          entityType: followCheck.entityType,
+          searchQuery: followCheck.searchQuery,
+          canFollow: followCheck.canFollow,
+        };
+      })
+    );
+
+    // Deduplicate again in case two entries resolved to the same canonical ADR ticker
+    const dedupedAfterVerify = new Map<string, RelatedCompanyItem>();
+    for (const comp of verifiedCompanies) {
+      const resolvedKey = (comp.ticker || comp.name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      if (
+        resolvedKey === queryLower.replace(/[^a-z0-9]/g, '') ||
+        resolvedKey === resolvedLower.replace(/[^a-z0-9]/g, '')
+      ) {
+        continue;
+      }
+      const existing = dedupedAfterVerify.get(resolvedKey);
+      if (existing) {
+        for (const rel of comp.relationships) {
+          if (!existing.relationships.includes(rel)) {
+            existing.relationships.push(rel);
+          }
+        }
+      } else {
+        dedupedAfterVerify.set(resolvedKey, {
+          ...comp,
+          key: resolvedKey,
+        });
+      }
+    }
+
+    const companies = Array.from(dedupedAfterVerify.values());
 
     // Build deterministic relationship groups (a company with multiple relationships appears in each matching group)
     const groups: RelatedCompanyGroup[] = RELATIONSHIP_CATEGORIES.map((meta) => ({

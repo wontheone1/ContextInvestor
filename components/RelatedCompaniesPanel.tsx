@@ -142,7 +142,7 @@ export function RelatedCompaniesPanel({
   const multiRelCount =
     data?.companies.filter((c) => c.relationships.length > 1).length ?? 0;
 
-  // Deduplicate visible unfollowed companies for 1-click batch follow
+  // Deduplicate visible unfollowed (and followable) companies for 1-click batch follow
   const visibleUnfollowed = useMemo(() => {
     const seen = new Set<string>();
     const list: RelatedCompanyItem[] = [];
@@ -150,7 +150,10 @@ export function RelatedCompaniesPanel({
       for (const comp of grp.companies) {
         if (seen.has(comp.key)) continue;
         seen.add(comp.key);
-        if (!isRelatedItemFollowed(comp, followedValuesLower)) {
+        if (
+          comp.canFollow !== false &&
+          !isRelatedItemFollowed(comp, followedValuesLower)
+        ) {
           list.push(comp);
         }
       }
@@ -431,54 +434,56 @@ export function RelatedCompaniesPanel({
                           )}
                         </button>
 
-                        {/* Right Sibling Button: Independent 1-Click Follow / Unfollow */}
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onFocus={() => setHoveredKey(company.key)}
-                          onBlur={() => setHoveredKey(null)}
-                          onClick={() => {
-                            logFunctionCall(
-                              'RelatedCompaniesPanel.onToggleFollowCompany',
-                              {
-                                fromQuery: searchedQuery,
-                                companyName: company.name,
-                                searchQuery: company.searchQuery,
-                                nextAction: isFollowed ? 'unfollow' : 'follow',
-                              }
-                            );
-                            onToggleFollowCompany(company);
-                          }}
-                          title={
-                            isFollowed
-                              ? `Unfollow ${company.name}`
-                              : `Add ${company.name} to your Watchlist without leaving ${searchedQuery}`
-                          }
-                          className={`group mt-0.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
-                            isFollowed
-                              ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
-                              : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
-                          }`}
-                        >
-                          {isPending ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
-                          ) : isFollowed ? (
-                            <span className="inline-grid items-center justify-items-center">
-                              <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
-                                <Check className="w-3 h-3 text-emerald-400 shrink-0" />
-                                <span>Following</span>
+                        {/* Right Sibling Button: Independent 1-Click Follow / Unfollow (only rendered for followable companies) */}
+                        {(isFollowed || company.canFollow !== false) && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onFocus={() => setHoveredKey(company.key)}
+                            onBlur={() => setHoveredKey(null)}
+                            onClick={() => {
+                              logFunctionCall(
+                                'RelatedCompaniesPanel.onToggleFollowCompany',
+                                {
+                                  fromQuery: searchedQuery,
+                                  companyName: company.name,
+                                  searchQuery: company.searchQuery,
+                                  nextAction: isFollowed ? 'unfollow' : 'follow',
+                                }
+                              );
+                              onToggleFollowCompany(company);
+                            }}
+                            title={
+                              isFollowed
+                                ? `Unfollow ${company.name}`
+                                : `Add ${company.name} to your Watchlist without leaving ${searchedQuery}`
+                            }
+                            className={`group mt-0.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors whitespace-nowrap shrink-0 cursor-pointer disabled:opacity-60 ${
+                              isFollowed
+                                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-200 hover:border-rose-500/50'
+                                : 'bg-[#091326] text-slate-200 border-[#212c42] hover:border-[#09a4ff] hover:text-white'
+                            }`}
+                          >
+                            {isPending ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-[#49afe9]" />
+                            ) : isFollowed ? (
+                              <span className="inline-grid items-center justify-items-center">
+                                <span className="col-start-1 row-start-1 inline-flex items-center gap-1 transition-opacity duration-150 group-hover:opacity-0">
+                                  <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  <span>Following</span>
+                                </span>
+                                <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                  Unfollow
+                                </span>
                               </span>
-                              <span className="col-start-1 row-start-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                                Unfollow
-                              </span>
-                            </span>
-                          ) : (
-                            <>
-                              <Plus className="w-3 h-3 text-[#49afe9]" />
-                              <span>Follow</span>
-                            </>
-                          )}
-                        </button>
+                            ) : (
+                              <>
+                                <Plus className="w-3 h-3 text-[#49afe9]" />
+                                <span>Follow</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
