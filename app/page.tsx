@@ -39,7 +39,6 @@ import {
   Bookmark,
   Check,
   Loader2,
-  MessageSquareText,
   Network,
   Newspaper,
   Plus,
@@ -52,6 +51,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
 import type { EnrichedNewsArticle } from '@/lib/translation-service';
 import { TopNavbar, type WorkspaceStageId } from '@/components/TopNavbar';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { WatchlistCarousel } from '@/components/WatchlistCarousel';
 import { WatchlistLandingBrief } from '@/components/WatchlistLandingBrief';
 import {
@@ -2580,7 +2580,7 @@ export default function InvestorDashboardPage() {
                 : 'bg-[#0d1b33] border-[#212c42] text-slate-200 hover:text-white hover:border-[#09a4ff]/60'
             }`}
           >
-            <MessageSquareText className="w-3.5 h-3.5 text-[#49afe9]" />
+            <BrandFoxLogo size={16} alt="" />
             <span>
               {isChatOpen ? 'Hide Research Assistant' : 'Ask Research Assistant'}
             </span>
@@ -3263,7 +3263,10 @@ export default function InvestorDashboardPage() {
       {/* Quiet Institutional Footer */}
       <footer className="border-t border-[#212c42] py-6 px-6 mt-12">
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-          <span>Contextual Investing</span>
+          <div className="inline-flex items-center gap-2 text-slate-200 font-semibold">
+            <BrandFoxLogo size={20} alt="" />
+            <span>Contextual Investing</span>
+          </div>
           <span>US Equities &amp; Private Company Research Desk</span>
         </div>
       </footer>

@@ -36,6 +36,7 @@ import type {
   WatchlistDigestResponse,
   WatchlistMoverArticle,
 } from '@/lib/watchlist-digest-service';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logInfo } from '@/lib/logger';
 
 interface WatchlistLandingBriefProps {
@@ -284,33 +285,36 @@ export function WatchlistLandingBrief({
     >
       {/* Header Bar */}
       <div className="px-6 py-5 border-b border-[#212c42] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-mono-tabular">
-            <span className="text-[#49afe9] font-medium">
-              Daily Watchlist Synthesis
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>
-              {followedCount} {followedCount === 1 ? 'company' : 'companies'} tracked
-            </span>
-            {digest && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>{digest.sentimentCounts.totalArticles} articles scanned</span>
-                <span aria-hidden="true">·</span>
-                <span className="text-emerald-400">
-                  {digest.sentimentCounts.bullish} bullish
-                </span>
-                <span aria-hidden="true">·</span>
-                <span className="text-rose-400">
-                  {digest.sentimentCounts.bearish} bearish
-                </span>
-              </>
-            )}
+        <div className="flex items-center gap-3.5">
+          <BrandFoxLogo size={26} framed alt="" />
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-mono-tabular">
+              <span className="text-[#49afe9] font-medium">
+                Daily Watchlist Synthesis
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                {followedCount} {followedCount === 1 ? 'company' : 'companies'} tracked
+              </span>
+              {digest && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{digest.sentimentCounts.totalArticles} articles scanned</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-emerald-400">
+                    {digest.sentimentCounts.bullish} bullish
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-rose-400">
+                    {digest.sentimentCounts.bearish} bearish
+                  </span>
+                </>
+              )}
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-white text-balance">
+              Your Personalized Morning Brief
+            </h2>
           </div>
-          <h2 className="text-xl font-bold tracking-tight text-white text-balance">
-            Your Personalized Morning Brief
-          </h2>
         </div>
 
         <div className="flex items-center gap-2 self-start lg:self-center">

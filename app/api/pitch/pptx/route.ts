@@ -12,6 +12,8 @@
  * ============================================================================
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { NextRequest, NextResponse } from 'next/server';
 import PptxGenJS from 'pptxgenjs';
 import type { PitchSlideDefinition } from '@/components/HackathonPitchDeck';
@@ -45,17 +47,38 @@ export async function POST(req: NextRequest) {
     pres.title =
       'Contextual Investing — Real-Time Web & Supply-Chain Intelligence';
 
+    let foxLogoDataUri: string | null = null;
+    try {
+      const logoPath = path.join(process.cwd(), 'public', 'fox-logo-white.png');
+      if (fs.existsSync(logoPath)) {
+        const logoBuf = fs.readFileSync(logoPath);
+        foxLogoDataUri = `data:image/png;base64,${logoBuf.toString('base64')}`;
+      }
+    } catch {
+      foxLogoDataUri = null;
+    }
+
     for (const slideDef of slides) {
       const slide = pres.addSlide();
       slide.background = { color: '091326' };
 
-      // Top Kicker & Timing
-      slide.addText(
-        `${slideDef.sectionKicker}   ·   Pitch Timing: ${slideDef.timeWindow}   ·   Slide ${slideDef.numberLabel}`,
-        {
+      // Top-Left Fox Brand Emblem + Top Kicker & Timing
+      if (foxLogoDataUri) {
+        slide.addImage({
+          data: foxLogoDataUri,
           x: 0.45,
-          y: 0.28,
-          w: 12.4,
+          y: 0.24,
+          w: 0.28,
+          h: 0.28,
+        });
+      }
+
+      slide.addText(
+        `Contextual Investing   ·   ${slideDef.sectionKicker}   ·   Pitch Timing: ${slideDef.timeWindow}   ·   Slide ${slideDef.numberLabel}`,
+        {
+          x: foxLogoDataUri ? 0.8 : 0.45,
+          y: 0.25,
+          w: 12.05,
           h: 0.3,
           fontSize: 10,
           fontFace: 'Arial',

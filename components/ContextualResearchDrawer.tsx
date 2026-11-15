@@ -27,12 +27,12 @@ import remarkGfm from 'remark-gfm';
 import {
   ArrowUpRight,
   ExternalLink,
-  MessageSquare,
   PanelRightClose,
   RotateCcw,
   Send,
   Trash2,
 } from 'lucide-react';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import {
   buildDynamicStarterPrompts,
   type ResearchChatMessage,
@@ -159,7 +159,7 @@ export function ContextualResearchDrawer({
           aria-label="Open Research Assistant Drawer"
           className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 items-center gap-2 py-3 px-3 bg-[#0d1b33] hover:bg-[#102344] text-white border border-r-0 border-[#212c42] rounded-l-xl transition-colors cursor-pointer"
         >
-          <MessageSquare className="w-4 h-4 text-[#09a4ff] shrink-0" />
+          <BrandFoxLogo size={18} alt="" />
           <span className="text-xs font-semibold whitespace-nowrap">
             Ask Research
           </span>
@@ -185,13 +185,16 @@ export function ContextualResearchDrawer({
       >
         {/* 1. Drawer Header */}
         <div className="px-5 py-4 border-b border-[#212c42] flex items-center justify-between gap-3 bg-[#091326]">
-          <div className="min-w-0">
-            <h3 className="text-base font-bold tracking-tight text-white truncate">
-              Research Assistant
-            </h3>
-            <p className="text-[11px] text-slate-400 truncate">
-              Grounded in live workspace metrics, news &amp; web search
-            </p>
+          <div className="flex items-center gap-3 min-w-0">
+            <BrandFoxLogo size={22} framed alt="" />
+            <div className="min-w-0">
+              <h3 className="text-base font-bold tracking-tight text-white truncate">
+                Research Assistant
+              </h3>
+              <p className="text-[11px] text-slate-400 truncate">
+                Grounded in live workspace metrics, news &amp; web search
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -293,6 +296,7 @@ export function ContextualResearchDrawer({
                 return (
                   <div key={msg.id} className="py-4 first:pt-0 space-y-3">
                     <div className="flex items-center gap-1.5 text-[11px] text-[#49afe9] font-medium font-mono-tabular">
+                      <BrandFoxLogo size={14} alt="" />
                       <span>Analyst Synthesis</span>
                       <span className="text-slate-500" aria-hidden="true">
                         ·

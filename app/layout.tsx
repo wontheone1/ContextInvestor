@@ -19,17 +19,34 @@ export const metadata: Metadata = {
   title: 'Contextual Investing',
   description:
     'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
+  icons: {
+    icon: [
+      { url: '/fox-logo.png', type: 'image/png', sizes: '512x512' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [{ url: '/fox-logo.png', sizes: '512x512', type: 'image/png' }],
+  },
   openGraph: {
     title: 'Contextual Investing',
     description:
       'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
     type: 'website',
+    images: [
+      {
+        url: '/fox-logo.png',
+        width: 512,
+        height: 512,
+        alt: 'Contextual Investing Fox Logo',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Contextual Investing',
     description:
       'Quantitative investor dashboard and AI financial research terminal powered by Context.dev.',
+    images: ['/fox-logo.png'],
   },
 };
 

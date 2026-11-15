@@ -18,7 +18,6 @@
 
 import React from 'react';
 import {
-  Sparkles,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -26,6 +25,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface AIMarketBriefPanelProps {
@@ -54,13 +54,16 @@ export function AIMarketBriefPanel({
       className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-[#212c42]">
-        <div>
-          <h2 className="text-base font-bold text-white">
-            AI Investment Assessment: {companyLabel}
-          </h2>
-          <p className="text-xs text-slate-400">
-            Positive catalysts, downside risks, and overall synthesis from recent coverage
-          </p>
+        <div className="flex items-center gap-3">
+          <BrandFoxLogo size={22} framed alt="" />
+          <div>
+            <h2 className="text-base font-bold text-white">
+              AI Investment Assessment: {companyLabel}
+            </h2>
+            <p className="text-xs text-slate-400">
+              Positive catalysts, downside risks, and overall synthesis from recent coverage
+            </p>
+          </div>
         </div>
 
         <button
@@ -103,7 +106,9 @@ export function AIMarketBriefPanel({
         </div>
       ) : !brief ? (
         <div className="py-8 text-center border border-dashed border-[#212c42] rounded-lg px-4">
-          <Sparkles className="w-6 h-6 text-[#49afe9] mx-auto mb-2" />
+          <div className="flex justify-center mb-2.5">
+            <BrandFoxLogo size={26} framed alt="" />
+          </div>
           <p className="text-sm font-medium text-white mb-1">
             Generate Catalysts, Headwinds &amp; Overall Assessment
           </p>

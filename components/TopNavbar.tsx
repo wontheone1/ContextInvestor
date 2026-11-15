@@ -18,6 +18,7 @@
 'use client';
 
 import React from 'react';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
 
 export type WorkspaceStageId =
@@ -55,16 +56,17 @@ export function TopNavbar({
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-8 px-6 py-4 bg-[#091326]/95 backdrop-blur-md border-b border-[#212c42]">
-      {/* Zone 1: Single text element wordmark */}
+      {/* Zone 1: Brand mark & single-line wordmark */}
       <a
         href="#workspace-top"
         onClick={(e) => {
           e.preventDefault();
           handleNavClick('research');
         }}
-        className="text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-[#49afe9] transition-colors"
+        className="inline-flex items-center gap-2.5 text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 hover:text-[#49afe9] transition-colors"
       >
-        Contextual Investing
+        <BrandFoxLogo size={26} priority alt="" />
+        <span>Contextual Investing</span>
       </a>
 
       {/* Zone 2: 5 clean single-line text navigation links */}

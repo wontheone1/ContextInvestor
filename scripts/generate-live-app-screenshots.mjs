@@ -9,6 +9,7 @@
  * ============================================================================
  */
 
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -39,13 +40,25 @@ async function fetchJsonSafe(url, options = {}) {
   }
 }
 
+const FOX_LOGO_B64 = (() => {
+  try {
+    const p = path.join(process.cwd(), 'public', 'fox-logo-white.png');
+    return fsSync.existsSync(p)
+      ? `data:image/png;base64,${fsSync.readFileSync(p).toString('base64')}`
+      : '';
+  } catch {
+    return '';
+  }
+})();
+
 function buildTopChrome(activeTab = 'Research & Compare') {
   const tabs = ['Research & Compare', 'Morning Brief', 'Watchlist', 'Saved Library', 'Pitch Deck'];
   return `
     <!-- Top App Chrome -->
     <rect x="0" y="0" width="1600" height="64" fill="#091326" />
     <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
-    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    ${FOX_LOGO_B64 ? `<image href="${FOX_LOGO_B64}" x="40" y="18" width="28" height="28" />` : ''}
+    <text x="${FOX_LOGO_B64 ? 78 : 44}" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
     ${tabs
       .map((t, i) => {
         const x = 430 + i * 165;

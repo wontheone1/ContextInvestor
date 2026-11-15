@@ -38,6 +38,7 @@ import {
   Play,
   Printer,
 } from 'lucide-react';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
 
 export type PitchDemoAction =
@@ -735,17 +736,20 @@ export function HackathonPitchDeck({
     >
       {/* Top Deck Control Bar */}
       <div className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#49afe9] font-mono-tabular">
-            <span>Hackathon Submission Deck</span>
-            <span aria-hidden="true">·</span>
-            <span>10 Slides (3-Minute Pacing)</span>
-            <span aria-hidden="true">·</span>
-            <span>Non-Finance Judge Friendly</span>
+        <div className="flex items-center gap-3.5">
+          <BrandFoxLogo size={28} framed alt="" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[#49afe9] font-mono-tabular">
+              <span>Hackathon Submission Deck</span>
+              <span aria-hidden="true">·</span>
+              <span>10 Slides (3-Minute Pacing)</span>
+              <span aria-hidden="true">·</span>
+              <span>Non-Finance Judge Friendly</span>
+            </div>
+            <h1 className="text-lg sm:text-xl font-bold text-white mt-0.5">
+              Contextual Investing — Interactive Pitch &amp; Live App Screenshots
+            </h1>
           </div>
-          <h1 className="text-lg sm:text-xl font-bold text-white mt-0.5">
-            Contextual Investing — Interactive Pitch &amp; Live App Screenshots
-          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -993,9 +997,12 @@ export function HackathonPitchDeck({
             {/* Right 7 Columns: Live App Screenshot Showcase */}
             <div className="lg:col-span-7 flex flex-col justify-between rounded-xl bg-[#091326] border border-[#212c42] overflow-hidden">
               <div className="px-4 py-2.5 bg-[#0a162b] border-b border-[#212c42] flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-slate-300 truncate">
-                  Live Application Capture · Contextual Investing
-                </span>
+                <div className="inline-flex items-center gap-2 min-w-0">
+                  <BrandFoxLogo size={16} alt="" />
+                  <span className="text-xs font-medium text-slate-300 truncate">
+                    Live Application Capture · Contextual Investing
+                  </span>
+                </div>
                 <span className="text-[11px] font-mono-tabular text-[#49afe9] shrink-0">
                   16:9 High-DPI Frame
                 </span>
@@ -1071,17 +1078,20 @@ export function HackathonPitchDeck({
               className="rounded-xl bg-[#0d1b33] border border-[#212c42] overflow-hidden break-inside-avoid"
             >
               <div className="p-6 pb-4 border-b border-[#212c42] flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs font-mono-tabular text-[#49afe9] mb-1">
-                    {slide.sectionKicker} · {slide.timeWindow} · Slide{' '}
-                    {slide.numberLabel}
+                <div className="flex items-start gap-3">
+                  <BrandFoxLogo size={24} framed alt="" className="mt-0.5" />
+                  <div>
+                    <div className="text-xs font-mono-tabular text-[#49afe9] mb-1">
+                      {slide.sectionKicker} · {slide.timeWindow} · Slide{' '}
+                      {slide.numberLabel}
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white">
+                      {slide.title}
+                    </h2>
+                    <p className="text-sm text-slate-300 mt-1">
+                      {slide.subtitle}
+                    </p>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-white">
-                    {slide.title}
-                  </h2>
-                  <p className="text-sm text-slate-300 mt-1">
-                    {slide.subtitle}
-                  </p>
                 </div>
 
                 <button

@@ -20,6 +20,7 @@
 import React from 'react';
 import { ArrowRight, Bookmark, ExternalLink, Trash2 } from 'lucide-react';
 import type { SavedArticleRecord } from '@/lib/firebase-client';
+import { BrandFoxLogo } from '@/components/BrandFoxLogo';
 import { logFunctionCall } from '@/lib/logger';
 
 export interface SdkCacheInspectorProps {
@@ -51,13 +52,16 @@ export function SdkCacheInspector({
       className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-5 border-b border-[#212c42]">
-        <div>
-          <h2 className="text-lg font-bold text-white">
-            Saved Research Library
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Bookmarked catalyst headlines, regulatory filings, and company news synced to your account
-          </p>
+        <div className="flex items-center gap-3">
+          <BrandFoxLogo size={22} framed alt="" />
+          <div>
+            <h2 className="text-lg font-bold text-white">
+              Saved Research Library
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Bookmarked catalyst headlines, regulatory filings, and company news synced to your account
+            </p>
+          </div>
         </div>
         <span className="text-xs text-slate-300 font-mono-tabular">
           {savedArticles.length} {savedArticles.length === 1 ? 'Article' : 'Articles'} Saved

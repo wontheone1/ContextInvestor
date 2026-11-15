@@ -76,6 +76,8 @@
 
 ## 3. Visual & Aesthetic Direction
 
+- **Brand Identity & Fox Emblem (`components/BrandFoxLogo.tsx`, `public/fox-logo.png`, `public/fox-logo-white.png`, `app/icon.png`)**: Cohesive Fox emblem deployed across the browser favicon/OpenGraph card (`app/layout.tsx`), Top Navigation Bar brand lockup (`TopNavbar.tsx`), Institutional Workspace Footer (`app/page.tsx`), Personalized Morning Brief header (`WatchlistLandingBrief.tsx`), AI Investment Assessment (`AIMarketBriefPanel.tsx`), Saved Research Library (`SdkCacheInspector.tsx`), Contextual Research Assistant drawer & analyst replies (`ContextualResearchDrawer.tsx`), live product screenshots (`public/pitch-screenshots/*.svg`), and exported PowerPoint (`.pptx`) slides (`app/api/pitch/pptx/route.ts`).
 - **Primary Layout Model**: **Kamino.com** & **TradingView** — Deep space-navy & obsidian canvas (`#091326` / `#0A0D12`), elevated slate containers (`#0d1b33` / `#11161F`), crisp hairline borders (`#212c42` / `#1E2736`), featured equity strip with embedded SVG sparklines, and a high-density tabular news feed.
 - **Accents & Typography**: **OpticOdds** & **AlphaX AI** — Electric cyan (`#09a4ff`), emerald (`#10B981`), and crimson (`#F43F5E`) accents paired with `Plus Jakarta Sans` headings, `IBM Plex Sans` body copy, and `IBM Plex Mono` (`tabular-nums`) for quantitative metrics and timestamps.
+
 
