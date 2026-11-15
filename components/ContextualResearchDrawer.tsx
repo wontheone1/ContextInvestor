@@ -28,11 +28,11 @@ import {
   ArrowUpRight,
   ExternalLink,
   PanelRightClose,
-  RotateCcw,
   Send,
   Trash2,
 } from 'lucide-react';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   buildDynamicStarterPrompts,
@@ -151,7 +151,7 @@ export function ContextualResearchDrawer({
 
   return (
     <>
-      {/* Docked Right-Edge Quick Handle on Desktop when Drawer is Collapsed */}
+      {/* Docked Bottom-Right Quick Handle on Desktop when Drawer is Collapsed (avoids overlapping card Refresh buttons) */}
       {!isOpen && (
         <button
           type="button"
@@ -160,7 +160,7 @@ export function ContextualResearchDrawer({
             onOpen();
           }}
           aria-label={t.researchDrawer.drawerTitle}
-          className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-30 items-center gap-2 py-3 px-3 bg-[#0d1b33] hover:bg-[#102344] text-white border border-r-0 border-[#212c42] rounded-l-xl transition-colors cursor-pointer"
+          className="hidden md:flex fixed right-4 bottom-5 z-30 items-center gap-2 py-2.5 px-3.5 bg-[#0d1b33] hover:bg-[#102344] text-white border border-[#2b3b5a] rounded-xl shadow-lg transition-colors cursor-pointer"
         >
           <BrandFoxLogo size={18} alt="" />
           <span className="text-xs font-semibold whitespace-nowrap">
@@ -450,17 +450,13 @@ export function ContextualResearchDrawer({
 
           {/* Non-Blocking Error Recovery */}
           {error && !isSending && (
-            <div className="p-3.5 rounded-lg bg-rose-950/35 border border-rose-500/30 space-y-2">
-              <p className="text-xs text-rose-200">{error}</p>
-              <button
-                type="button"
-                onClick={() => void onRetryLastQuestion()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>{t.common.retry}</span>
-              </button>
-            </div>
+            <GracefulErrorBanner
+              error={error}
+              onRetry={() => void onRetryLastQuestion()}
+              contextKey={`chat:${messages.length}:${locale}`}
+              enableAutoRetry={false}
+              compact
+            />
           )}
 
           <div ref={scrollEndRef} />

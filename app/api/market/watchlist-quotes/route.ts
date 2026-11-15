@@ -25,6 +25,7 @@ import {
   normalizeWatchlistRange,
   validateAndResolveFollowCompany,
 } from '@/lib/watchlist-company-service';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { logFunctionCall } from '@/lib/logger';
 
 interface WatchlistQuotesRequestBody {
@@ -43,11 +44,12 @@ interface WatchlistQuotesRequestBody {
  * @returns JSON response with validated preset or hydrated watchlist presets
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as WatchlistQuotesRequestBody;
     const action = body.action === 'hydrate' ? 'hydrate' : 'validate';
     const range = normalizeWatchlistRange(body.range);
-    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('POST /api/market/watchlist-quotes', {
       action,
@@ -97,17 +99,15 @@ export async function POST(req: NextRequest) {
       preset: validation.preset,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Unexpected watchlist verification error.';
+    const normalized = formatGracefulApiError(error, { locale });
     return NextResponse.json(
       {
         ok: false,
         valid: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

@@ -60,6 +60,16 @@ export const KO_TRANSLATIONS: UiTranslations = {
     adrSuffix: '(ADR)',
     foreignNoAdr: '해외 상장 주식 · 미국 ADR 미상장',
   },
+  resilience: {
+    rateLimitTitle: '일시적인 요청 한도 도달',
+    transientTitle: '일시적인 데이터 응답 지연',
+    errorTitle: '데이터를 불러오지 못했습니다',
+    autoRetryingPrefix: '자동 재시도까지',
+    secondsSuffix: '초',
+    retryNow: '지금 다시 시도',
+    pauseAutoRetry: '일시중지',
+    autoRetryPaused: '자동 재시도 중지됨',
+  },
   followingBar: {
     followingPrefix: '팔로잉',
     manageWatchlist: '관심종목 관리',

@@ -72,6 +72,24 @@ export const APP_CONFIG = {
   },
 
   /**
+   * Centralized Upstream Rate-Limit & Transient Gateway Resilience Configuration
+   */
+  resilience: {
+    /** Number of automatic server-side retries on transient 429 / 503 / gateway responses */
+    maxTransientRetries: 2,
+    /** Initial exponential backoff delay in milliseconds */
+    baseRetryDelayMs: 650,
+    /** Upper cap on server-side retry delay in milliseconds */
+    maxRetryDelayMs: 2600,
+    /** Max concurrent Yahoo Finance followability checks per related-companies request */
+    relatedVerifyConcurrency: 3,
+    /** Client-side calm auto-retry countdown in seconds when a transient rate limit occurs */
+    uiAutoRetryDelaySeconds: 4,
+    /** Gentle stagger in milliseconds for secondary background panels on initial load */
+    secondaryHydrationStaggerMs: 240,
+  },
+
+  /**
    * Centralized Context.dev News Search Configuration
    */
   contextDev: {

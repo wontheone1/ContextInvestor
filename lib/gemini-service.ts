@@ -17,6 +17,11 @@
  */
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import {
+  isTransientGatewayError,
+  parseJsonSafely,
+  withTransientRetry,
+} from './api-error-utils';
 import { APP_CONFIG } from './config';
 import { logFunctionCall, logGenAICall } from './logger';
 
@@ -151,22 +156,53 @@ export async function generateCompanyMarketBrief(
     },
   };
 
+  let activeModelUsed: string = model;
+
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    let response;
+    try {
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model,
+            contents: prompt,
+            config,
+          }),
+        { label: 'generateCompanyMarketBrief.primary' }
+      );
+    } catch (primaryErr) {
+      if (!isTransientGatewayError(primaryErr)) {
+        throw primaryErr;
+      }
+      activeModelUsed = APP_CONFIG.gemini.sentimentModel;
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model: activeModelUsed,
+            contents: prompt,
+            config: {
+              ...config,
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.MINIMAL,
+              },
+            },
+          }),
+        { maxRetries: 1, label: 'generateCompanyMarketBrief.fallback' }
+      );
+    }
 
     const rawText = (response.text ?? '{}').trim();
     logGenAICall({
-      model,
+      model: activeModelUsed,
       prompt,
       config,
       output: rawText,
     });
 
-    const parsed = JSON.parse(rawText);
+    const parsed = parseJsonSafely<Record<string, unknown>>(rawText, true);
+    if (!parsed) {
+      throw new Error('Upstream returned non-JSON response for AI market brief.');
+    }
     const sentimentValue =
       parsed.sentiment === 'Bullish' ||
       parsed.sentiment === 'Bearish' ||
@@ -181,27 +217,27 @@ export async function generateCompanyMarketBrief(
           ? Math.min(100, Math.max(1, Math.round(parsed.confidenceScore)))
           : 75,
       executiveSummary:
-        parsed.executiveSummary ||
+        (typeof parsed.executiveSummary === 'string' && parsed.executiveSummary) ||
         (isKo
           ? `${companyQuery} 관련 최신 기사 ${articles.length}건을 기반으로 한 종합 분석입니다.`
           : `Recent news flow for ${companyQuery} reflects active institutional coverage across ${articles.length} articles.`),
       keyCatalysts: Array.isArray(parsed.keyCatalysts)
-        ? parsed.keyCatalysts.slice(0, 3)
+        ? (parsed.keyCatalysts as string[]).slice(0, 3)
         : [],
       riskFactors: Array.isArray(parsed.riskFactors)
-        ? parsed.riskFactors.slice(0, 3)
+        ? (parsed.riskFactors as string[]).slice(0, 3)
         : [],
       sectorImpact:
-        parsed.sectorImpact ||
+        (typeof parsed.sectorImpact === 'string' && parsed.sectorImpact) ||
         (isKo
           ? '주요 보도에 따른 섹터 및 밸류체인 파급 효과를 모니터링 중입니다.'
           : 'Monitoring cross-sector read-through from primary coverage.'),
-      modelUsed: model,
+      modelUsed: activeModelUsed,
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
     logGenAICall({
-      model,
+      model: activeModelUsed,
       prompt,
       config,
       error,

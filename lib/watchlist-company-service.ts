@@ -23,6 +23,7 @@
  */
 
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { readResponseJsonSafely } from './api-error-utils';
 import {
   APP_CONFIG,
   type CompanyPreset,
@@ -596,13 +597,14 @@ async function resolveVerifiedPublicPreset(
     });
 
     if (res.ok) {
-      searchSucceeded = true;
-      const json = (await res.json()) as {
+      const { json } = await readResponseJsonSafely<{
         quotes?: Array<Record<string, unknown>>;
-      };
-      const usEquities = rankUsAndAdrEquityQuotes(
-        (json.quotes ?? []).filter(isSupportedUsEquityQuote)
-      );
+      }>(res);
+      if (json) {
+        searchSucceeded = true;
+        const usEquities = rankUsAndAdrEquityQuotes(
+          (json.quotes ?? []).filter(isSupportedUsEquityQuote)
+        );
 
       // 1. Exact ticker symbol match (e.g., NVDA, TSLA, SKHY, TSM, BRK-B)
       const exactSymbolQuote = usEquities.find(
@@ -696,6 +698,7 @@ async function resolveVerifiedPublicPreset(
             );
           }
         }
+      }
       }
     }
   } catch {

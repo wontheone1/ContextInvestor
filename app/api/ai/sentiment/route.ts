@@ -14,11 +14,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { analyzeHeadlineSentiments } from '@/lib/sentiment-service';
 import type { EnrichedNewsArticle } from '@/lib/translation-service';
 import { logFunctionCall } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as {
       articles?: Array<{
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
     };
 
     const items = Array.isArray(body.articles) ? body.articles : [];
-    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
     logFunctionCall('POST /api/ai/sentiment', { count: items.length, locale });
 
     if (items.length === 0) {
@@ -56,12 +58,14 @@ export async function POST(req: NextRequest) {
       await analyzeHeadlineSentiments(pseudoArticles, locale);
 
     if (sentimentError) {
+      const normalized = formatGracefulApiError(sentimentError, { locale });
       return NextResponse.json(
         {
           ok: false,
-          error: sentimentError,
+          error: normalized.message,
+          errorCode: normalized.errorCode,
         },
-        { status: 502 }
+        { status: normalized.statusCode }
       );
     }
 
@@ -82,17 +86,18 @@ export async function POST(req: NextRequest) {
       reasons,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to analyze headline sentiments.';
-    logFunctionCall('POST /api/ai/sentiment:error', { error: message });
+    const normalized = formatGracefulApiError(error, { locale });
+    logFunctionCall('POST /api/ai/sentiment:error', {
+      errorCode: normalized.errorCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { generateContextualResearchReply } from '@/lib/research-chat-service';
 import type {
   ResearchChatTurnInput,
@@ -31,6 +32,7 @@ import { logError, logInfo } from '@/lib/logger';
  * @returns JSON `{ ok: true, reply }` or structured error response
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as {
       messages?: ResearchChatTurnInput[];
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const messages = Array.isArray(body.messages) ? body.messages : [];
     const context = body.context;
-    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/ai/chat', {
       messageCount: messages.length,
@@ -70,17 +72,23 @@ export async function POST(req: NextRequest) {
       reply,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Unable to generate research assistant response.';
-    logError('API.POST./api/ai/chat.error', { error: message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to generate Research Assistant response right now.',
+      fallbackKo: 'AI 리서치 어시스턴트 응답을 일시적으로 생성하지 못했습니다.',
+    });
+    logError('API.POST./api/ai/chat.error', {
+      errorCode: normalized.errorCode,
+      statusCode: normalized.statusCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

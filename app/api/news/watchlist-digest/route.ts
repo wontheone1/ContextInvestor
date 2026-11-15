@@ -21,6 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { APP_CONFIG } from '@/lib/config';
 import { logInfo, logError } from '@/lib/logger';
 import {
@@ -35,6 +36,7 @@ import {
  * @returns JSON response with `WatchlistDigestResponse`
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json().catch(() => ({}))) as {
       companies?: Array<{
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       locale?: 'en' | 'ko';
     };
 
-    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     const rawCompanies: WatchlistTargetCompany[] =
       Array.isArray(body.companies) && body.companies.length > 0
@@ -83,17 +85,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       digest,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to generate watchlist digest';
-    logError('API_POST_WATCHLIST_DIGEST_ERROR', { message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to synthesize Daily Brief right now.',
+      fallbackKo: '일일 브리핑을 일시적으로 생성하지 못했습니다.',
+    });
+    logError('API_POST_WATCHLIST_DIGEST_ERROR', {
+      errorCode: normalized.errorCode,
+      message: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

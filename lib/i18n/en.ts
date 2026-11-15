@@ -57,6 +57,16 @@ export const EN_TRANSLATIONS: UiTranslations = {
     adrSuffix: '(ADR)',
     foreignNoAdr: 'Foreign-Listed Public Equity · No US ADR',
   },
+  resilience: {
+    rateLimitTitle: 'Temporary Rate Limit Reached',
+    transientTitle: 'Temporary Service Busy',
+    errorTitle: 'Unable to Load Section',
+    autoRetryingPrefix: 'Auto-retrying in',
+    secondsSuffix: 's',
+    retryNow: 'Retry Now',
+    pauseAutoRetry: 'Pause',
+    autoRetryPaused: 'Auto-retry paused',
+  },
   followingBar: {
     followingPrefix: 'Following',
     manageWatchlist: 'Manage Watchlist',

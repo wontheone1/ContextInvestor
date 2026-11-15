@@ -26,11 +26,11 @@ import {
   TrendingDown,
   Minus,
   ExternalLink,
-  RefreshCw,
   Check,
   Plus,
   Loader2,
 } from 'lucide-react';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { formatTickerWithAdr, isAdrTicker } from '@/lib/adr-directory';
 import {
   formatSharePriceByCurrency,
@@ -606,22 +606,14 @@ export function CompanyMarketOverview({
       <section
         id="market-overview"
         aria-label={t.marketOverview.unavailableTitle}
-        className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6 flex flex-wrap items-center justify-between gap-4"
+        className="rounded-xl bg-[#0d1b33] border border-[#212c42] p-6 mb-6"
       >
-        <div>
-          <h2 className="text-base font-bold text-white mb-1">
-            {t.marketOverview.unavailableTitle} ({searchedQuery})
-          </h2>
-          <p className="text-xs text-slate-400">{error}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>{t.common.retry}</span>
-        </button>
+        <GracefulErrorBanner
+          error={error}
+          onRetry={onRetry}
+          titleOverride={`${t.marketOverview.unavailableTitle} (${searchedQuery})`}
+          contextKey={`market:${searchedQuery.trim().toLowerCase()}:${locale}`}
+        />
       </section>
     );
   }

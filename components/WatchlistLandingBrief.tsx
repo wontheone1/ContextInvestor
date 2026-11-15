@@ -38,6 +38,7 @@ import type {
 } from '@/lib/watchlist-digest-service';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   formatLocalizedRelativeAge,
@@ -405,16 +406,13 @@ export function WatchlistLandingBrief({
       )}
 
       {/* Error State */}
-      {error && !digest && (
-        <div className="p-6 text-sm text-rose-300 flex flex-wrap items-center justify-between gap-4">
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="px-3.5 py-2 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs font-semibold text-rose-200 hover:bg-rose-950/60 cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {t.common.retry}
-          </button>
+      {error && !digest && !isLoading && (
+        <div className="p-6">
+          <GracefulErrorBanner
+            error={error}
+            onRetry={onRefresh}
+            contextKey={`digest:${followedCount}:${locale}`}
+          />
         </div>
       )}
 

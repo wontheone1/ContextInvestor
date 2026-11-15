@@ -50,6 +50,7 @@ import type {
   ComparedCompanyDossier,
   ScreenedCandidateItem,
 } from '@/lib/query-intent';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   translatePresetMetadata,
@@ -505,30 +506,16 @@ export function CohortComparisonWorkspace({
   if (screenError && !screenResult) {
     return (
       <section className="bg-[#0d1b33] border border-[#212c42] rounded-xl p-6 mb-10">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="text-base font-semibold text-white">
-              {t.cohortWorkspace.errorTitle}
-            </h3>
-            <p className="text-sm text-rose-300">{screenError}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onRefreshScreen}
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {t.common.retry}
-            </button>
-            <button
-              type="button"
-              onClick={onSwitchToSingleMode}
-              className="px-4 py-2 text-xs font-semibold text-slate-200 bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {t.searchBar.singleModeBadge}
-            </button>
-          </div>
-        </div>
+        <GracefulErrorBanner
+          error={screenError}
+          onRetry={onRefreshScreen}
+          secondaryAction={{
+            label: t.searchBar.singleModeBadge,
+            onClick: onSwitchToSingleMode,
+          }}
+          titleOverride={t.cohortWorkspace.errorTitle}
+          contextKey={`cohort:${query.trim().toLowerCase()}:${locale}`}
+        />
       </section>
     );
   }

@@ -61,6 +61,16 @@ export interface UiTranslations {
     adrSuffix: string;
     foreignNoAdr: string;
   };
+  resilience: {
+    rateLimitTitle: string;
+    transientTitle: string;
+    errorTitle: string;
+    autoRetryingPrefix: string;
+    secondsSuffix: string;
+    retryNow: string;
+    pauseAutoRetry: string;
+    autoRetryPaused: string;
+  };
   followingBar: {
     followingPrefix: string;
     manageWatchlist: string;

@@ -25,7 +25,6 @@
 
 import React, { useMemo, useState } from 'react';
 import {
-  AlertCircle,
   ExternalLink,
   Layers,
   RotateCcw,
@@ -34,6 +33,7 @@ import {
   getDistinctProductCategories,
   type CompanyProductsData,
 } from '@/lib/company-products-types';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { logFunctionCall } from '@/lib/logger';
 import { useLanguage } from './LanguageProvider';
 
@@ -143,28 +143,17 @@ export default function CompanyProductsPanel({
     return (
       <section
         aria-label={t.companyProducts.headerTitle}
-        className="bg-[#0d1b33] border border-[#212c42] rounded-xl p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        className="bg-[#0d1b33] border border-[#212c42] rounded-xl p-6 mb-6"
       >
-        <div className="flex items-start gap-3">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-white">
-              {t.companyProducts.headerTitle}
-            </h3>
-            <p className="text-xs text-slate-300">{error}</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
+        <GracefulErrorBanner
+          error={error}
+          onRetry={() => {
             logFunctionCall('CompanyProductsPanel.retry', { searchedQuery });
             onRefresh();
           }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-[#091326] hover:bg-[#102344] border border-[#212c42] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer self-start sm:self-auto"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>{t.common.retry}</span>
-        </button>
+          titleOverride={t.companyProducts.headerTitle}
+          contextKey={`products:${searchedQuery.trim().toLowerCase()}`}
+        />
       </section>
     );
   }

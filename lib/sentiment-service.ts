@@ -17,6 +17,11 @@
  */
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import {
+  formatGracefulApiError,
+  parseJsonSafely,
+  withTransientRetry,
+} from './api-error-utils';
 import { APP_CONFIG } from './config.ts';
 import { logFunctionCall, logGenAICall } from './logger.ts';
 import type {
@@ -126,11 +131,15 @@ ${JSON.stringify(headlinesPayload, null, 2)}`;
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    const response = await withTransientRetry(
+      () =>
+        ai.models.generateContent({
+          model,
+          contents: prompt,
+          config,
+        }),
+      { label: 'analyzeHeadlineSentiments' }
+    );
 
     const rawText = (response.text ?? '[]').trim();
     logGenAICall({
@@ -140,11 +149,17 @@ ${JSON.stringify(headlinesPayload, null, 2)}`;
       output: rawText,
     });
 
-    const parsed = JSON.parse(rawText) as Array<{
-      index: number;
-      sentiment: string;
-      reason?: string;
-    }>;
+    const parsed = parseJsonSafely<
+      Array<{
+        index: number;
+        sentiment: string;
+        reason?: string;
+      }>
+    >(rawText, true);
+
+    if (!parsed) {
+      throw new Error('Upstream returned non-JSON response for headline sentiment.');
+    }
 
     const sentimentMap = new Map<
       number,
@@ -183,17 +198,18 @@ ${JSON.stringify(headlinesPayload, null, 2)}`;
       config,
       error,
     });
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Headline sentiment analysis failed.';
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Headline sentiment analysis is temporarily unavailable.',
+      fallbackKo: '헤드라인 투자심리 분석을 일시적으로 불러오지 못했습니다.',
+    });
     return {
       articles: articles.map((a) => ({
         ...a,
         sentiment: a.sentiment ?? null,
         sentimentReason: a.sentimentReason ?? null,
       })),
-      sentimentError: message,
+      sentimentError: normalized.message,
     };
   }
 }

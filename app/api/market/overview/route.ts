@@ -21,6 +21,7 @@ import {
   getCompanyMarketOverview,
   type ChartRange,
 } from '@/lib/market-data-service';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { logFunctionCall } from '@/lib/logger';
 
 const VALID_RANGES = new Set<ChartRange>([
@@ -34,6 +35,7 @@ const VALID_RANGES = new Set<ChartRange>([
 ]);
 
 export async function GET(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get('query') ?? '').trim();
@@ -46,8 +48,7 @@ export async function GET(req: NextRequest) {
       rawEntityType === 'name' || rawEntityType === 'ticker'
         ? rawEntityType
         : 'auto';
-    const locale: 'en' | 'ko' =
-      searchParams.get('locale') === 'ko' ? 'ko' : 'en';
+    locale = searchParams.get('locale') === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('GET /api/market/overview', {
       query,
@@ -106,12 +107,19 @@ export async function GET(req: NextRequest) {
       overview,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Failed to load market overview.';
-    logFunctionCall('GET /api/market/overview:error', { error: message });
+    const normalized = formatGracefulApiError(error, { locale });
+    logFunctionCall('GET /api/market/overview:error', {
+      error: normalized.message,
+      errorCode: normalized.errorCode,
+      statusCode: normalized.statusCode,
+    });
     return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
+      {
+        ok: false,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
+      },
+      { status: normalized.statusCode }
     );
   }
 }

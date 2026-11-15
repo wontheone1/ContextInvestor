@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import type { AIMarketBriefResponse } from '@/lib/gemini-service';
 import { BrandFoxLogo } from '@/components/BrandFoxLogo';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   translateSentimentLabel,
@@ -91,10 +92,13 @@ export function AIMarketBriefPanel({
         </button>
       </div>
 
-      {error && (
-        <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-500/40 text-xs text-rose-200 mb-4">
-          {error}
-        </div>
+      {error && !isLoading && (
+        <GracefulErrorBanner
+          error={error}
+          onRetry={onGenerate}
+          contextKey={`brief:${companyLabel}:${locale}`}
+          className={brief ? 'mb-5' : ''}
+        />
       )}
 
       {isLoading ? (
@@ -114,24 +118,26 @@ export function AIMarketBriefPanel({
           </div>
         </div>
       ) : !brief ? (
-        <div className="py-8 text-center border border-dashed border-[#212c42] rounded-lg px-4">
-          <div className="flex justify-center mb-2.5">
-            <BrandFoxLogo size={26} framed alt="" />
+        error ? null : (
+          <div className="py-8 text-center border border-dashed border-[#212c42] rounded-lg px-4">
+            <div className="flex justify-center mb-2.5">
+              <BrandFoxLogo size={26} framed alt="" />
+            </div>
+            <p className="text-sm font-medium text-white mb-1">
+              {t.aiBrief.headerTitle}
+            </p>
+            <p className="text-xs text-slate-400 mb-4">
+              {t.aiBrief.emptyStatePrompt}
+            </p>
+            <button
+              type="button"
+              onClick={onGenerate}
+              className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              {t.aiBrief.generateBriefCta}
+            </button>
           </div>
-          <p className="text-sm font-medium text-white mb-1">
-            {t.aiBrief.headerTitle}
-          </p>
-          <p className="text-xs text-slate-400 mb-4">
-            {t.aiBrief.emptyStatePrompt}
-          </p>
-          <button
-            type="button"
-            onClick={onGenerate}
-            className="px-4 py-2 text-xs font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            {t.aiBrief.generateBriefCta}
-          </button>
-        </div>
+        )
       ) : (
         <div className="space-y-6">
           {/* Overall Assessment Strip */}

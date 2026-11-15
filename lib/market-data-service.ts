@@ -24,6 +24,7 @@ import {
   rankUsAndAdrEquityQuotes,
   stripAdrSuffix,
 } from './adr-directory';
+import { readResponseJsonSafely } from './api-error-utils';
 import { APP_CONFIG } from './config';
 import {
   fetchNaverKrxFundamentalsFallback,
@@ -345,10 +346,10 @@ async function resolveSupportedEquitySymbol(
       signal: AbortSignal.timeout(6000),
     });
     if (res.ok) {
-      const json = (await res.json()) as {
+      const { json } = await readResponseJsonSafely<{
         quotes?: Array<Record<string, unknown>>;
-      };
-      const filteredQuotes = (json.quotes ?? []).filter(isSupportedEquityQuote);
+      }>(res);
+      const filteredQuotes = (json?.quotes ?? []).filter(isSupportedEquityQuote);
       const rankedEquities = rankUsAndAdrEquityQuotes(filteredQuotes).sort(
         (a, b) => {
           const aKrx = isKrxSymbol(String(a.symbol ?? ''));
@@ -470,7 +471,7 @@ export async function fetchChartData(
     });
     if (!res.ok) return null;
 
-    const json = (await res.json()) as {
+    const { json } = await readResponseJsonSafely<{
       chart?: {
         result?: Array<{
           meta?: Record<string, unknown>;
@@ -486,9 +487,9 @@ export async function fetchChartData(
           };
         }>;
       };
-    };
+    }>(res);
 
-    const result = json.chart?.result?.[0];
+    const result = json?.chart?.result?.[0];
     if (!result || !result.meta) return null;
 
     const meta = result.meta;
@@ -617,7 +618,7 @@ async function fetchQuoteSummaryMetrics(
 
     if (!res || !res.ok) return null;
 
-    const json = (await res.json()) as {
+    const { json } = await readResponseJsonSafely<{
       quoteSummary?: {
         result?: Array<{
           price?: Record<string, { raw?: number; fmt?: string } | string>;
@@ -627,9 +628,9 @@ async function fetchQuoteSummaryMetrics(
           assetProfile?: Record<string, string>;
         }>;
       };
-    };
+    }>(res);
 
-    const r = json.quoteSummary?.result?.[0];
+    const r = json?.quoteSummary?.result?.[0];
     if (!r) return null;
 
     const fmtField = (

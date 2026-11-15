@@ -29,6 +29,7 @@ import type {
   RelationshipCategory,
 } from '@/lib/related-companies-service';
 import { useLanguage } from '@/components/LanguageProvider';
+import { GracefulErrorBanner } from '@/components/GracefulErrorBanner';
 import {
   translateRelationshipCategory,
   translateRelationshipDescription,
@@ -327,16 +328,12 @@ export function RelatedCompaniesPanel({
 
       {/* Error State */}
       {error && !isLoading && (
-        <div className="p-4 rounded-lg bg-rose-950/40 border border-rose-500/40 flex flex-wrap items-center justify-between gap-3 text-xs text-rose-200">
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="px-3 py-1.5 font-semibold text-white bg-[#09a4ff] hover:bg-[#49afe9] rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {t.common.retry}
-          </button>
-        </div>
+        <GracefulErrorBanner
+          error={error}
+          onRetry={onRefresh}
+          contextKey={`related:${searchedQuery.trim().toLowerCase()}:${locale}`}
+          className={visibleGroups.length > 0 ? 'mb-5' : ''}
+        />
       )}
 
       {/* Loading Skeleton State */}
@@ -355,7 +352,7 @@ export function RelatedCompaniesPanel({
         <div className="py-6 text-center text-xs text-slate-400">
           {t.relatedCompanies.emptyGroup} ({searchedQuery})
         </div>
-      ) : (
+      ) : visibleGroups.length > 0 ? (
         /* Grouped Multi-Relationship Columns (Clean Hairline Dividers, Zero Nested Cards) */
         <div
           className={
@@ -540,7 +537,7 @@ export function RelatedCompaniesPanel({
             );
           })}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

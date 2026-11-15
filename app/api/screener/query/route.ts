@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { screenNaturalCompanyCohort } from '@/lib/cohort-screener-service';
 import type { ChartRange } from '@/lib/market-data-service';
 import { logError, logInfo } from '@/lib/logger';
@@ -39,6 +40,7 @@ const VALID_RANGES = new Set<ChartRange>([
  * @returns JSON `{ ok: true, result }` or structured error response
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as {
       query?: string;
@@ -53,7 +55,7 @@ export async function POST(req: NextRequest) {
         ? (body.range as ChartRange)
         : '1M';
     const forceRefresh = Boolean(body.forceRefresh);
-    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/screener/query', {
       query,
@@ -84,17 +86,22 @@ export async function POST(req: NextRequest) {
       result,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to execute natural-language company screen.';
-    logError('API.POST./api/screener/query.error', { error: message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to complete natural-language cohort screen right now.',
+      fallbackKo: '자연어 기업 스크리닝 요청을 일시적으로 처리하지 못했습니다.',
+    });
+    logError('API.POST./api/screener/query.error', {
+      errorCode: normalized.errorCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

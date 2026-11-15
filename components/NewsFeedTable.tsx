@@ -41,6 +41,7 @@ import type {
   EnrichedNewsArticle,
 } from '@/lib/translation-service';
 import { formatLanguageName } from '@/lib/translation-service';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { useLanguage } from '@/components/LanguageProvider';
 import {
   formatLocalizedDateTime,
@@ -458,7 +459,9 @@ export function NewsFeedTable({
         </div>
 
         {sentimentError && (
-          <span className="text-xs text-rose-300">{sentimentError}</span>
+          <span className="text-xs text-amber-300/90">
+            {formatGracefulApiError(sentimentError, { locale }).message}
+          </span>
         )}
       </div>
 

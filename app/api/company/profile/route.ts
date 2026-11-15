@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { getCompanyProfileBySearch } from '@/lib/company-profile-service';
 import { logError, logInfo } from '@/lib/logger';
 
@@ -59,17 +60,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       profile,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to retrieve company profile.';
-    logError('API_GET_COMPANY_PROFILE_ERROR', { message });
+    const normalized = formatGracefulApiError(error, {
+      fallbackEn: 'Unable to retrieve company profile right now.',
+      fallbackKo: '기업 프로필 데이터를 일시적으로 불러오지 못했습니다.',
+    });
+    logError('API_GET_COMPANY_PROFILE_ERROR', {
+      errorCode: normalized.errorCode,
+      message: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

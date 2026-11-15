@@ -26,6 +26,7 @@ import {
   lookupCompanyNameForAdrTicker,
   stripAdrSuffix,
 } from './adr-directory';
+import { parseJsonSafely, withTransientRetry } from './api-error-utils';
 import { getCompanyProfileBySearch } from './company-profile-service';
 import {
   buildSourceCitation,
@@ -602,15 +603,22 @@ ${JSON.stringify(payloadToTranslate)}`;
   };
 
   try {
-    const res = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    const res = await withTransientRetry(
+      () =>
+        ai.models.generateContent({
+          model,
+          contents: prompt,
+          config,
+        }),
+      { maxRetries: 1, label: 'ensureKoreanPortfolioLocalization' }
+    );
     const rawText = (res.text ?? '').trim();
     logGenAICall({ model, prompt, config, output: rawText });
 
-    const parsed = JSON.parse(rawText) as typeof payloadToTranslate;
+    const parsed = parseJsonSafely<typeof payloadToTranslate>(rawText, true);
+    if (!parsed) {
+      return dossier;
+    }
     return {
       ...dossier,
       companyName: koreanCompanyName || dossier.companyName,
@@ -741,11 +749,15 @@ Include 2 to 5 revenue segments and 4 to 6 core product/service lines.`;
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    const response = await withTransientRetry(
+      () =>
+        ai.models.generateContent({
+          model,
+          contents: prompt,
+          config,
+        }),
+      { label: 'fetchGroundedFallbackProducts' }
+    );
 
     const rawText = (response.text ?? '').trim();
     logGenAICall({ model, prompt, config, output: rawText });
@@ -766,7 +778,8 @@ Include 2 to 5 revenue segments and 4 to 6 core product/service lines.`;
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return null;
 
-    const parsed = JSON.parse(jsonMatch[0]) as RawExtractedProductsShape;
+    const parsed = parseJsonSafely<RawExtractedProductsShape>(jsonMatch[0], true);
+    if (!parsed) return null;
     return normalizeRawProductsPayload(
       parsed,
       groundingUrls,
@@ -864,15 +877,19 @@ export async function getCompanyProductsPortfolio(params: {
         timeoutMs: APP_CONFIG.contextDev.webAnswersTimeoutMs,
       });
 
-      const sdkResponse = await client.web.answers({
-        task,
-        mode: APP_CONFIG.contextDev.webAnswersMode,
-        json_format: WEB_ANSWERS_EXAMPLE_FORMAT,
-        timeoutOpts: {
-          milliseconds: APP_CONFIG.contextDev.webAnswersTimeoutMs,
-          behavior: 'return-partial',
-        },
-      });
+      const sdkResponse = await withTransientRetry(
+        () =>
+          client.web.answers({
+            task,
+            mode: APP_CONFIG.contextDev.webAnswersMode,
+            json_format: WEB_ANSWERS_EXAMPLE_FORMAT,
+            timeoutOpts: {
+              milliseconds: APP_CONFIG.contextDev.webAnswersTimeoutMs,
+              behavior: 'return-partial',
+            },
+          }),
+        { maxRetries: 1, label: 'contextDev.web.answers' }
+      );
 
       const rawSources = Array.isArray(sdkResponse?.sources)
         ? sdkResponse.sources
@@ -923,10 +940,12 @@ export async function getCompanyProductsPortfolio(params: {
     locale
   );
 
-  productsPortfolioCache.set(cacheKey, {
-    data: fallbackDossier,
-    expiresAt: Date.now() + APP_CONFIG.contextDev.companyProductsCacheTtlMs,
-  });
+  if (fallbackDossier) {
+    productsPortfolioCache.set(cacheKey, {
+      data: fallbackDossier,
+      expiresAt: Date.now() + APP_CONFIG.contextDev.companyProductsCacheTtlMs,
+    });
+  }
 
   return fallbackDossier;
 }

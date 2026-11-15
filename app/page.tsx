@@ -132,6 +132,10 @@ import {
   type CompanyPreset,
   type WatchlistSparklineRange,
 } from '@/lib/config';
+import {
+  formatGracefulApiError,
+  safeFetchJson,
+} from '@/lib/api-error-utils';
 import { logFunctionCall } from '@/lib/logger';
 
 const FOLLOWED_STORAGE_KEY = 'contextual_investing_followed_companies_v1';
@@ -430,34 +434,40 @@ export default function InvestorDashboardPage() {
       setWatchlistDigestError(null);
 
       try {
-        const res = await fetch('/api/news/watchlist-digest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companies: companiesToTrack.map((c) => ({
-              label: c.label,
-              value: c.value,
-              entityType: c.entityType === 'ticker' ? 'ticker' : 'name',
-              sector: c.sector,
-            })),
-            forceRefresh,
-            locale: activeLocale,
-          }),
-        });
-        const data = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          digest?: WatchlistDigestResponse;
+          error?: string;
+        }>(
+          '/api/news/watchlist-digest',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companies: companiesToTrack.map((c) => ({
+                label: c.label,
+                value: c.value,
+                entityType: c.entityType === 'ticker' ? 'ticker' : 'name',
+                sector: c.sector,
+              })),
+              forceRefresh,
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
         if (seq !== watchlistDigestReqSeqRef.current) return;
-        if (!res.ok || !data.ok || !data.digest) {
-          throw new Error(
-            data.error || 'Failed to synthesize watchlist news briefing.'
+        if (!result.ok || !result.data?.digest) {
+          setWatchlistDigestError(
+            result.errorMessage || 'Failed to synthesize watchlist news briefing.'
           );
+          return;
         }
-        setWatchlistDigest(data.digest as WatchlistDigestResponse);
+        setWatchlistDigest(result.data.digest);
       } catch (err) {
         if (seq !== watchlistDigestReqSeqRef.current) return;
         setWatchlistDigestError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to load watchlist news summary.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         if (seq === watchlistDigestReqSeqRef.current) {
@@ -486,25 +496,32 @@ export default function InvestorDashboardPage() {
       setIsHydratingWatchlistQuotes(true);
 
       try {
-        const res = await fetch('/api/market/watchlist-quotes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'hydrate',
-            companies: itemsToHydrate,
-            range: targetRange,
-            locale: activeLocale,
-          }),
-        });
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          companies?: CompanyPreset[];
+          invalidValues?: string[];
+        }>(
+          '/api/market/watchlist-quotes',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'hydrate',
+              companies: itemsToHydrate,
+              range: targetRange,
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
         if (seq !== watchlistQuotesSeqRef.current) return;
-        if (!res.ok || !json.ok || !Array.isArray(json.companies)) {
+        if (!result.ok || !Array.isArray(result.data?.companies)) {
           return;
         }
 
-        const hydratedCompanies = json.companies as CompanyPreset[];
-        const invalidValues = Array.isArray(json.invalidValues)
-          ? (json.invalidValues as string[])
+        const hydratedCompanies = result.data.companies;
+        const invalidValues = Array.isArray(result.data.invalidValues)
+          ? result.data.invalidValues
           : [];
 
         followedCompaniesRef.current = hydratedCompanies;
@@ -577,15 +594,21 @@ export default function InvestorDashboardPage() {
         console.warn('Could not read followed companies from localStorage:', e);
       }
 
-      void fetchWatchlistDigest(initialCompanies, false);
       void hydrateFollowedWatchlistQuotes(
         initialCompanies,
         APP_CONFIG.watchlist.defaultSparklineRange,
         customized,
         true
       );
+      digestStaggerTimer = setTimeout(() => {
+        void fetchWatchlistDigest(initialCompanies, false);
+      }, 350);
     }, 0);
-    return () => clearTimeout(timer);
+    let digestStaggerTimer: ReturnType<typeof setTimeout> | null = null;
+    return () => {
+      clearTimeout(timer);
+      if (digestStaggerTimer) clearTimeout(digestStaggerTimer);
+    };
   }, [fetchWatchlistDigest, hydrateFollowedWatchlistQuotes]);
 
   // Validate Firestore connection and listen to Auth state on mount
@@ -680,27 +703,36 @@ export default function InvestorDashboardPage() {
     setFollowValidationError(null);
 
     try {
-      const res = await fetch('/api/market/watchlist-quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'validate',
-          query: trimmed,
-          range: watchlistRange,
-          locale: localeRef.current,
-        }),
-      });
-      const json = await res.json();
+      const result = await safeFetchJson<{
+        ok?: boolean;
+        valid?: boolean;
+        preset?: CompanyPreset;
+        error?: string;
+      }>(
+        '/api/market/watchlist-quotes',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'validate',
+            query: trimmed,
+            range: watchlistRange,
+            locale: localeRef.current,
+          }),
+        },
+        { locale: localeRef.current }
+      );
 
-      if (!res.ok || !json.ok || !json.valid || !json.preset) {
+      if (!result.ok || !result.data?.valid || !result.data.preset) {
         setFollowValidationError(
-          json.error ||
+          result.data?.error ||
+            result.errorMessage ||
             `Could not find a verified public ticker or real company matching "${trimmed}".`
         );
         return false;
       }
 
-      const verifiedPreset = json.preset as CompanyPreset;
+      const verifiedPreset = result.data.preset;
       const finalPreset: CompanyPreset = {
         ...verifiedPreset,
         sector:
@@ -756,9 +788,7 @@ export default function InvestorDashboardPage() {
       return true;
     } catch (err) {
       setFollowValidationError(
-        err instanceof Error
-          ? err.message
-          : `Unable to verify "${trimmed}". Please try again.`
+        formatGracefulApiError(err, { locale: localeRef.current }).message
       );
       return false;
     } finally {
@@ -804,21 +834,28 @@ export default function InvestorDashboardPage() {
       const results = await Promise.all(
         candidatesToVerify.map(async (item) => {
           try {
-            const res = await fetch('/api/market/watchlist-quotes', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'validate',
-                query: item.query.trim(),
-                range: watchlistRange,
-                locale: localeRef.current,
-              }),
-            });
-            const json = await res.json();
-            if (!res.ok || !json.ok || !json.valid || !json.preset) {
+            const result = await safeFetchJson<{
+              ok?: boolean;
+              valid?: boolean;
+              preset?: CompanyPreset;
+            }>(
+              '/api/market/watchlist-quotes',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'validate',
+                  query: item.query.trim(),
+                  range: watchlistRange,
+                  locale: localeRef.current,
+                }),
+              },
+              { locale: localeRef.current }
+            );
+            if (!result.ok || !result.data?.valid || !result.data.preset) {
               return null;
             }
-            const verifiedPreset = json.preset as CompanyPreset;
+            const verifiedPreset = result.data.preset;
             return {
               ...verifiedPreset,
               sector:
@@ -1029,28 +1066,36 @@ export default function InvestorDashboardPage() {
       setIsAnalyzingSentiment(true);
       setSentimentError(null);
       try {
-        const res = await fetch('/api/ai/sentiment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            articles: targetItems.map((a) => ({
-              id: a.id,
-              title: a.title,
-              description: a.description,
-            })),
-            locale: activeLocale,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error || 'Headline sentiment analysis failed.');
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          sentiments?: Record<string, 'Bullish' | 'Bearish' | 'Neutral'>;
+          reasons?: Record<string, string>;
+          error?: string;
+        }>(
+          '/api/ai/sentiment',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              articles: targetItems.map((a) => ({
+                id: a.id,
+                title: a.title,
+                description: a.description,
+              })),
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
+        if (!result.ok || !result.data) {
+          setSentimentError(
+            result.errorMessage || 'Headline sentiment analysis failed.'
+          );
+          return;
         }
 
-        const sentimentsMap = (data.sentiments || {}) as Record<
-          string,
-          'Bullish' | 'Bearish' | 'Neutral'
-        >;
-        const reasonsMap = (data.reasons || {}) as Record<string, string>;
+        const sentimentsMap = result.data.sentiments || {};
+        const reasonsMap = result.data.reasons || {};
         setArticles((prev) =>
           prev.map((a) => ({
             ...a,
@@ -1064,9 +1109,7 @@ export default function InvestorDashboardPage() {
         );
       } catch (err) {
         setSentimentError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to analyze headline sentiment.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         setIsAnalyzingSentiment(false);
@@ -1113,33 +1156,43 @@ export default function InvestorDashboardPage() {
       setBriefError(null);
 
       try {
-        const res = await fetch('/api/ai/brief', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            companyQuery,
-            articles: targetArticles.map((a) => ({
-              title: a.title,
-              description: a.description,
-              sourceName: a.source?.name || a.source?.domain || 'Publisher',
-              publishedAt: a.published_at,
-              type: a.type,
-            })),
-            locale: activeLocale,
-          }),
-        });
-        const data = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          brief?: AIMarketBriefResponse;
+          error?: string;
+        }>(
+          '/api/ai/brief',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              companyQuery,
+              articles: targetArticles.map((a) => ({
+                title: a.title,
+                description: a.description,
+                sourceName: a.source?.name || a.source?.domain || 'Publisher',
+                publishedAt: a.published_at,
+                type: a.type,
+              })),
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
         if (seq !== briefReqSeqRef.current) return;
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error || 'Failed to synthesize AI brief.');
+        if (!result.ok || !result.data?.brief) {
+          setBriefError(
+            result.errorMessage || 'Failed to synthesize AI brief.'
+          );
+          return;
         }
-        const brief = data.brief as AIMarketBriefResponse;
+        const brief = result.data.brief;
         briefCacheRef.current.set(cacheKey, brief);
         setAiBrief(brief);
       } catch (err) {
         if (seq !== briefReqSeqRef.current) return;
         setBriefError(
-          err instanceof Error ? err.message : 'Error generating AI brief.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         if (seq === briefReqSeqRef.current) {
@@ -1173,17 +1226,23 @@ export default function InvestorDashboardPage() {
           range,
           locale: activeLocale,
         });
-        const res = await fetch(`/api/market/overview?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok || !data.ok || !data.overview) {
-          throw new Error(data.error || 'Failed to load company market metrics.');
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          overview?: CompanyMarketOverviewData;
+          error?: string;
+        }>(`/api/market/overview?${params.toString()}`, undefined, {
+          locale: activeLocale,
+        });
+        if (!result.ok || !result.data?.overview) {
+          setMarketError(
+            result.errorMessage || 'Failed to load company market metrics.'
+          );
+          return;
         }
-        setMarketData(data.overview as CompanyMarketOverviewData);
+        setMarketData(result.data.overview);
       } catch (err) {
         setMarketError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to retrieve market data.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         setIsLoadingMarket(false);
@@ -1229,23 +1288,27 @@ export default function InvestorDashboardPage() {
         if (forceRefresh) {
           params.set('refresh', '1');
         }
-        const res = await fetch(`/api/ai/related?${params.toString()}`);
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          data?: RelatedCompaniesResponse;
+          error?: string;
+        }>(`/api/ai/related?${params.toString()}`, undefined, {
+          locale: activeLocale,
+        });
         if (seq !== relatedReqSeqRef.current) return;
-        if (!res.ok || !json.ok || !json.data) {
-          throw new Error(
-            json.error || 'Failed to load related company suggestions.'
+        if (!result.ok || !result.data?.data) {
+          setRelatedError(
+            result.errorMessage || 'Failed to load related company suggestions.'
           );
+          return;
         }
-        const payload = json.data as RelatedCompaniesResponse;
+        const payload = result.data.data;
         relatedCacheRef.current.set(cacheKey, payload);
         setRelatedData(payload);
       } catch (err) {
         if (seq !== relatedReqSeqRef.current) return;
         setRelatedError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to retrieve related companies.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         if (seq === relatedReqSeqRef.current) {
@@ -1294,22 +1357,28 @@ export default function InvestorDashboardPage() {
           params.set('refresh', '1');
         }
 
-        const res = await fetch(`/api/company/profile?${params.toString()}`);
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          profile?: CompanyProfileData | null;
+          error?: string;
+        }>(`/api/company/profile?${params.toString()}`, undefined, {
+          locale: localeRef.current,
+        });
         if (seq !== profileReqSeqRef.current) return;
-        if (!res.ok || !json.ok) {
-          throw new Error(json.error || 'Failed to load company profile.');
+        if (!result.ok || !result.data) {
+          setProfileError(
+            result.errorMessage || 'Failed to load company profile.'
+          );
+          return;
         }
 
-        const resolvedProfile = (json.profile as CompanyProfileData) ?? null;
+        const resolvedProfile = result.data.profile ?? null;
         profileCacheRef.current.set(cacheKey, resolvedProfile);
         setCompanyProfile(resolvedProfile);
       } catch (err) {
         if (seq !== profileReqSeqRef.current) return;
         setProfileError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to retrieve company profile.'
+          formatGracefulApiError(err, { locale: localeRef.current }).message
         );
       } finally {
         if (seq === profileReqSeqRef.current) {
@@ -1372,25 +1441,29 @@ export default function InvestorDashboardPage() {
           params.set('refresh', '1');
         }
 
-        const res = await fetch(`/api/company/products?${params.toString()}`);
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          products?: CompanyProductsData | null;
+          error?: string;
+        }>(`/api/company/products?${params.toString()}`, undefined, {
+          locale: activeLocale,
+        });
         if (seq !== productsReqSeqRef.current) return;
-        if (!res.ok || !json.ok) {
-          throw new Error(
-            json.error || 'Failed to load company products and revenue segments.'
+        if (!result.ok || !result.data) {
+          setProductsError(
+            result.errorMessage ||
+              'Failed to load company products and revenue segments.'
           );
+          return;
         }
 
-        const resolvedProducts =
-          (json.products as CompanyProductsData | null) ?? null;
+        const resolvedProducts = result.data.products ?? null;
         productsCacheRef.current.set(cacheKey, resolvedProducts);
         setCompanyProducts(resolvedProducts);
       } catch (err) {
         if (seq !== productsReqSeqRef.current) return;
         setProductsError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to retrieve company product portfolio.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         if (seq === productsReqSeqRef.current) {
@@ -1418,9 +1491,18 @@ export default function InvestorDashboardPage() {
         chartOnly: '1',
         locale: localeRef.current,
       });
-      const res = await fetch(`/api/market/overview?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok && data.ok && Array.isArray(data.points)) {
+      const result = await safeFetchJson<{
+        ok?: boolean;
+        price?: number;
+        previousClose?: number;
+        change?: number;
+        changePercent?: number;
+        points?: PriceChartPoint[];
+      }>(`/api/market/overview?${params.toString()}`, undefined, {
+        locale: localeRef.current,
+      });
+      const data = result.data;
+      if (result.ok && data && Array.isArray(data.points)) {
         setMarketData((prev) => {
           if (!prev || prev.kind !== 'public') return prev;
           return {
@@ -1543,47 +1625,61 @@ export default function InvestorDashboardPage() {
       // 2. Fetch from Server API Route (/api/news/search -> Context.dev SDK)
       try {
         setSentimentError(null);
-        const res = await fetch('/api/news/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entityType: requestEntityType,
-            entityValue: stateSnapshot.entityValue,
-            exchange:
-              requestEntityType !== 'name' && activeExchange
-                ? activeExchange
-                : undefined,
-            dateFrom,
-            dateTo,
-            filterCategory: stateSnapshot.filterCategory,
-            articleTypes:
-              stateSnapshot.filterCategory === 'articleType'
-                ? [stateSnapshot.selectedArticleType]
-                : undefined,
-            articleLanguages:
-              stateSnapshot.filterCategory === 'articleLanguage'
-                ? [stateSnapshot.selectedLanguage]
-                : undefined,
-            sourceCountries:
-              stateSnapshot.filterCategory === 'sourceCountry'
-                ? [stateSnapshot.selectedCountry]
-                : undefined,
-            sourceDomains:
-              stateSnapshot.filterCategory === 'sourceDomain' &&
-              stateSnapshot.sourceDomainInput.trim()
-                ? [stateSnapshot.sourceDomainInput.trim()]
-                : undefined,
-            sortBy: stateSnapshot.sortBy,
-            limit: stateSnapshot.limit,
-            cursor: targetCursor,
-            locale: localeRef.current,
-          }),
-        });
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          resolvedEntityType?: string;
+          resolvedExchange?: string | null;
+          response?: NewsSearchResponse;
+          sentimentError?: string | null;
+          error?: string;
+        }>(
+          '/api/news/search',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entityType: requestEntityType,
+              entityValue: stateSnapshot.entityValue,
+              exchange:
+                requestEntityType !== 'name' && activeExchange
+                  ? activeExchange
+                  : undefined,
+              dateFrom,
+              dateTo,
+              filterCategory: stateSnapshot.filterCategory,
+              articleTypes:
+                stateSnapshot.filterCategory === 'articleType'
+                  ? [stateSnapshot.selectedArticleType]
+                  : undefined,
+              articleLanguages:
+                stateSnapshot.filterCategory === 'articleLanguage'
+                  ? [stateSnapshot.selectedLanguage]
+                  : undefined,
+              sourceCountries:
+                stateSnapshot.filterCategory === 'sourceCountry'
+                  ? [stateSnapshot.selectedCountry]
+                  : undefined,
+              sourceDomains:
+                stateSnapshot.filterCategory === 'sourceDomain' &&
+                stateSnapshot.sourceDomainInput.trim()
+                  ? [stateSnapshot.sourceDomainInput.trim()]
+                  : undefined,
+              sortBy: stateSnapshot.sortBy,
+              limit: stateSnapshot.limit,
+              cursor: targetCursor,
+              locale: localeRef.current,
+            }),
+          },
+          { locale: localeRef.current }
+        );
 
-        const data = await res.json();
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error || 'Failed to search company news.');
+        if (!result.ok || !result.data?.response) {
+          throw new Error(
+            result.errorMessage || 'Failed to search company news.'
+          );
         }
+        const data = result.data;
+        const sdkResponse = result.data.response;
 
         const effectiveResolvedType: 'name' | 'ticker' =
           data.resolvedEntityType === 'ticker' ? 'ticker' : 'name';
@@ -1593,7 +1689,6 @@ export default function InvestorDashboardPage() {
           setResolvedExchange(data.resolvedExchange || null);
         }
 
-        const sdkResponse = data.response as NewsSearchResponse;
         const enrichedArticles = (sdkResponse.data || []) as EnrichedNewsArticle[];
         setArticles(enrichedArticles);
         setNextCursor(sdkResponse.next_cursor ?? null);
@@ -1637,6 +1732,7 @@ export default function InvestorDashboardPage() {
 
   // Trigger initial search, market overview, company profile, and related companies on mount
   useEffect(() => {
+    let relatedStaggerTimer: ReturnType<typeof setTimeout> | null = null;
     const timer = setTimeout(() => {
       void executeSearchForCursor(searchState, null, 0, false);
       void fetchMarketOverview(
@@ -1654,9 +1750,14 @@ export default function InvestorDashboardPage() {
         searchState.entityValue,
         searchState.entityType
       );
-      void fetchRelatedCompanies(searchState.entityValue, false);
+      relatedStaggerTimer = setTimeout(() => {
+        void fetchRelatedCompanies(searchState.entityValue, false);
+      }, APP_CONFIG.resilience.secondaryHydrationStaggerMs);
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      if (relatedStaggerTimer) clearTimeout(relatedStaggerTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1702,26 +1803,34 @@ export default function InvestorDashboardPage() {
       setIsHydratingComparison(true);
 
       try {
-        const res = await fetch('/api/screener/compare', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items,
-            range,
-            theme,
-            chartOnly,
-            locale: activeLocale,
-          }),
-        });
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          comparison?: CohortCompareResponse;
+          error?: string;
+        }>(
+          '/api/screener/compare',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items,
+              range,
+              theme,
+              chartOnly,
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
         if (seq !== cohortCompareSeqRef.current) return;
-        if (!res.ok || !json.ok || !json.comparison) {
+        if (!result.ok || !result.data?.comparison) {
           throw new Error(
-            json.error || 'Failed to hydrate side-by-side company comparison.'
+            result.errorMessage ||
+              'Failed to hydrate side-by-side company comparison.'
           );
         }
 
-        const comparison = json.comparison as CohortCompareResponse;
+        const comparison = result.data.comparison;
         setCohortDossiersById((prev) => {
           const next = { ...prev };
           for (const [id, dossier] of Object.entries(
@@ -1794,31 +1903,39 @@ export default function InvestorDashboardPage() {
       }
 
       try {
-        const res = await fetch('/api/screener/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: trimmed,
-            range: cohortRange,
-            forceRefresh,
-            locale: activeLocale,
-          }),
-        });
-        const json = await res.json();
+        const result = await safeFetchJson<{
+          ok?: boolean;
+          result?: CohortScreenResponse;
+          error?: string;
+        }>(
+          '/api/screener/query',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: trimmed,
+              range: cohortRange,
+              forceRefresh,
+              locale: activeLocale,
+            }),
+          },
+          { locale: activeLocale }
+        );
         if (seq !== cohortScreenSeqRef.current) return;
-        if (!res.ok || !json.ok || !json.result) {
-          throw new Error(
-            json.error || 'Failed to screen matching companies.'
+        if (!result.ok || !result.data?.result) {
+          setCohortError(
+            result.errorMessage || 'Failed to screen matching companies.'
           );
+          return;
         }
 
-        const result = json.result as CohortScreenResponse;
-        setCohortScreen(result);
-        setSelectedCohortIds(result.preselectedIds);
+        const screenRes = result.data.result;
+        setCohortScreen(screenRes);
+        setSelectedCohortIds(screenRes.preselectedIds);
 
         const seededDossiers: Record<string, ComparedCompanyDossier> = {};
         for (const [id, mkt] of Object.entries(
-          result.initialMarketById || {}
+          screenRes.initialMarketById || {}
         )) {
           seededDossiers[id] = {
             id,
@@ -1832,19 +1949,17 @@ export default function InvestorDashboardPage() {
         setComparativeSummary(null);
 
         void hydrateSelectedCohort(
-          result.candidates,
-          result.preselectedIds,
+          screenRes.candidates,
+          screenRes.preselectedIds,
           cohortRange,
-          result.interpretedTheme,
+          screenRes.interpretedTheme,
           false,
           activeLocale
         );
       } catch (err) {
         if (seq !== cohortScreenSeqRef.current) return;
         setCohortError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to complete natural-language cohort screen.'
+          formatGracefulApiError(err, { locale: activeLocale }).message
         );
       } finally {
         if (seq === cohortScreenSeqRef.current) {
@@ -1911,40 +2026,59 @@ export default function InvestorDashboardPage() {
     setCustomCompareError(null);
 
     try {
-      const verifyRes = await fetch('/api/market/watchlist-quotes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'validate',
-          query: trimmed,
-          range: '1M',
-          locale: localeRef.current,
-        }),
-      });
-      const verifyJson = await verifyRes.json();
-      if (!verifyRes.ok || !verifyJson.valid || !verifyJson.preset) {
+      const verifyResult = await safeFetchJson<{
+        ok?: boolean;
+        valid?: boolean;
+        preset?: CompanyPreset;
+        error?: string;
+      }>(
+        '/api/market/watchlist-quotes',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'validate',
+            query: trimmed,
+            range: '1M',
+            locale: localeRef.current,
+          }),
+        },
+        { locale: localeRef.current }
+      );
+      if (
+        !verifyResult.ok ||
+        !verifyResult.data?.valid ||
+        !verifyResult.data.preset
+      ) {
         throw new Error(
-          verifyJson.error ||
+          verifyResult.data?.error ||
+            verifyResult.errorMessage ||
             `Could not find a verified company or ticker matching "${trimmed}".`
         );
       }
 
-      const verifiedPreset = verifyJson.preset as CompanyPreset;
+      const verifiedPreset = verifyResult.data.preset;
       const params = new URLSearchParams({
         query: verifiedPreset.value,
         entityType: verifiedPreset.entityType === 'ticker' ? 'ticker' : 'name',
         range: cohortRange,
         locale: localeRef.current,
       });
-      const res = await fetch(`/api/market/overview?${params.toString()}`);
-      const json = await res.json();
-      if (!res.ok || !json.ok || !json.overview) {
+      const overviewResult = await safeFetchJson<{
+        ok?: boolean;
+        overview?: CompanyMarketOverviewData;
+        error?: string;
+      }>(`/api/market/overview?${params.toString()}`, undefined, {
+        locale: localeRef.current,
+      });
+      if (!overviewResult.ok || !overviewResult.data?.overview) {
         throw new Error(
-          json.error || `Could not resolve "${trimmed}" for comparison.`
+          overviewResult.errorMessage ||
+            `Could not resolve "${trimmed}" for comparison.`
         );
       }
 
-      const overview = json.overview as CompanyMarketOverviewData;
+      const overview = overviewResult.data.overview;
       const ticker = overview.kind === 'public' ? overview.symbol : null;
       const name = overview.companyName || trimmed;
       const id =
@@ -2034,9 +2168,7 @@ export default function InvestorDashboardPage() {
       );
     } catch (err) {
       setCustomCompareError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to add company to comparison.'
+        formatGracefulApiError(err, { locale: localeRef.current }).message
       );
     } finally {
       setIsAddingCustomCompare(false);
@@ -2608,23 +2740,33 @@ export default function InvestorDashboardPage() {
       }));
 
     try {
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: historyTurns,
-          context: activeResearchContext,
-          locale,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok || !json.reply) {
-        throw new Error(
-          json.error || 'Failed to generate Research Assistant response.'
+      const result = await safeFetchJson<{
+        ok?: boolean;
+        reply?: ResearchChatReplyPayload;
+        error?: string;
+      }>(
+        '/api/ai/chat',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: historyTurns,
+            context: activeResearchContext,
+            locale,
+          }),
+        },
+        { locale }
+      );
+      if (!result.ok || !result.data?.reply) {
+        setLastFailedChatQuestion(trimmed);
+        setChatError(
+          result.errorMessage ||
+            'Failed to generate Research Assistant response.'
         );
+        return;
       }
 
-      const reply = json.reply as ResearchChatReplyPayload;
+      const reply = result.data.reply;
       const assistantMsg: ResearchChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
@@ -2638,11 +2780,7 @@ export default function InvestorDashboardPage() {
       setLastFailedChatQuestion(null);
     } catch (err) {
       setLastFailedChatQuestion(trimmed);
-      setChatError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to reach Research Assistant. Please retry.'
-      );
+      setChatError(formatGracefulApiError(err, { locale }).message);
     } finally {
       setIsSendingChat(false);
     }
@@ -2969,17 +3107,23 @@ export default function InvestorDashboardPage() {
               {followValidationError && (
                 <div
                   role="alert"
-                  className="mb-4 px-3.5 py-2 rounded-lg bg-rose-950/35 border border-rose-500/40 flex items-center justify-between gap-3 text-xs text-rose-200"
+                  className="mb-4 px-3.5 py-2.5 rounded-lg bg-[#0d1b33] border border-amber-500/35 flex items-center justify-between gap-3 text-xs text-slate-200"
                 >
                   <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                    <span>{followValidationError}</span>
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      {
+                        formatGracefulApiError(followValidationError, {
+                          locale,
+                        }).message
+                      }
+                    </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setFollowValidationError(null)}
                     aria-label="Dismiss follow validation message"
-                    className="p-0.5 text-rose-300 hover:text-white transition-colors cursor-pointer shrink-0"
+                    className="p-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

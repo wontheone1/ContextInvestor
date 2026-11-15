@@ -21,6 +21,7 @@
  */
 
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { withTransientRetry } from './api-error-utils';
 import { APP_CONFIG } from './config';
 import {
   extractCleanDomain,
@@ -251,11 +252,15 @@ ${JSON.stringify(params.context, null, 2)}`;
   };
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents,
-      config,
-    });
+    const response = await withTransientRetry(
+      () =>
+        ai.models.generateContent({
+          model,
+          contents,
+          config,
+        }),
+      { label: 'generateContextualResearchReply' }
+    );
 
     const answerText = (response.text ?? '').trim();
     logGenAICall({

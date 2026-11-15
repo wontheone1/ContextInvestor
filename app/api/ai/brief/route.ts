@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import {
   generateCompanyMarketBrief,
   type MarketBriefArticleInput,
@@ -27,6 +28,7 @@ import { logFunctionCall } from '@/lib/logger';
  * @returns JSON response containing AIMarketBriefResponse
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as {
       companyQuery?: string;
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     const companyQuery = (body.companyQuery ?? 'Company').trim();
     const articles = Array.isArray(body.articles) ? body.articles : [];
-    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logFunctionCall('POST /api/ai/brief', {
       companyQuery,
@@ -65,17 +67,23 @@ export async function POST(req: NextRequest) {
       brief,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to generate AI market brief.';
-    logFunctionCall('POST /api/ai/brief:error', { error: message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to synthesize AI investment brief right now.',
+      fallbackKo: 'AI 투자 종합 진단을 일시적으로 생성하지 못했습니다.',
+    });
+    logFunctionCall('POST /api/ai/brief:error', {
+      errorCode: normalized.errorCode,
+      statusCode: normalized.statusCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

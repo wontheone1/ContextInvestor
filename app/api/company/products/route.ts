@@ -18,6 +18,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { getCompanyProductsPortfolio } from '@/lib/company-products-service';
 import { logError, logInfo } from '@/lib/logger';
 
@@ -29,6 +30,7 @@ import { logError, logInfo } from '@/lib/logger';
  * @returns JSON `{ ok: true, products }` or structured error response
  */
 export async function GET(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get('query') || '').trim();
@@ -36,8 +38,7 @@ export async function GET(req: NextRequest) {
     const domainHint = (searchParams.get('domain') || '').trim() || undefined;
     const companyNameHint =
       (searchParams.get('companyNameHint') || '').trim() || undefined;
-    const locale: 'en' | 'ko' =
-      searchParams.get('locale') === 'ko' ? 'ko' : 'en';
+    locale = searchParams.get('locale') === 'ko' ? 'ko' : 'en';
     const forceRefresh =
       searchParams.get('refresh') === '1' ||
       searchParams.get('refresh') === 'true';
@@ -75,17 +76,22 @@ export async function GET(req: NextRequest) {
       products,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to retrieve company products and revenue segments.';
-    logError('API.GET./api/company/products.error', { error: message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to retrieve company products and revenue segments right now.',
+      fallbackKo: '주요 제품·서비스 및 매출 부문 정보를 일시적으로 불러오지 못했습니다.',
+    });
+    logError('API.GET./api/company/products.error', {
+      errorCode: normalized.errorCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

@@ -20,6 +20,12 @@
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { isAdrTicker, stripAdrSuffix } from './adr-directory';
+import {
+  isTransientGatewayError,
+  mapWithConcurrency,
+  parseJsonSafely,
+  withTransientRetry,
+} from './api-error-utils';
 import { APP_CONFIG } from './config';
 import { isKrxSymbol } from './krx-directory';
 import { resolveFollowabilityForSuggestedCompany } from './watchlist-company-service';
@@ -98,6 +104,8 @@ const relatedCache = new Map<
   string,
   { data: RelatedCompaniesResponse; expiresAt: number }
 >();
+
+const staleRelatedCache = new Map<string, RelatedCompaniesResponse>();
 
 /**
  * Maps raw LLM relationship labels to canonical `RelationshipCategory` values.
@@ -275,22 +283,54 @@ Requirements:
     },
   };
 
+  let activeModelUsed: string = model;
+
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    let response;
+    try {
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model,
+            contents: prompt,
+            config,
+          }),
+        { label: 'getRelatedCompanies.primary' }
+      );
+    } catch (primaryErr) {
+      if (!isTransientGatewayError(primaryErr)) {
+        throw primaryErr;
+      }
+      activeModelUsed = APP_CONFIG.gemini.sentimentModel;
+      logFunctionCall('getRelatedCompanies.fallbackModel', {
+        companyQuery: trimmedQuery,
+        fallbackModel: activeModelUsed,
+      });
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model: activeModelUsed,
+            contents: prompt,
+            config: {
+              ...config,
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.MINIMAL,
+              },
+            },
+          }),
+        { maxRetries: 1, label: 'getRelatedCompanies.fallback' }
+      );
+    }
 
     const rawText = (response.text ?? '{}').trim();
     logGenAICall({
-      model,
+      model: activeModelUsed,
       prompt,
       config,
       output: rawText,
     });
 
-    const parsed = JSON.parse(rawText) as {
+    const parsed = parseJsonSafely<{
       resolvedCompanyName?: string;
       relatedCompanies?: Array<{
         name?: string;
@@ -298,7 +338,11 @@ Requirements:
         relationships?: string[];
         rationale?: string;
       }>;
-    };
+    }>(rawText, true);
+
+    if (!parsed) {
+      throw new Error('Upstream returned non-JSON response for related companies.');
+    }
 
     const resolvedName =
       typeof parsed.resolvedCompanyName === 'string' &&
@@ -372,27 +416,41 @@ Requirements:
 
     const rawCompanies = Array.from(mergedByKey.values());
 
-    // Verify followability & resolve KRX / ADR symbols in parallel across all suggestions
-    const verifiedCompanies = await Promise.all(
-      rawCompanies.map(async (item): Promise<RelatedCompanyItem> => {
-        const followCheck = await resolveFollowabilityForSuggestedCompany(
-          item.name,
-          item.ticker,
-          locale
-        );
-        return {
-          ...item,
-          ticker: followCheck.ticker,
-          isAdr: Boolean(
-            followCheck.ticker &&
-              !isKrxSymbol(followCheck.ticker) &&
-              isAdrTicker(followCheck.ticker, item.name)
-          ),
-          entityType: followCheck.entityType,
-          searchQuery: followCheck.searchQuery,
-          canFollow: followCheck.canFollow,
-        };
-      })
+    // Verify followability & resolve KRX / ADR symbols with bounded concurrency
+    // so simultaneous Yahoo Finance lookups never trigger upstream 429 rate limits
+    const verifiedCompanies = await mapWithConcurrency(
+      rawCompanies,
+      APP_CONFIG.resilience.relatedVerifyConcurrency,
+      async (item): Promise<RelatedCompanyItem> => {
+        try {
+          const followCheck = await resolveFollowabilityForSuggestedCompany(
+            item.name,
+            item.ticker,
+            locale
+          );
+          return {
+            ...item,
+            ticker: followCheck.ticker,
+            isAdr: Boolean(
+              followCheck.ticker &&
+                !isKrxSymbol(followCheck.ticker) &&
+                isAdrTicker(followCheck.ticker, item.name)
+            ),
+            entityType: followCheck.entityType,
+            searchQuery: followCheck.searchQuery,
+            canFollow: followCheck.canFollow,
+          };
+        } catch {
+          return {
+            ...item,
+            isAdr: Boolean(
+              item.ticker &&
+                !isKrxSymbol(item.ticker) &&
+                isAdrTicker(item.ticker, item.name)
+            ),
+          };
+        }
+      }
     );
 
     // Deduplicate again in case two entries resolved to the same canonical KRX or ADR ticker
@@ -445,15 +503,24 @@ Requirements:
       data: result,
       expiresAt: Date.now() + 60 * 60 * 1000,
     });
+    staleRelatedCache.set(cacheKey, result);
 
     return result;
   } catch (error) {
     logGenAICall({
-      model,
+      model: activeModelUsed,
       prompt,
       config,
       error,
     });
+    const staleFallback = staleRelatedCache.get(cacheKey);
+    if (staleFallback) {
+      logFunctionCall('getRelatedCompanies.serveStaleOnError', {
+        companyQuery: trimmedQuery,
+        locale,
+      });
+      return staleFallback;
+    }
     throw error;
   }
 }

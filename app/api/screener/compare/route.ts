@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { hydrateCohortComparison } from '@/lib/cohort-screener-service';
 import type { ChartRange } from '@/lib/market-data-service';
 import type { CohortCompareRequestItem } from '@/lib/query-intent';
@@ -40,6 +41,7 @@ const VALID_RANGES = new Set<ChartRange>([
  * @returns JSON `{ ok: true, comparison }` or structured error response
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as {
       items?: CohortCompareRequestItem[];
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
         : '1M';
     const theme = typeof body.theme === 'string' ? body.theme.trim() : undefined;
     const chartOnly = Boolean(body.chartOnly);
-    const locale: 'en' | 'ko' = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
 
     logInfo('API.POST./api/screener/compare', {
       itemCount: validItems.length,
@@ -99,17 +101,22 @@ export async function POST(req: NextRequest) {
       comparison,
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Failed to hydrate side-by-side company comparison.';
-    logError('API.POST./api/screener/compare.error', { error: message });
+    const normalized = formatGracefulApiError(error, {
+      locale,
+      fallbackEn: 'Unable to hydrate side-by-side company comparison right now.',
+      fallbackKo: '다차원 기업 비교 데이터를 일시적으로 불러오지 못했습니다.',
+    });
+    logError('API.POST./api/screener/compare.error', {
+      errorCode: normalized.errorCode,
+      error: normalized.message,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 500 }
+      { status: normalized.statusCode }
     );
   }
 }

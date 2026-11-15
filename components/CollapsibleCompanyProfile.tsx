@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { formatTickerWithAdr } from '@/lib/adr-directory';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { useLanguage } from '@/components/LanguageProvider';
 import type { AppLocale } from '@/lib/i18n';
 import { logFunctionCall } from '@/lib/logger';
@@ -195,14 +196,15 @@ export function CollapsibleCompanyProfile({
   }
 
   if (error) {
+    const safeProfileError = formatGracefulApiError(error, { locale }).message;
     return (
       <div className="mb-6 bg-[#0d1b33] border border-[#212c42] rounded-lg px-4 py-2.5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 min-w-0 text-xs text-slate-300 truncate">
           <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
           <span className="truncate">
             {isKo
-              ? `${searchedQuery} 기업 프로필을 불러올 수 없습니다: ${error}`
-              : `Company profile unavailable for ${searchedQuery}: ${error}`}
+              ? `${searchedQuery} 기업 프로필: ${safeProfileError}`
+              : `Company profile (${searchedQuery}): ${safeProfileError}`}
           </span>
         </div>
         <button

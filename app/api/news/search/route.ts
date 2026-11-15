@@ -28,6 +28,7 @@ import {
 import { buildFallbackNewsResponse } from '@/lib/fallback-news-data';
 import { translateNonEnglishArticlesToEnglish } from '@/lib/translation-service';
 import { analyzeHeadlineSentiments } from '@/lib/sentiment-service';
+import { formatGracefulApiError } from '@/lib/api-error-utils';
 import { logFunctionCall } from '@/lib/logger';
 
 /**
@@ -39,11 +40,12 @@ import { logFunctionCall } from '@/lib/logger';
  * @returns NextResponse with Context.dev NewsSearchResponse and diagnostic metadata
  */
 export async function POST(req: NextRequest) {
+  let locale: 'en' | 'ko' = 'en';
   try {
     const body = (await req.json()) as Partial<CompanyNewsQueryInput> & {
       locale?: 'en' | 'ko';
     };
-    const locale = body.locale === 'ko' ? 'ko' : 'en';
+    locale = body.locale === 'ko' ? 'ko' : 'en';
     logFunctionCall('POST /api/news/search', { ...body, locale });
 
     const queryInput: CompanyNewsQueryInput = {
@@ -125,9 +127,11 @@ export async function POST(req: NextRequest) {
           warning: null,
         });
       } catch (sdkError) {
-        const errMsg =
-          sdkError instanceof Error ? sdkError.message : String(sdkError);
-        logFunctionCall('POST /api/news/search:sdk_error', { error: errMsg });
+        const normalizedSdkErr = formatGracefulApiError(sdkError, { locale });
+        logFunctionCall('POST /api/news/search:sdk_error', {
+          error: normalizedSdkErr.message,
+          errorCode: normalizedSdkErr.errorCode,
+        });
 
         const fallbackResponse = buildFallbackNewsResponse({
           ...queryInput,
@@ -151,7 +155,7 @@ export async function POST(req: NextRequest) {
             data: sentimentFallback,
           },
           keyConfigured: true,
-          warning: `Context.dev API returned an error (${errMsg}). Showing fallback dataset so you can continue testing pagination and Firestore caching.`,
+          warning: normalizedSdkErr.message,
         });
       }
     }
@@ -183,15 +187,19 @@ export async function POST(req: NextRequest) {
       warning: keyWarning,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unexpected server error';
-    logFunctionCall('POST /api/news/search:error', { error: message });
+    const normalized = formatGracefulApiError(error, { locale });
+    logFunctionCall('POST /api/news/search:error', {
+      error: normalized.message,
+      errorCode: normalized.errorCode,
+      statusCode: normalized.statusCode,
+    });
     return NextResponse.json(
       {
         ok: false,
-        error: message,
+        error: normalized.message,
+        errorCode: normalized.errorCode,
       },
-      { status: 400 }
+      { status: normalized.statusCode }
     );
   }
 }

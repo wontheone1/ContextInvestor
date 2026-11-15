@@ -18,6 +18,11 @@
 
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import type { NewsSearchResponse } from 'context.dev/resources/news';
+import {
+  isTransientGatewayError,
+  parseJsonSafely,
+  withTransientRetry,
+} from './api-error-utils';
 import { APP_CONFIG } from './config';
 import {
   inferEntitySearchOrder,
@@ -464,22 +469,50 @@ Instructions:
     },
   };
 
+  let activeModelUsed: string = model;
+
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config,
-    });
+    let response;
+    try {
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model,
+            contents: prompt,
+            config,
+          }),
+        { label: 'generateWatchlistDigest.primary' }
+      );
+    } catch (primaryErr) {
+      if (!isTransientGatewayError(primaryErr)) {
+        throw primaryErr;
+      }
+      activeModelUsed = APP_CONFIG.gemini.sentimentModel;
+      response = await withTransientRetry(
+        () =>
+          ai.models.generateContent({
+            model: activeModelUsed,
+            contents: prompt,
+            config: {
+              ...config,
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.MINIMAL,
+              },
+            },
+          }),
+        { maxRetries: 1, label: 'generateWatchlistDigest.fallback' }
+      );
+    }
 
     const rawText = (response.text ?? '{}').trim();
     logGenAICall({
-      model,
+      model: activeModelUsed,
       prompt,
       config,
       output: rawText,
     });
 
-    const parsed = JSON.parse(rawText) as {
+    const parsed = parseJsonSafely<{
       executiveSummary?: string;
       keyThemes?: string[];
       companySummaries?: Array<{
@@ -496,7 +529,11 @@ Instructions:
         englishDescription?: string;
         sourceLanguageLabel?: string;
       }>;
-    };
+    }>(rawText, true);
+
+    if (!parsed) {
+      throw new Error('Upstream returned non-JSON response for watchlist digest.');
+    }
 
     const evalByIndex = new Map<
       number,
