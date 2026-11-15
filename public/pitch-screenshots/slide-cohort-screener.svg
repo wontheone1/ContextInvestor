@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+    <rect width="1600" height="900" fill="#091326" />
+    
+    <!-- Top App Chrome -->
+    <rect x="0" y="0" width="1600" height="64" fill="#091326" />
+    <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
+    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    
+          <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
+          <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+        
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          
+        
+          <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
+          
+        
+          <text x="925" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Saved Library</text>
+          
+        
+          <text x="1090" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Pitch Deck</text>
+          
+        
+    <rect x="1390" y="16" width="166" height="32" rx="8" fill="#09a4ff" />
+    <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
+  
+
+    <!-- Search Input Showing Plain English Query -->
+    <rect x="44" y="88" width="1512" height="58" rx="12" fill="#0d1b33" stroke="#09a4ff" stroke-width="1.5" />
+    <text x="72" y="123" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="700">Query: &quot;AI chip companies with over 200 bn USD market cap&quot;</text>
+    <rect x="1310" y="100" width="224" height="34" rx="8" fill="#09a4ff" />
+    <text x="1422" y="122" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700">Auto-Detected: Cohort Screen</text>
+
+    <!-- Candidate Selection Grid with 1-Click Follow -->
+    <rect x="44" y="164" width="1512" height="295" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="76" y="202" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="700">Verified Matches · Theme: AI Semiconductor Leaders · Filter: Market Cap &gt; $200B USD</text>
+
+    <!-- Batch Follow Selected Button -->
+    <rect x="1030" y="180" width="215" height="32" rx="8" fill="#091326" stroke="#09a4ff" />
+    <text x="1137" y="201" text-anchor="middle" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700">+ Follow Selected (3)</text>
+
+    <rect x="1260" y="180" width="264" height="32" rx="8" fill="#091326" stroke="#212c42" />
+    <text x="1392" y="201" text-anchor="middle" fill="#cbd5e1" font-family="IBM Plex Mono, monospace" font-size="12">+ Add Custom Peer to Compare</text>
+
+    <line x1="44" y1="224" x2="1556" y2="224" stroke="#212c42" />
+
+    
+        <rect x="64" y="240" width="354" height="202" rx="10" fill="#102344" fill-opacity="0.65" stroke="#09a4ff" stroke-width="1.5" />
+        <rect x="80" y="258" width="18" height="18" rx="4" fill="#09a4ff" />
+        <text x="89" y="272" text-anchor="middle" fill="#091326" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="900">✓</text>
+        <text x="108" y="272" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">NVIDIA Corporation</text>
+        <text x="402" y="272" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">3.93T</text>
+        <text x="108" y="292" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12">NVDA · Verified &gt; $200B</text>
+        <text x="80" y="328" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Dominant data-center AI GPU and CUDA accele…</text>
+        <text x="80" y="348" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">ated computing platform.</text>
+
+        <!-- Per-Card 1-Click Follow + Deep Dive -->
+        <rect x="80" y="396" width="96" height="28" rx="6" fill="#064e3b" stroke="#10b981" />
+        <text x="128" y="414" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">✓ Following</text>
+        <text x="400" y="414" text-anchor="end" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600">Deep Dive →</text>
+      
+        <rect x="436" y="240" width="354" height="202" rx="10" fill="#102344" fill-opacity="0.65" stroke="#10B981" stroke-width="1.5" />
+        <rect x="452" y="258" width="18" height="18" rx="4" fill="#10B981" />
+        <text x="461" y="272" text-anchor="middle" fill="#091326" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="900">✓</text>
+        <text x="480" y="272" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Taiwan Semiconducto…</text>
+        <text x="774" y="272" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">2.07T</text>
+        <text x="480" y="292" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12">TSM · Verified &gt; $200B</text>
+        <text x="452" y="328" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Leading advanced-node foundry fabricating A…</text>
+        <text x="452" y="348" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">GPUs and custom accelerators globally.</text>
+
+        <!-- Per-Card 1-Click Follow + Deep Dive -->
+        <rect x="452" y="396" width="96" height="28" rx="6" fill="#091326" stroke="#09a4ff" />
+        <text x="500" y="414" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+        <text x="772" y="414" text-anchor="end" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600">Deep Dive →</text>
+      
+        <rect x="808" y="240" width="354" height="202" rx="10" fill="#102344" fill-opacity="0.65" stroke="#F59E0B" stroke-width="1.5" />
+        <rect x="824" y="258" width="18" height="18" rx="4" fill="#F59E0B" />
+        <text x="833" y="272" text-anchor="middle" fill="#091326" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="900">✓</text>
+        <text x="852" y="272" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Broadcom Inc.</text>
+        <text x="1146" y="272" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">1.66T</text>
+        <text x="852" y="292" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12">AVGO · Verified &gt; $200B</text>
+        <text x="824" y="328" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Leader in custom AI ASICs and high-speed da…</text>
+        <text x="824" y="348" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">a-center networking silicon.</text>
+
+        <!-- Per-Card 1-Click Follow + Deep Dive -->
+        <rect x="824" y="396" width="96" height="28" rx="6" fill="#091326" stroke="#09a4ff" />
+        <text x="872" y="414" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+        <text x="1144" y="414" text-anchor="end" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600">Deep Dive →</text>
+      
+        <rect x="1180" y="240" width="354" height="202" rx="10" fill="#102344" fill-opacity="0.65" stroke="#A78BFA" stroke-width="1.5" />
+        <rect x="1196" y="258" width="18" height="18" rx="4" fill="#A78BFA" />
+        <text x="1205" y="272" text-anchor="middle" fill="#091326" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="900">✓</text>
+        <text x="1224" y="272" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Micron Technology, …</text>
+        <text x="1518" y="272" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">880.60B</text>
+        <text x="1224" y="292" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12">MU · Verified &gt; $200B</text>
+        <text x="1196" y="328" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Major supplier of high-bandwidth memory ess…</text>
+        <text x="1196" y="348" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">ntial for AI accelerators.</text>
+
+        <!-- Per-Card 1-Click Follow + Deep Dive -->
+        <rect x="1196" y="396" width="96" height="28" rx="6" fill="#091326" stroke="#09a4ff" />
+        <text x="1244" y="414" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+        <text x="1516" y="414" text-anchor="end" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600">Deep Dive →</text>
+      
+
+    <!-- Normalized Multi-Stock % Return Overlay + Side-by-Side Matrix -->
+    <rect x="44" y="478" width="1512" height="386" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="76" y="518" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700">Normalized Relative Price Performance (% Return Indexed to 0.00%) &amp; Side-by-Side Matrix</text>
+
+    <!-- Legend -->
+    <circle cx="76" cy="544" r="5" fill="#09a4ff" />
+    <text x="88" y="548" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">NVDA (+11.8%)</text>
+    <circle cx="230" cy="544" r="5" fill="#10B981" />
+    <text x="242" y="548" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">AVGO (+7.4%)</text>
+    <circle cx="380" cy="544" r="5" fill="#F59E0B" />
+    <text x="392" y="548" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">TSM (+9.2%)</text>
+    <circle cx="520" cy="544" r="5" fill="#A78BFA" />
+    <text x="532" y="548" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">AMD (+3.1%)</text>
+
+    <!-- Multi-Line Chart -->
+    <line x1="76" y1="720" x2="1520" y2="720" stroke="#475569" stroke-dasharray="4 4" />
+    <path d="M76,720 L320,695 L560,670 L800,648 L1040,615 L1280,590 L1520,572" fill="none" stroke="#09a4ff" stroke-width="3" />
+    <path d="M76,720 L320,705 L560,680 L800,660 L1040,640 L1280,612 L1520,595" fill="none" stroke="#F59E0B" stroke-width="3" />
+    <path d="M76,720 L320,712 L560,692 L800,685 L1040,655 L1280,638 L1520,618" fill="none" stroke="#10B981" stroke-width="3" />
+    <path d="M76,720 L320,728 L560,715 L800,702 L1040,690 L1280,678 L1520,668" fill="none" stroke="#A78BFA" stroke-width="3" />
+
+    <!-- Bottom Comparison Strip -->
+    <line x1="76" y1="760" x2="1520" y2="760" stroke="#212c42" />
+    <text x="76" y="795" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Dimension Compared</text>
+    <text x="410" y="795" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">NVDA · $3.39T · 82% Bullish</text>
+    <text x="710" y="795" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">AVGO · $815B · 75% Bullish</text>
+    <text x="1010" y="795" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">TSM · $982B · 88% Bullish</text>
+    <text x="1310" y="795" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">AMD · $227B · 64% Bullish</text>
+    <text x="76" y="828" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="13">Compares Market Cap, P/E, Revenue Scale, Headcount, and Top Catalyst Headline side-by-side.</text>
+  </svg>

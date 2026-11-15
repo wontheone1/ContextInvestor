@@ -20,7 +20,12 @@
 import React from 'react';
 import { logFunctionCall } from '@/lib/logger';
 
-export type WorkspaceStageId = 'watchlist' | 'pulse' | 'research' | 'saved';
+export type WorkspaceStageId =
+  | 'watchlist'
+  | 'pulse'
+  | 'research'
+  | 'saved'
+  | 'pitch';
 
 export interface TopNavbarProps {
   activeStage: WorkspaceStageId;
@@ -62,7 +67,7 @@ export function TopNavbar({
         Contextual Investing
       </a>
 
-      {/* Zone 2: 4 clean single-line text navigation links */}
+      {/* Zone 2: 5 clean single-line text navigation links */}
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300">
         <button
           type="button"
@@ -107,6 +112,17 @@ export function TopNavbar({
           }`}
         >
           Saved Library
+        </button>
+        <button
+          type="button"
+          onClick={() => handleNavClick('pitch')}
+          className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+            activeStage === 'pitch'
+              ? 'text-white underline underline-offset-8 decoration-[#09a4ff] decoration-2'
+              : 'hover:text-white'
+          }`}
+        >
+          Pitch Deck
         </button>
       </nav>
 

@@ -67,9 +67,15 @@
 - **Automatic Live Workspace Context Injection**: Serializes the active view on every turn—either **Single-Company Deep Dive** (quote, multiples, 52W range, Context.dev firmographics, related ecosystem, AI bull/bear brief, and loaded news headlines) or **Cohort Comparison** (query, verified candidates, selected company dossiers, `%` chart returns, and top catalysts)—alongside the **Watchlist Pulse** summary and top conviction movers.
 - **Google Search Grounding & Clickable Citations**: Uses server-side `gemini-4-hydrogen` (`ThinkingLevel.LOW`, `tools: [{ googleSearch: {} }]`) to combine exact dashboard numbers with live web research, surfacing clickable publisher links for both referenced terminal news and Google Search `groundingChunks` in a continuous session with dynamic context-aware starter prompts and a 1-click **Clear Chat** reset.
 
+### 2.10 10-Slide Hackathon Pitch Deck & Live Screenshot Exporter (`components/HackathonPitchDeck.tsx`, `scripts/generate-live-app-screenshots.mjs`, `public/pitch-screenshots/*.svg`)
+- **Plain-English 3-Minute Narrative for Non-Finance Judges**: 10 widescreen (`16:9`) slides designed around an everyday analogy (*"Why did my stock drop 5% when the company announced nothing?"* / coffee-shop supply chain analogy) and a concrete **NVIDIA supply-chain ripple-effect story** (`SK Hynix` / `TSMC` -> `NVIDIA` -> `Microsoft` / `AWS`), with a Plain-English Guide box on every slide translating financial concepts (*Market Cap*, *Catalyst vs. Headwind*, *Normalized % Chart*, *Conviction Score*) and a collapsible 3-minute spoken presenter script with elapsed time markers (`0:00 – 3:00`).
+- **Live-Data App Screenshots (`public/pitch-screenshots/*.svg`)**: 6 high-resolution `1600x900` (`16:9`) product screenshots generated directly from the running `http://localhost:3000` APIs (`slide-hero-workspace.svg`, `slide-ecosystem-ripple.svg`, `slide-morning-brief.svg`, `slide-cohort-screener.svg`, `slide-bull-bear-translation.svg`, `slide-research-assistant.svg`).
+- **Interactive Presenter Mode + 1-Click `.pptx` & PDF Exports**: Supports keyboard navigation (`←` / `→` / `Escape`), Full-Screen Presentation Mode, 1-click deep-linking from any slide into the live app state, 1-click **Download PowerPoint (`.pptx`)** (rasterizing each `1600x900` SVG screenshot to PNG via `<canvas>` and building a native 10-slide widescreen deck with speaker notes via `pptxgenjs`), and a 1-click **Print / Save PDF** stacked view.
+
 ---
 
 ## 3. Visual & Aesthetic Direction
 
 - **Primary Layout Model**: **Kamino.com** & **TradingView** — Deep space-navy & obsidian canvas (`#091326` / `#0A0D12`), elevated slate containers (`#0d1b33` / `#11161F`), crisp hairline borders (`#212c42` / `#1E2736`), featured equity strip with embedded SVG sparklines, and a high-density tabular news feed.
 - **Accents & Typography**: **OpticOdds** & **AlphaX AI** — Electric cyan (`#09a4ff`), emerald (`#10B981`), and crimson (`#F43F5E`) accents paired with `Plus Jakarta Sans` headings, `IBM Plex Sans` body copy, and `IBM Plex Mono` (`tabular-nums`) for quantitative metrics and timestamps.
+

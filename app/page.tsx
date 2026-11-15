@@ -43,6 +43,7 @@ import {
   Network,
   Newspaper,
   Plus,
+  Presentation,
   Sparkles,
   TrendingUp,
   X,
@@ -68,6 +69,10 @@ import { RelatedCompaniesPanel } from '@/components/RelatedCompaniesPanel';
 import { CollapsibleCompanyProfile } from '@/components/CollapsibleCompanyProfile';
 import { CohortComparisonWorkspace } from '@/components/CohortComparisonWorkspace';
 import { ContextualResearchDrawer } from '@/components/ContextualResearchDrawer';
+import {
+  HackathonPitchDeck,
+  type PitchDemoAction,
+} from '@/components/HackathonPitchDeck';
 import type { CompanyProfileData } from '@/lib/company-profile-service';
 import type {
   ChartRange,
@@ -2119,6 +2124,54 @@ export default function InvestorDashboardPage() {
   };
 
   /**
+   * Handles 1-click Live Demo links from the Hackathon Pitch Deck so judges or
+   * presenters can jump directly from any slide to the live interactive feature.
+   */
+  const handleTriggerPitchDemoAction = (action: PitchDemoAction) => {
+    if (action === 'open_morning_brief') {
+      setActiveStage('pulse');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (action === 'open_watchlist') {
+      setActiveStage('watchlist');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (action === 'open_nvda_overview') {
+      handleSelectCompanyFromBrief('NVDA', 'ticker');
+      setResearchSubTab('overview');
+      return;
+    }
+    if (action === 'open_nvda_ecosystem') {
+      handleSelectCompanyFromBrief('NVDA', 'ticker');
+      setResearchSubTab('ecosystem');
+      return;
+    }
+    if (action === 'open_nvda_bull_bear') {
+      handleSelectCompanyFromBrief('NVDA', 'ticker');
+      setResearchSubTab('news');
+      return;
+    }
+    if (action === 'run_ai_chip_cohort') {
+      const sampleQuery = 'AI chip companies with over 200 bn USD market cap';
+      setSearchState((prev) => ({
+        ...prev,
+        entityType: 'auto',
+        entityValue: sampleQuery,
+      }));
+      void runCohortScreen(sampleQuery, false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (action === 'open_research_assistant') {
+      setActiveStage('research');
+      setIsChatOpen(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  /**
    * Saves an article from the NewsFeedTable to the user's Firestore `/saved_articles` collection.
    */
   const handleBookmarkArticle = async (article: NewsSearchResponse.Data) => {
@@ -2500,6 +2553,21 @@ export default function InvestorDashboardPage() {
             >
               <Bookmark className="w-3.5 h-3.5" />
               <span>Saved Library ({savedArticles.length})</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeStage === 'pitch'}
+              onClick={() => setActiveStage('pitch')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                activeStage === 'pitch'
+                  ? 'bg-[#09a4ff] text-white'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Presentation className="w-3.5 h-3.5" />
+              <span>Pitch Deck (10 Slides)</span>
             </button>
           </div>
 
@@ -3169,6 +3237,23 @@ export default function InvestorDashboardPage() {
                     isLikelyTicker ? 'ticker' : 'name'
                   );
                 }}
+              />
+            </motion.div>
+          )}
+
+          {/* ============================================================
+              VIEW 5: HACKATHON PITCH DECK (10-Slide Interactive + PPTX/PDF)
+              ============================================================ */}
+          {activeStage === 'pitch' && (
+            <motion.div
+              key="stage-pitch"
+              initial={{ opacity: 0, transform: 'translateY(6px)' }}
+              animate={{ opacity: 1, transform: 'translateY(0px)' }}
+              exit={{ opacity: 0, transform: 'translateY(-6px)' }}
+              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <HackathonPitchDeck
+                onTriggerDemoAction={handleTriggerPitchDemoAction}
               />
             </motion.div>
           )}

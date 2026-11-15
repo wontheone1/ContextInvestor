@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+    <rect width="1600" height="900" fill="#091326" />
+    
+    <!-- Top App Chrome -->
+    <rect x="0" y="0" width="1600" height="64" fill="#091326" />
+    <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
+    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    
+          <text x="430" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Research &amp; Compare</text>
+          
+        
+          <text x="595" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Morning Brief</text>
+          <line x1="595" y1="48" x2="693.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+        
+          <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
+          
+        
+          <text x="925" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Saved Library</text>
+          
+        
+          <text x="1090" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Pitch Deck</text>
+          
+        
+    <rect x="1390" y="16" width="166" height="32" rx="8" fill="#09a4ff" />
+    <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
+  
+
+    <text x="44" y="114" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">Morning Brief Across Your Watchlist (6 Companies)</text>
+    <text x="44" y="140" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="14">Synthesizes live news across every company you follow into one plain-English briefing with ranked upside &amp; downside movers.</text>
+
+    <!-- Main Brief Container -->
+    <rect x="44" y="164" width="1512" height="692" rx="16" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+
+    <!-- Executive Cross-Watchlist Summary -->
+    <text x="80" y="210" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600">CROSS-WATCHLIST EXECUTIVE SUMMARY · LIVE WEB SYNTHESIS</text>
+    <text x="80" y="242" fill="#f8fafc" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="500">Watchlist news is dominated by OpenAI&apos;s launch of ChatGPT Wallet and retail integrations, signaling accelerating mome…</text>
+    <text x="80" y="268" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="15">tum in agentic commerce. Conversely, NVIDIA faces significant governance and regulatory headwinds following Jensen Huang&apos;s e…</text>
+
+    <line x1="80" y1="300" x2="1520" y2="300" stroke="#212c42" />
+
+    <!-- Two Columns: Top Bullish Catalysts vs Top Bearish Risks -->
+    <!-- Left Column: Bullish -->
+    <rect x="80" y="328" width="696" height="496" rx="12" fill="#091326" stroke="#10b981" stroke-opacity="0.45" stroke-width="1.5" />
+    <text x="112" y="368" fill="#34d399" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700">Top Bullish Catalysts (What Is Going Right)</text>
+
+    <rect x="112" y="394" width="632" height="196" rx="10" fill="#0d1b33" stroke="#212c42" />
+    <text x="136" y="426" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">OpenAI (OpenAI)  ·  88% Conviction Score</text>
+    <text x="136" y="458" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">OpenAI’s new ChatGPT Wallet lets AI agents shop for you: Here’s h…</text>
+    <text x="136" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">w to set it up</text>
+    <text x="136" y="518" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bullish: Launching ChatGPT Wallet enables autonomous consumer shopping, marking a …</text>
+    <text x="136" y="540" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13">ajor product expansion into agentic commerce.</text>
+    <text x="136" y="572" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Source: The Indian Express · Click to verify primary article ↗</text>
+
+    <rect x="112" y="608" width="632" height="190" rx="10" fill="#0d1b33" stroke="#212c42" />
+    <text x="136" y="640" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">Microsoft (MSFT)  ·  89% Conviction Score</text>
+    <text x="136" y="672" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">Enterprise Cloud AI Copilot Adoption Expands Across Fortune 500</text>
+    <text x="136" y="708" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bullish: Accelerates recurring high-margin seat expansion and Azure GPU utilization.</text>
+    <text x="136" y="772" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Source: Financial Times · Click to verify primary article ↗</text>
+
+    <!-- Right Column: Bearish -->
+    <rect x="824" y="328" width="696" height="496" rx="12" fill="#091326" stroke="#f43f5e" stroke-opacity="0.45" stroke-width="1.5" />
+    <text x="856" y="368" fill="#fb7185" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700">Top Bearish Risks &amp; Watch-Outs (What Could Go Wrong)</text>
+
+    <rect x="856" y="394" width="632" height="196" rx="10" fill="#0d1b33" stroke="#212c42" />
+    <text x="880" y="426" fill="#fb7185" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">NVIDIA Corp (NVDA)  ·  86% Materiality Score</text>
+    <text x="880" y="458" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">‘I Hope You Die’: Ex-Nvidia CEO Jensen Huang Told Senior Executiv…</text>
+    <text x="880" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">Jay Puri, Repeatedly Berated Other Employees | Outlook India</text>
+    <text x="880" y="518" fill="#fda4af" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bearish: Reports of severe executive misconduct and Jensen Huang&apos;s exit heighten g…</text>
+    <text x="880" y="540" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13">vernance and leadership transition risks.</text>
+    <text x="880" y="572" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Source: Outlook India · Click to verify primary article ↗</text>
+
+    <rect x="856" y="608" width="632" height="190" rx="10" fill="#0d1b33" stroke="#212c42" />
+    <text x="880" y="640" fill="#fb7185" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="700">Palantir (PLTR)  ·  76% Materiality Score</text>
+    <text x="880" y="672" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">Valuation Multiple Compression Debate Ahead of Quarterly Defense Contract Renewals</text>
+    <text x="880" y="708" fill="#fda4af" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bearish: High forward revenue multiple increases sensitivity to procurement timing.</text>
+    <text x="880" y="772" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Source: Bloomberg · Click to verify primary article ↗</text>
+  </svg>

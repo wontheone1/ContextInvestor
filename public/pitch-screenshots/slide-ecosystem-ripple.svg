@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+    <rect width="1600" height="900" fill="#091326" />
+    
+    <!-- Top App Chrome -->
+    <rect x="0" y="0" width="1600" height="64" fill="#091326" />
+    <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
+    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    
+          <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
+          <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+        
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          
+        
+          <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
+          
+        
+          <text x="925" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Saved Library</text>
+          
+        
+          <text x="1090" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Pitch Deck</text>
+          
+        
+    <rect x="1390" y="16" width="166" height="32" rx="8" fill="#09a4ff" />
+    <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
+  
+
+    <!-- Panel Container -->
+    <rect x="44" y="96" width="1512" height="760" rx="16" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="80" y="146" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="22" font-weight="700">Related Companies to Explore: NVIDIA Corporation</text>
+    <text x="640" y="146" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="14">· 12 Unique Companies · 4 Relationship Pillars</text>
+    <text x="80" y="174" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="14">Click + Follow to add any supplier, customer, or competitor to your Watchlist in 1 click without losing your active NVIDIA search.</text>
+
+    <!-- Batch Follow Button -->
+    <rect x="1290" y="124" width="230" height="38" rx="8" fill="#091326" stroke="#09a4ff" stroke-width="1.5" />
+    <text x="1405" y="148" text-anchor="middle" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="700">+ Follow Top Unfollowed (4)</text>
+
+    <line x1="80" y1="200" x2="1520" y2="200" stroke="#212c42" />
+
+    <!-- 4 Columns -->
+    
+        
+        <text x="80" y="242" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Suppliers</text>
+        <text x="410" y="242" text-anchor="end" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="13">3</text>
+
+        
+            <rect x="80" y="268" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="96" y="300" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">TSMC</text>
+            <text x="96" y="320" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">TSM</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="312" y="282" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="356" y="300" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="96" y="352" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Fabricates NVIDIA&apos;s leading-edge GPUs and p…</text>
+            <text x="96" y="372" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">ovides advanced CoWoS packaging.</text>
+
+            <text x="96" y="410" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Suppliers · Strategic Partners</text>
+          
+            <rect x="80" y="450" width="335" height="162" rx="10" fill="#091326" stroke="#212c42" stroke-width="1.2" />
+            <text x="96" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">SK Hynix</text>
+            <text x="96" y="502" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">Private Unicorn</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="312" y="464" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="356" y="482" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="96" y="534" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Supplies high-bandwidth memory (HBM3 and HB…</text>
+            <text x="96" y="554" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">3E) critical for NVIDIA AI accelerators.</text>
+
+            <text x="96" y="592" fill="#64748b" font-family="IBM Plex Mono, monospace" font-size="11">1-Click Deep Dive ↗</text>
+          
+            <rect x="80" y="632" width="335" height="162" rx="10" fill="#091326" stroke="#212c42" stroke-width="1.2" />
+            <text x="96" y="664" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Micron Technology</text>
+            <text x="96" y="684" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">MU</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="312" y="646" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="356" y="664" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="96" y="716" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Supplies HBM3E memory used in NVIDIA&apos;s Hopp…</text>
+            <text x="96" y="736" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">r and Blackwell AI GPUs.</text>
+
+            <text x="96" y="774" fill="#64748b" font-family="IBM Plex Mono, monospace" font-size="11">1-Click Deep Dive ↗</text>
+          
+      
+        <line x1="427" y1="220" x2="427" y2="825" stroke="#212c42" />
+        <text x="445" y="242" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Customers</text>
+        <text x="775" y="242" text-anchor="end" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="13">5</text>
+
+        
+            <rect x="445" y="268" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="461" y="300" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Microsoft</text>
+            <text x="461" y="320" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">MSFT</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="677" y="282" width="88" height="28" rx="6" fill="#064e3b" stroke="#10b981" />
+            <text x="721" y="300" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">✓ Following</text>
+
+            <text x="461" y="352" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Major Azure GPU customer, AI software partn…</text>
+            <text x="461" y="372" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">r, and competitor via custom Maia chips.</text>
+
+            <text x="461" y="410" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+            <rect x="445" y="450" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="461" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Meta Platforms</text>
+            <text x="461" y="502" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">META</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="677" y="464" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="721" y="482" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="461" y="534" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Large-scale buyer of NVIDIA GPUs while deve…</text>
+            <text x="461" y="554" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">oping competing custom MTIA AI chips.</text>
+
+            <text x="461" y="592" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Peers &amp; Competitors</text>
+          
+            <rect x="445" y="632" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="461" y="664" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Alphabet</text>
+            <text x="461" y="684" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">GOOGL</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="677" y="646" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="721" y="664" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="461" y="716" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Cloud GPU customer and partner that also co…</text>
+            <text x="461" y="736" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">petes with custom TPU accelerators.</text>
+
+            <text x="461" y="774" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+      
+        <line x1="792" y1="220" x2="792" y2="825" stroke="#212c42" />
+        <text x="810" y="242" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Peers &amp; Competitors</text>
+        <text x="1140" y="242" text-anchor="end" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="13">6</text>
+
+        
+            <rect x="810" y="268" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="826" y="300" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Microsoft</text>
+            <text x="826" y="320" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">MSFT</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1042" y="282" width="88" height="28" rx="6" fill="#064e3b" stroke="#10b981" />
+            <text x="1086" y="300" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">✓ Following</text>
+
+            <text x="826" y="352" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Major Azure GPU customer, AI software partn…</text>
+            <text x="826" y="372" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">r, and competitor via custom Maia chips.</text>
+
+            <text x="826" y="410" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+            <rect x="810" y="450" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="826" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Meta Platforms</text>
+            <text x="826" y="502" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">META</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1042" y="464" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="1086" y="482" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="826" y="534" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Large-scale buyer of NVIDIA GPUs while deve…</text>
+            <text x="826" y="554" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">oping competing custom MTIA AI chips.</text>
+
+            <text x="826" y="592" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Peers &amp; Competitors</text>
+          
+            <rect x="810" y="632" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="826" y="664" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Alphabet</text>
+            <text x="826" y="684" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">GOOGL</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1042" y="646" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="1086" y="664" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="826" y="716" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Cloud GPU customer and partner that also co…</text>
+            <text x="826" y="736" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">petes with custom TPU accelerators.</text>
+
+            <text x="826" y="774" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+      
+        <line x1="1157" y1="220" x2="1157" y2="825" stroke="#212c42" />
+        <text x="1175" y="242" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Strategic Partners</text>
+        <text x="1505" y="242" text-anchor="end" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="13">5</text>
+
+        
+            <rect x="1175" y="268" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="1191" y="300" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">TSMC</text>
+            <text x="1191" y="320" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">TSM</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1407" y="282" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="1451" y="300" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="1191" y="352" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Fabricates NVIDIA&apos;s leading-edge GPUs and p…</text>
+            <text x="1191" y="372" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">ovides advanced CoWoS packaging.</text>
+
+            <text x="1191" y="410" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Suppliers · Strategic Partners</text>
+          
+            <rect x="1175" y="450" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="1191" y="482" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Microsoft</text>
+            <text x="1191" y="502" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">MSFT</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1407" y="464" width="88" height="28" rx="6" fill="#064e3b" stroke="#10b981" />
+            <text x="1451" y="482" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">✓ Following</text>
+
+            <text x="1191" y="534" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Major Azure GPU customer, AI software partn…</text>
+            <text x="1191" y="554" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">r, and competitor via custom Maia chips.</text>
+
+            <text x="1191" y="592" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+            <rect x="1175" y="632" width="335" height="162" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+            <text x="1191" y="664" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Alphabet</text>
+            <text x="1191" y="684" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600">GOOGL</text>
+
+            <!-- 1-Click Follow Button -->
+            <rect x="1407" y="646" width="88" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+            <text x="1451" y="664" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">+ Follow</text>
+
+            <text x="1191" y="716" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">Cloud GPU customer and partner that also co…</text>
+            <text x="1191" y="736" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12.5">petes with custom TPU accelerators.</text>
+
+            <text x="1191" y="774" fill="#fcd34d" font-family="IBM Plex Mono, monospace" font-size="11">Multi-Role: Customers · Strategic Partners · Peers &amp; Competitors</text>
+          
+      
+  </svg>

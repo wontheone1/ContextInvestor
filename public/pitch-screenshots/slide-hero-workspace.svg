@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+    <defs>
+      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F43F5E" stop-opacity="0.32" />
+        <stop offset="100%" stop-color="#F43F5E" stop-opacity="0.0" />
+      </linearGradient>
+    </defs>
+    <rect width="1600" height="900" fill="#091326" />
+    
+    <!-- Top App Chrome -->
+    <rect x="0" y="0" width="1600" height="64" fill="#091326" />
+    <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
+    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    
+          <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
+          <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+        
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          
+        
+          <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
+          
+        
+          <text x="925" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Saved Library</text>
+          
+        
+          <text x="1090" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Pitch Deck</text>
+          
+        
+    <rect x="1390" y="16" width="166" height="32" rx="8" fill="#09a4ff" />
+    <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
+  
+
+    <!-- Following Bar -->
+    <text x="44" y="104" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="13">Following (6):</text>
+    
+      <rect x="155" y="84" width="148" height="28" rx="6" fill="#09a4ff" stroke="#09a4ff" />
+      <text x="229" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">NVIDIA Corp NVDA</text>
+    
+      <rect x="313" y="84" width="72" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+      <text x="349" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">Stripe</text>
+    
+      <rect x="395" y="84" width="130" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+      <text x="460" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">Apple Inc AAPL</text>
+    
+      <rect x="535" y="84" width="132" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+      <text x="601" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">Microsoft MSFT</text>
+    
+      <rect x="677" y="84" width="120" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+      <text x="737" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">Palantir PLTR</text>
+    
+      <rect x="807" y="84" width="78" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+      <text x="846" y="102" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="600">OpenAI</text>
+    
+
+    <!-- Search Bar -->
+    <rect x="44" y="126" width="1512" height="64" rx="12" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <rect x="64" y="140" width="1140" height="36" rx="8" fill="#091326" stroke="#09a4ff" stroke-width="1.5" />
+    <text x="84" y="163" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">NVDA  —  NVIDIA Corporation (Auto-Detect: Public Equity, Private Unicorn, or Natural-Language Screen)</text>
+    <rect x="1220" y="140" width="145" height="36" rx="8" fill="#091326" stroke="#212c42" />
+    <text x="1292" y="163" text-anchor="middle" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600">Filters &amp; Dates</text>
+    <rect x="1380" y="140" width="156" height="36" rx="8" fill="#09a4ff" />
+    <text x="1458" y="163" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="700">Search Coverage</text>
+
+    <!-- Searched Company Header + Prominent Follow Button -->
+    <text x="44" y="228" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="26" font-weight="700">NVIDIA Corporation</text>
+    <text x="315" y="228" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="700">NVDA</text>
+    <text x="382" y="228" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="700">$162.85</text>
+    <text x="478" y="228" fill="#fb7185" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="700">-26.41% (1M)</text>
+
+    <rect x="1346" y="202" width="210" height="36" rx="8" fill="#064e3b" stroke="#10b981" stroke-width="1.2" />
+    <text x="1451" y="225" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="700">✓ Following in Watchlist</text>
+
+    <!-- Left 8 Cols: Interactive Price Chart Card -->
+    <rect x="44" y="254" width="990" height="596" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="76" y="292" fill="#49afe9" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600">NVDA · US Listed Equity · Semiconductors &amp; AI</text>
+    <text x="76" y="324" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="22" font-weight="700">NVIDIA Corporation</text>
+    <rect x="312" y="303" width="122" height="26" rx="6" fill="#064e3b" stroke="#10b981" />
+    <text x="373" y="320" text-anchor="middle" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700">✓ Following</text>
+
+    <text x="76" y="362" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="30" font-weight="700">$162.85</text>
+    <text x="220" y="362" fill="#fb7185" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="700">-26.41%  1M Return</text>
+
+    <!-- Timeframe Selector -->
+    
+          <rect x="685" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="704" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">1D</text>
+        
+          <rect x="729" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="748" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">5D</text>
+        
+          <rect x="773" y="286" width="38" height="28" rx="6" fill="#09a4ff" stroke="#212c42" />
+          <text x="792" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">1M</text>
+        
+          <rect x="817" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="836" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">6M</text>
+        
+          <rect x="861" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="880" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">YTD</text>
+        
+          <rect x="905" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="924" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">1Y</text>
+        
+          <rect x="949" y="286" width="38" height="28" rx="6" fill="#091326" stroke="#212c42" />
+          <text x="968" y="305" text-anchor="middle" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">5Y</text>
+        
+
+    <!-- Grid Lines & Price Curve -->
+    <line x1="84" y1="400" x2="994" y2="400" stroke="#192a4a" stroke-dasharray="4 4" stroke-width="1" /><line x1="84" y1="470" x2="994" y2="470" stroke="#192a4a" stroke-dasharray="4 4" stroke-width="1" /><line x1="84" y1="540" x2="994" y2="540" stroke="#192a4a" stroke-dasharray="4 4" stroke-width="1" /><line x1="84" y1="610" x2="994" y2="610" stroke="#192a4a" stroke-dasharray="4 4" stroke-width="1" /><line x1="84" y1="680" x2="994" y2="680" stroke="#192a4a" stroke-dasharray="4 4" stroke-width="1" />
+    <path d="M84.0,383.3 L125.4,403.3 L166.7,418.5 L208.1,403.9 L249.5,407.0 L290.8,380.0 L332.2,427.9 L373.5,434.0 L414.9,409.3 L456.3,399.8 L497.6,412.3 L539.0,420.8 L580.4,465.0 L621.7,477.7 L663.1,455.0 L704.5,487.1 L745.8,578.0 L787.2,553.3 L828.5,592.4 L869.9,640.4 L911.3,616.6 L952.6,653.6 L994.0,670.0 L994,690 L84,690 Z" fill="url(#chartGrad)" />
+    <path d="M84.0,383.3 L125.4,403.3 L166.7,418.5 L208.1,403.9 L249.5,407.0 L290.8,380.0 L332.2,427.9 L373.5,434.0 L414.9,409.3 L456.3,399.8 L497.6,412.3 L539.0,420.8 L580.4,465.0 L621.7,477.7 L663.1,455.0 L704.5,487.1 L745.8,578.0 L787.2,553.3 L828.5,592.4 L869.9,640.4 L911.3,616.6 L952.6,653.6 L994.0,670.0" fill="none" stroke="#F43F5E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Range Bars Footer -->
+    <line x1="76" y1="735" x2="998" y2="735" stroke="#212c42" />
+    <text x="76" y="768" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="13">Day Range</text>
+    <rect x="76" y="782" width="410" height="8" rx="4" fill="#091326" />
+    <rect x="76" y="782" width="315" height="8" rx="4" fill="#09a4ff" />
+    <text x="76" y="810" fill="#cbd5e1" font-family="IBM Plex Mono, monospace" font-size="12">Low: $158.39</text>
+    <text x="486" y="810" text-anchor="end" fill="#cbd5e1" font-family="IBM Plex Mono, monospace" font-size="12">High: $170.00</text>
+
+    <text x="560" y="768" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="13">52-Week Range</text>
+    <rect x="560" y="782" width="430" height="8" rx="4" fill="#091326" />
+    <rect x="560" y="782" width="365" height="8" rx="4" fill="#10B981" />
+    <text x="560" y="810" fill="#cbd5e1" font-family="IBM Plex Mono, monospace" font-size="12">52W Low: $148.80</text>
+    <text x="990" y="810" text-anchor="end" fill="#cbd5e1" font-family="IBM Plex Mono, monospace" font-size="12">52W High: $243.37</text>
+
+    <!-- Right 4 Cols: Key Investment Metrics Panel -->
+    <rect x="1056" y="254" width="500" height="596" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="1088" y="294" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="18" font-weight="700">Key Investment Metrics</text>
+    <text x="1088" y="316" fill="#94a3b8" font-family="Plus Jakarta Sans, sans-serif" font-size="12">Hover any metric for plain-English definition</text>
+
+    
+          <line x1="1088" y1="332" x2="1524" y2="332" stroke="#212c42" />
+          <text x="1088" y="358" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Market Cap (Total Company Size)</text>
+          <text x="1524" y="358" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">3.93T</text>
+        
+          <line x1="1088" y1="384" x2="1524" y2="384" stroke="#212c42" />
+          <text x="1088" y="410" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Trailing P/E (Price vs Past Profit)</text>
+          <text x="1524" y="410" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">20.59</text>
+        
+          <line x1="1088" y1="436" x2="1524" y2="436" stroke="#212c42" />
+          <text x="1088" y="462" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Forward P/E (Price vs Expected Profit)</text>
+          <text x="1524" y="462" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">10.27</text>
+        
+          <line x1="1088" y1="488" x2="1524" y2="488" stroke="#212c42" />
+          <text x="1088" y="514" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Revenue Growth (YoY)</text>
+          <text x="1524" y="514" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">105.90%</text>
+        
+          <line x1="1088" y1="540" x2="1524" y2="540" stroke="#212c42" />
+          <text x="1088" y="566" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Net Profit Margin</text>
+          <text x="1524" y="566" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">63.66%</text>
+        
+          <line x1="1088" y1="592" x2="1524" y2="592" stroke="#212c42" />
+          <text x="1088" y="618" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Operating Margin</text>
+          <text x="1524" y="618" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">65.21%</text>
+        
+          <line x1="1088" y1="644" x2="1524" y2="644" stroke="#212c42" />
+          <text x="1088" y="670" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Return on Equity (ROE)</text>
+          <text x="1524" y="670" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">117.21%</text>
+        
+          <line x1="1088" y1="696" x2="1524" y2="696" stroke="#212c42" />
+          <text x="1088" y="722" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">Wall St. Consensus Target</text>
+          <text x="1524" y="722" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">$278.31</text>
+        
+          <line x1="1088" y1="748" x2="1524" y2="748" stroke="#212c42" />
+          <text x="1088" y="774" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="500">5-Year Beta (Volatility vs Market)</text>
+          <text x="1524" y="774" text-anchor="end" fill="#ffffff" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700">2.25</text>
+        
+  </svg>

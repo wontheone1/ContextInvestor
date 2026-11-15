@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900">
+    <rect width="1600" height="900" fill="#091326" />
+    
+    <!-- Top App Chrome -->
+    <rect x="0" y="0" width="1600" height="64" fill="#091326" />
+    <line x1="0" y1="64" x2="1600" y2="64" stroke="#212c42" stroke-width="1.5" />
+    <text x="44" y="39" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="20" font-weight="700">Contextual Investing</text>
+    
+          <text x="430" y="38" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="700">Research &amp; Compare</text>
+          <line x1="430" y1="48" x2="566.8" y2="48" stroke="#09a4ff" stroke-width="2.5" />
+        
+          <text x="595" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Morning Brief</text>
+          
+        
+          <text x="760" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Watchlist</text>
+          
+        
+          <text x="925" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Saved Library</text>
+          
+        
+          <text x="1090" y="38" fill="#94a3b8" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="14" font-weight="500">Pitch Deck</text>
+          
+        
+    <rect x="1390" y="16" width="166" height="32" rx="8" fill="#09a4ff" />
+    <text x="1473" y="37" text-anchor="middle" fill="#ffffff" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="12" font-weight="700">Sign In with Google</text>
+  
+
+    <!-- Side-by-Side Bull vs Bear Panel -->
+    <rect x="44" y="88" width="1512" height="330" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="76" y="128" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="20" font-weight="700">AI Investment Verdict: Positive Catalysts vs. Risks &amp; Headwinds (NVDA)</text>
+
+    <!-- Bull Box -->
+    <rect x="76" y="148" width="705" height="185" rx="10" fill="#091326" stroke="#10b981" stroke-opacity="0.5" />
+    <text x="100" y="180" fill="#34d399" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Positive Catalysts (Bull Case — What Drives Upside)</text>
+    <text x="100" y="212" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">1. Multi-quarter Blackwell rack-scale GPU backlog across Microsoft, Meta, AWS, and Google.</text>
+    <text x="100" y="242" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">2. TSMC CoWoS packaging capacity doubling, easing supply bottlenecks in H2.</text>
+    <text x="100" y="272" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">3. High-margin CUDA &amp; NIM enterprise software recurring revenue expansion.</text>
+
+    <!-- Bear Box -->
+    <rect x="815" y="148" width="705" height="185" rx="10" fill="#091326" stroke="#f43f5e" stroke-opacity="0.5" />
+    <text x="839" y="180" fill="#fb7185" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="700">Risks &amp; Headwinds (Bear Case — What to Watch Out For)</text>
+    <text x="839" y="212" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">1. Hyperscaler custom silicon (Broadcom/Google TPUs, AWS Trainium) competing on inference cost.</text>
+    <text x="839" y="242" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">2. Export control tightening and sovereign trade restrictions affecting international shipments.</text>
+    <text x="839" y="272" fill="#e2e8f0" font-family="Plus Jakarta Sans, sans-serif" font-size="13">3. Elevated gross-margin expectations during complex liquid-cooled rack transitions.</text>
+
+    <text x="76" y="388" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="14" font-weight="600">Overall Assessment: Net Bullish — Supply-chain expansion and sovereign AI demand outweigh near-term custom ASIC competition.</text>
+
+    <!-- Live News Feed with Auto-Translation & Per-Headline Why Rationale -->
+    <rect x="44" y="438" width="1512" height="422" rx="14" fill="#0d1b33" stroke="#212c42" stroke-width="1.5" />
+    <text x="76" y="480" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="19" font-weight="700">Global Verified News Feed · Automatic Foreign-Language Translation &amp; Source Proof</text>
+
+    <!-- Row 1: Translated Korean Supply Chain News -->
+    <rect x="76" y="504" width="1448" height="150" rx="10" fill="#091326" stroke="#09a4ff" stroke-width="1.2" />
+    <text x="104" y="536" fill="#34d399" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">BULLISH  ·  Translated from Korean (ko)  ·  Hankyung / Seoul Wire  ·  2h ago</text>
+    <rect x="1310" y="516" width="190" height="28" rx="6" fill="#102344" stroke="#09a4ff" />
+    <text x="1405" y="534" text-anchor="middle" fill="#49afe9" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="700">🌐 View Original Korean</text>
+    <text x="104" y="568" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">SK Hynix Completes Mass-Production Qualification of 12-Layer HBM3E Memory for NVIDIA Blackwell</text>
+    <text x="104" y="598" fill="#6ee7b7" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bullish: Secures high-yield memory supply for NVIDIA's highest-ASP data center GPU shipments.</text>
+    <text x="104" y="628" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Original Headline: SK하이닉스, 엔비디아 블랙웰향 12단 HBM3E 양산 품질 인증 완료 · Direct Publisher Link ↗</text>
+
+    <!-- Row 2: Regulatory / Filing News -->
+    <rect x="76" y="672" width="1448" height="150" rx="10" fill="#091326" stroke="#212c42" />
+    <text x="104" y="704" fill="#fb7185" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="700">BEARISH  ·  English (en)  ·  Reuters Financial  ·  5h ago</text>
+    <rect x="1370" y="684" width="130" height="28" rx="6" fill="#0d1b33" stroke="#212c42" />
+    <text x="1435" y="702" text-anchor="middle" fill="#cbd5e1" font-family="Plus Jakarta Sans, sans-serif" font-size="11" font-weight="600">☆ Save to Library</text>
+    <text x="104" y="736" fill="#ffffff" font-family="Plus Jakarta Sans, sans-serif" font-size="16" font-weight="700">Cloud Hyperscalers Evaluate Custom Ethernet Switches Alongside Proprietary InfiniBand Fabrics</text>
+    <text x="104" y="766" fill="#fda4af" font-family="Plus Jakarta Sans, sans-serif" font-size="13" font-weight="600">Why Bearish: Highlights networking attach-rate competition from Broadcom Jericho3-AI switches.</text>
+    <text x="104" y="796" fill="#94a3b8" font-family="IBM Plex Mono, monospace" font-size="12">Verified Source Citation: reuters.com · Click to inspect full article ↗</text>
+  </svg>
